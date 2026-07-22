@@ -897,7 +897,7 @@ function ensureFilterSetInitialized(viewKey, key) {
 function isColumnFilterActive(viewKey, key) {
   const set = (columnFilters[viewKey] || {})[key];
   if (!(set instanceof Set)) return false;
-  return set.size < getDistinctColumnValues(viewKey, key).length;
+  return set.size > 0 && set.size < getDistinctColumnValues(viewKey, key).length;
 }
 function countActiveFilters(viewKey) {
   const filters = columnFilters[viewKey] || {};
@@ -905,7 +905,9 @@ function countActiveFilters(viewKey) {
 }
 function applyColumnFilters(viewKey, rows) {
   const filters = columnFilters[viewKey] || {};
-  const activeKeys = Object.keys(filters).filter(k => filters[k] instanceof Set);
+  // an empty Set means "nothing picked yet" (e.g. right after Unselect all) — treat as no filter
+  // rather than matching zero rows, so the table stays populated until a value is checked.
+  const activeKeys = Object.keys(filters).filter(k => filters[k] instanceof Set && filters[k].size > 0);
   if (!activeKeys.length) return rows;
   return rows.filter(row => activeKeys.every(k => filters[k].has(normValueKey(filterRawValue(viewKey, row, k)))));
 }
