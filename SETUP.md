@@ -144,6 +144,47 @@ Vercel auto-deploys every push to `main` — no manual steps needed.
 
 ---
 
+## Login
+
+The dashboard requires signing in before it loads, using a single shared username/password stored in its own Supabase table (not a Supabase Auth account).
+
+### Create the login table
+
+In your Supabase project, go to **SQL Editor** and run:
+
+```sql
+create table login_credentials (
+  username text primary key,
+  password_hash text not null
+);
+alter table login_credentials enable row level security;
+create policy "public read" on login_credentials for select using (true);
+
+insert into login_credentials (username, password_hash) values (
+  'loko16tal',
+  'f83bb2b2610bdd04a2e8a9db00edaaab3d5d2a1abd21c298ca5d261d624fdcbd' -- sha256("16-TAL")
+);
+```
+
+The dashboard signs in with username `loko16tal` and password `16-TAL`.
+
+### Changing the password
+
+The table stores a SHA-256 hash, not the plain password. To change it:
+
+1. In Terminal, run: `echo -n 'yournewpassword' | shasum -a 256`
+2. Copy the hash it prints (before the trailing ` -`)
+3. In Supabase SQL Editor, run:
+   ```sql
+   update login_credentials set password_hash = 'PASTE_HASH_HERE' where username = 'loko16tal';
+   ```
+
+### Important: this only gates the page, not the data
+
+Both `dashboard_store` and `login_credentials` have `using (true)` read policies — anyone holding the publishable key embedded in `index.html` can query them directly through Supabase's API, logged in or not (including reading the password hash and trying to crack it offline). The login screen stops people from casually opening the dashboard; it does **not** stop direct API access. Real access control would require a proper backend or Supabase Auth with authenticated-only RLS policies, which is a bigger change than this login screen.
+
+---
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -152,3 +193,5 @@ Vercel auto-deploys every push to `main` — no manual steps needed.
 | Edits not saving | Open browser DevTools (F12) → Console tab, look for red errors |
 | Data resets on reload | Check that Supabase URL and key are correct in the HTML |
 | Vercel deployment blocked | Make sure `git config user.email` matches your GitHub account email |
+| "Invalid username or password" | Double check the username/password, or confirm the `login_credentials` table has a matching row in Supabase's Table Editor |
+| Stuck on the login screen after signing in | Open DevTools (F12) → Console, look for red errors; also confirm the `login_credentials` table and its "public read" policy exist |

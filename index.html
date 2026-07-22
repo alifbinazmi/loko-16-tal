@@ -460,6 +460,15 @@
   .modal-body{padding:18px 20px;max-height:60vh;overflow:auto;}
   .modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-soft);}
 
+  /* ---------- Login screen ---------- */
+  body:not(.authed) .sidebar, body:not(.authed) .main{display:none;}
+  .login-screen{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:20px;}
+  .login-card{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:28px 26px;box-shadow:0 20px 60px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:14px;animation:modalIn .16s ease;}
+  .login-brand{font-family:var(--mono);font-size:10.5px;color:var(--text-faint);letter-spacing:.03em;text-transform:uppercase;}
+  .login-card h2{margin:0 0 4px 0;font-size:17px;font-weight:700;}
+  .login-card .btn{width:100%;justify-content:center;margin-top:4px;}
+  .login-error{color:var(--red);font-size:12px;background:var(--red-soft);border-radius:5px;padding:8px 10px;}
+
   .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;}
   .field{display:flex;flex-direction:column;gap:5px;}
   .field.full{grid-column:1/-1;}
@@ -553,6 +562,17 @@
 </head>
 <body>
 
+<div id="loginScreen" class="login-screen">
+  <form id="loginForm" class="login-card">
+    <div class="login-brand">LOKO &middot; 16-TAL FLEET OPS</div>
+    <h2>Sign in</h2>
+    <div class="field"><label>Username</label><input type="text" id="loginUsername" required autocomplete="username"></div>
+    <div class="field"><label>Password</label><input type="password" id="loginPassword" required autocomplete="current-password"></div>
+    <div class="login-error" id="loginError" hidden></div>
+    <button type="submit" class="btn btn-primary" id="loginSubmitBtn">Sign in</button>
+  </form>
+</div>
+
 <div id="saveIndicator" class="save-indicator save-indicator-saved" title="All changes saved"></div>
 
 <div id="dailyDropdown" class="daily-dropdown"></div>
@@ -578,6 +598,7 @@
       <span id="sidebarSaveLabel">SAVED TO CLOUD</span>
     </div>
     <div class="sidebar-stats" id="sidebarStats"></div>
+    <button type="button" class="btn btn-ghost" id="logoutBtn" style="width:100%;justify-content:center;margin-top:10px;font-size:11px;">Log out</button>
   </div>
 </aside>
 
@@ -3969,7 +3990,7 @@ document.addEventListener('keydown', e => {
 });
 
 /* ---------- init ---------- */
-(async function init() {
+async function startApp() {
   await loadData();
   recomputePeSchedule();
   renderNav();
@@ -3984,6 +4005,46 @@ document.addEventListener('keydown', e => {
   const initAccentEl = document.getElementById('topbarTitleAccent');
   if (initAccentEl) initAccentEl.style.background = `linear-gradient(90deg, ${initColors[0]}, ${initColors[1]})`;
   renderContent();
+}
+
+/* ---------- auth gate ---------- */
+function showLoginScreen(message) {
+  document.body.classList.remove('authed');
+  document.getElementById('loginScreen').style.display = 'flex';
+  const err = document.getElementById('loginError');
+  if (message) { err.textContent = message; err.hidden = false; } else { err.hidden = true; }
+}
+function hideLoginScreen() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.body.classList.add('authed');
+}
+async function sha256Hex(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function handleLoginSubmit(e) {
+  e.preventDefault();
+  const btn = document.getElementById('loginSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const passwordHash = await sha256Hex(password);
+  const { data } = await _db.from('login_credentials').select('password_hash').eq('username', username).maybeSingle();
+  btn.disabled = false;
+  btn.textContent = 'Sign in';
+  if (!data || data.password_hash !== passwordHash) { showLoginScreen('Invalid username or password'); return; }
+  localStorage.setItem('loko_authed', '1');
+  hideLoginScreen();
+  startApp();
+}
+(async function boot() {
+  document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    localStorage.removeItem('loko_authed');
+    location.reload();
+  });
+  if (localStorage.getItem('loko_authed') === '1') { hideLoginScreen(); startApp(); } else { showLoginScreen(); }
 })();
 
 </script>
