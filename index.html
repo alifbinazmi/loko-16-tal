@@ -4018,10 +4018,6 @@ function hideLoginScreen() {
   document.getElementById('loginScreen').style.display = 'none';
   document.body.classList.add('authed');
 }
-async function sha256Hex(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
-}
 async function handleLoginSubmit(e) {
   e.preventDefault();
   const btn = document.getElementById('loginSubmitBtn');
@@ -4029,11 +4025,10 @@ async function handleLoginSubmit(e) {
   btn.textContent = 'Signing in…';
   const username = document.getElementById('loginUsername').value.trim();
   const password = document.getElementById('loginPassword').value;
-  const passwordHash = await sha256Hex(password);
-  const { data } = await _db.from('login_credentials').select('password_hash').eq('username', username).maybeSingle();
+  const { data } = await _db.from('login_credentials').select('password').eq('username', username).maybeSingle();
   btn.disabled = false;
   btn.textContent = 'Sign in';
-  if (!data || data.password_hash !== passwordHash) { showLoginScreen('Invalid username or password'); return; }
+  if (!data || data.password !== password) { showLoginScreen('Invalid username or password'); return; }
   localStorage.setItem('loko_authed', '1');
   hideLoginScreen();
   startApp();
