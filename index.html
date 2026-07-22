@@ -938,6 +938,7 @@ function renderFilterPanel(viewKey, key) {
     <div class="filter-panel-search"><input type="text" placeholder="Search values..." value="${esc(filterPanelSearch[searchKey] || '')}"></div>
     <div class="filter-panel-actions">
       <button type="button" data-filter-action="all">Select all</button>
+      <button type="button" data-filter-action="none">Unselect all</button>
       <button type="button" data-filter-action="clear">Clear filter</button>
     </div>
     <div class="filter-panel-list">${renderFilterPanelList(viewKey, key)}</div>
@@ -1005,6 +1006,16 @@ function wireFilterPanel() {
         getDistinctColumnValues(view, key).forEach(v => {
           if (!searchTxt || filterDisplayLabel(key, v.raw).toLowerCase().includes(searchTxt)) {
             columnFilters[view][key].add(normValueKey(v.raw));
+          }
+        });
+        renderContent();
+        renderTopbarActions();
+      } else if (action === 'none') {
+        ensureFilterSetInitialized(view, key);
+        const searchTxt = (filterPanelSearch[`${view}:${key}`] || '').toLowerCase();
+        getDistinctColumnValues(view, key).forEach(v => {
+          if (!searchTxt || filterDisplayLabel(key, v.raw).toLowerCase().includes(searchTxt)) {
+            columnFilters[view][key].delete(normValueKey(v.raw));
           }
         });
         renderContent();
