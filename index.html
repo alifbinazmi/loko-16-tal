@@ -2457,9 +2457,9 @@ function availDayTotal(rec) {
   if (!rec) return 0;
   return (rec.c19 || 0) + (rec.c23 || 0) + (rec.c24 || 0) + (rec.c25 || 0);
 }
-function isAvailableStatusValue(raw) {
+function isAvailableStatusValue(raw, classPrefix) {
   const v = (raw || '').trim();
-  if (!v) return null; // no entry for that day — unknown, not counted either way
+  if (!v) return classPrefix !== '19'; // blank = available, except 19c which counts as unavailable
   const u = v.toUpperCase();
   if (u === 'FAILED') return false;
   if (/^PE\s?\d/.test(u) || u === 'PE') return false;
@@ -2495,7 +2495,7 @@ function computeAvailabilityFromStatus(dateStr) {
     const key = 'c' + prefix;
     if (!(key in counts)) return;
     const raw = DATA.dailyStatus[`${loco.asset}|${dateStr}`];
-    const avail = isAvailableStatusValue(raw);
+    const avail = isAvailableStatusValue(raw, prefix);
     if (avail !== null) anyData = true;
     if (avail === true) counts[key]++;
   });
