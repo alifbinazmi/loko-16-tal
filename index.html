@@ -1305,51 +1305,49 @@ function drillKpi(metric, key) {
     });
   }
 }
-document.addEventListener('click', e => {
-  if (currentView !== 'dashboard') return;
+function wireKpiCards() {
+  document.querySelectorAll('.kpi[data-nav-view]').forEach(navCard => {
+    navCard.addEventListener('click', () => setView(navCard.dataset.navView));
+  });
 
-  const navCard = e.target.closest('.kpi[data-nav-view]');
-  if (navCard) {
-    setView(navCard.dataset.navView);
-    return;
-  }
+  document.querySelectorAll('[data-kpi-action]').forEach(actionEl => {
+    actionEl.addEventListener('click', e => {
+      e.stopPropagation();
+      const metric = actionEl.dataset.kpi;
+      if (actionEl.dataset.kpiAction === 'view') {
+        const key = kpiSelectedMonth[metric] === 'ALL' ? null : effectiveKpiMonth(metric);
+        drillKpi(metric, key);
+      } else if (actionEl.dataset.kpiAction === 'clear') {
+        kpiSelectedMonth[metric] = kpiSelectedMonth[metric] === 'ALL' ? null : 'ALL';
+        refreshKpiGrid();
+      }
+    });
+  });
 
-  const actionEl = e.target.closest('[data-kpi-action]');
-  if (actionEl && actionEl.closest('.kpi[data-kpi]')) {
-    e.stopPropagation();
-    const metric = actionEl.dataset.kpi;
-    if (actionEl.dataset.kpiAction === 'view') {
-      const key = kpiSelectedMonth[metric] === 'ALL' ? null : effectiveKpiMonth(metric);
-      drillKpi(metric, key);
-    } else if (actionEl.dataset.kpiAction === 'clear') {
-      kpiSelectedMonth[metric] = kpiSelectedMonth[metric] === 'ALL' ? null : 'ALL';
+  document.querySelectorAll('.kpi-picker-item').forEach(pickerItem => {
+    pickerItem.addEventListener('click', e => {
+      e.stopPropagation();
+      const panel = pickerItem.closest('[data-kpi-panel]');
+      if (!panel) return;
+      const metric = panel.dataset.kpiPanel;
+      const key = pickerItem.dataset.kpiMonth;
+      openKpiPicker = null;
+      kpiSelectedMonth[metric] = key === 'ALL' ? 'ALL' : key;
+      refreshKpiGrid(); // show the number for that month right on the card; stays on the dashboard
+    });
+  });
+
+  document.querySelectorAll('.kpi[data-kpi]').forEach(card => {
+    card.addEventListener('click', e => {
+      if (e.target.closest('[data-kpi-action]') || e.target.closest('.kpi-picker')) return;
+      const metric = card.dataset.kpi;
+      openKpiPicker = openKpiPicker === metric ? null : metric;
       refreshKpiGrid();
-    }
-    return;
-  }
-
-  const pickerItem = e.target.closest('.kpi-picker-item');
-  const panel = pickerItem ? pickerItem.closest('[data-kpi-panel]') : null;
-  if (pickerItem && panel && panel.closest('.kpi[data-kpi]')) {
-    e.stopPropagation();
-    const metric = panel.dataset.kpiPanel;
-    const key = pickerItem.dataset.kpiMonth;
-    openKpiPicker = null;
-    kpiSelectedMonth[metric] = key === 'ALL' ? 'ALL' : key;
-    refreshKpiGrid(); // show the number for that month right on the card; stays on the dashboard
-    return;
-  }
-
-  const card = e.target.closest('.kpi[data-kpi]');
-  if (card) {
-    if (e.target.closest('.kpi-picker')) return;
-    const metric = card.dataset.kpi;
-    openKpiPicker = openKpiPicker === metric ? null : metric;
-    refreshKpiGrid();
-    return;
-  }
-
-  if (openKpiPicker) {
+    });
+  });
+}
+document.addEventListener('click', e => {
+  if (currentView === 'dashboard' && openKpiPicker && !e.target.closest('.kpi[data-kpi]')) {
     openKpiPicker = null;
     refreshKpiGrid();
   }
@@ -1675,6 +1673,7 @@ function refreshKpiGrid() {
     const all = buildOrderedKpiCards();
     grids[0].innerHTML = all.slice(0, 4).join('');
     grids[1].innerHTML = all.slice(4, 8).join('');
+    wireKpiCards();
   } else {
     renderDashboard();
   }
@@ -1697,6 +1696,7 @@ function renderDashboard() {
       <div class="chart-panel"><h3>Failures by Locomotive (top 12)</h3><div class="chart-wrap"><canvas id="chartAsset"></canvas></div></div>
     </div>
   `;
+  wireKpiCards();
   drawDashboardCharts(ssTotals, assetTotals);
 
 }
