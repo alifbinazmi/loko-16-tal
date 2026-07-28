@@ -408,7 +408,7 @@
   .daily-cell-input:hover{border-color:var(--border-soft);background:var(--panel-2);}
   .daily-cell-input:focus{outline:none;border-color:var(--amber);background:var(--panel-2);}
   .daily-cell-input.has-value{color:var(--text);background:var(--panel-2);}
-  .daily-cell-input.fail-value{color:var(--red);font-weight:700;background:var(--red-soft);}
+  .daily-cell-input.fail-value{color:#FFFFFF;font-weight:700;background:#FF1E1E;border-color:#CC0000;}
   .daily-cell-input.has-value:not(.fail-value){
     background-color:hsl(var(--cell-hue,210),62%,80%);
     color:hsl(var(--cell-hue,210),65%,20%);
@@ -3133,6 +3133,8 @@ function dailyValueStyle(rawVal) {
   const val = rawVal.trim();
   if (!val || /fail/i.test(val)) return '';
   const upper = val.toUpperCase();
+
+  if (upper.includes('REPAIR')) return 'background-color:#FF8A00;color:#FFFFFF;border-color:#CC6E00;font-weight:700;'; // repair: bright orange
 
   // Colors carried over from the source Excel's conditional formatting rules
   if (/^PE\b|^PE\d/.test(upper)) return 'background-color:#7FCDF2;color:#003A5C;border-color:#37AEE8;'; // PE examination codes: cyan
