@@ -3184,6 +3184,12 @@ async function saveDailyCellValue(inp) {
   if (counter) counter.textContent = countFilledForMonth(dailyStatusMonth);
   refreshDailyStatusOptions();
   refreshRowKmCells(asset);
+
+  const peCode = val.replace(/\s+/g, '').toUpperCase();
+  if (['PE15', 'PE45', 'PE45S', 'PE180', 'PE360'].includes(peCode)) {
+    hideDailyDropdown();
+    openModal('peHistory', null, { asset: Number(asset), date: inp.dataset.date, type: peCode });
+  }
 }
 
 document.addEventListener('mousedown', e => {
@@ -3745,7 +3751,7 @@ function componentFormSection(n, rec) {
     </div>`;
 }
 
-function openModal(view, editIdx = null) {
+function openModal(view, editIdx = null, prefill = null) {
   const modal = document.getElementById('modal');
   let title, formHtml;
   const rec = editIdx != null ? DATA[view][editIdx] : null;
@@ -3818,15 +3824,16 @@ function openModal(view, editIdx = null) {
       </div>
     `;
   } else if (view === 'peHistory') {
-    const gv = k => rec ? esc(rec[k] ?? '') : '';
+    const gv = k => rec ? esc(rec[k] ?? '') : esc((prefill && prefill[k]) ?? '');
     title = rec ? `Edit PE Record \u2014 Asset ${esc(rec.asset)}` : 'New PE Record';
+    const selectedType = rec ? rec.type : (prefill && prefill.type);
     formHtml = `
       <div class="form-grid">
         <div class="field"><label>No. Asset *</label><input type="number" id="ph_asset" value="${gv('asset')}" placeholder="e.g. 25111" required></div>
         <div class="field"><label>PE Type *</label>
-          <select id="ph_type" required>${['PE15', 'PE30', 'PE45', 'PE180', 'PE360'].map(t => `<option value="${t}" ${rec && rec.type === t ? 'selected' : ''}>${t}</option>`).join('')}</select>
+          <select id="ph_type" required>${['PE15', 'PE30', 'PE45', 'PE45S', 'PE180', 'PE360'].map(t => `<option value="${t}" ${selectedType === t ? 'selected' : ''}>${t}</option>`).join('')}</select>
         </div>
-        <div class="field"><label>Date Completed *</label><input type="date" id="ph_date" value="${rec ? toDateInputValue(rec.date) : ''}" required></div>
+        <div class="field"><label>Date Completed *</label><input type="date" id="ph_date" value="${rec ? toDateInputValue(rec.date) : (prefill && prefill.date ? toDateInputValue(prefill.date) : '')}" required></div>
         <div class="field"><label>Depot</label><input list="dl_depot3" id="ph_depot" value="${gv('depot')}" placeholder="e.g. KEMPAS"></div>
         <div class="field"><label>PWO</label><input type="text" id="ph_pwo" value="${gv('pwo')}" placeholder="e.g. PWO201954"></div>
       </div>
