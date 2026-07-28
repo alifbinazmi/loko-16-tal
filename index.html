@@ -1507,6 +1507,27 @@ function wireSortByControl() {
     renderTopbarActions();
   });
 }
+let langgarSelectedMonth = null; // null = all months
+function renderLanggarMonthControl() {
+  const months = [...new Set(DATA.langgar.map(l => monthKey(l.tarikh)).filter(Boolean))].sort();
+  return `
+    <div class="sortby-box">
+      ${ICONS.calendar}
+      <select id="langgarMonthSelect" aria-label="Filter 16-TAL accidents by month">
+        <option value="">All months</option>
+        ${months.map(m => `<option value="${m}" ${langgarSelectedMonth === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}
+      </select>
+    </div>`;
+}
+function wireLanggarMonthControl() {
+  const sel = document.getElementById('langgarMonthSelect');
+  if (!sel) return;
+  sel.addEventListener('change', () => {
+    langgarSelectedMonth = sel.value || null;
+    renderContent();
+    renderTopbarActions();
+  });
+}
 function renderTopbarActions() {
   const el = document.getElementById('topbarActions');
   if (currentView === 'dashboard' || currentView === 'subsystem' || currentView === 'reliability' || currentView === 'availability' || currentView === 'dailyStatus' || currentView === 'masterplan') { el.innerHTML = ''; return; }
@@ -1514,6 +1535,7 @@ function renderTopbarActions() {
   const activeFilterCount = ['failures','incidents','langgar'].includes(currentView) ? countActiveFilters(currentView) : 0;
   el.innerHTML = `
     ${currentView === 'failures' ? renderSortByControl() : ''}
+    ${currentView === 'langgar' ? renderLanggarMonthControl() : ''}
     ${activeFilterCount ? `<button class="btn btn-ghost" id="clearFiltersBtn" style="font-size:11.5px;padding:8px 12px;">${filterIcon()}Clear filters (${activeFilterCount})</button>` : ''}
     <div class="search-box">${ICONS.search}<input id="searchInput" placeholder="Search records..." value="${esc(searchTerm)}"/></div>
     <button class="btn btn-success" id="newReportBtn">${ICONS.plus}New Report</button>
@@ -1521,6 +1543,7 @@ function renderTopbarActions() {
   document.getElementById('searchInput').addEventListener('input', e => { searchTerm = e.target.value; renderContent(); });
   document.getElementById('newReportBtn').addEventListener('click', () => openModal(currentView));
   if (currentView === 'failures') wireSortByControl();
+  if (currentView === 'langgar') wireLanggarMonthControl();
   const clearBtn = document.getElementById('clearFiltersBtn');
   if (clearBtn) clearBtn.addEventListener('click', () => clearAllFilters(currentView));
 }
@@ -2456,6 +2479,7 @@ const LANGGAR_COLUMNS = [
 function renderLanggar() {
   let rows = DATA.langgar
     .filter(l => matchesSearch(l, ['lokasi','noTren','stokereta','jenisKerosakan','kronologi']));
+  if (langgarSelectedMonth) rows = rows.filter(l => monthKey(l.tarikh) === langgarSelectedMonth);
   rows = applyColumnFilters('langgar', rows);
   const st = sortState.langgar;
   rows = st && st.key ? sortRows(rows, 'langgar', (r,k) => r[k]) : rows.slice().reverse();
@@ -2481,7 +2505,7 @@ function renderLanggar() {
           <tbody>${body}</tbody>
         </table>
       </div>
-      <div class="row-count">${rows.length} of ${DATA.langgar.length} records shown &middot; ${st && st.key ? 'sorted by ' + esc(LANGGAR_COLUMNS.find(c=>c.key===st.key).label) + (st.dir===-1?' (desc)':' (asc)') : 'newest first'}${countActiveFilters('langgar') ? ' &middot; ' + countActiveFilters('langgar') + ' column filter(s) active' : ''} &middot; hover the Kronologi cell to read the full chronology</div>
+      <div class="row-count">${rows.length} of ${DATA.langgar.length} records shown &middot; ${st && st.key ? 'sorted by ' + esc(LANGGAR_COLUMNS.find(c=>c.key===st.key).label) + (st.dir===-1?' (desc)':' (asc)') : 'newest first'}${langgarSelectedMonth ? ' &middot; ' + esc(monthLabel(langgarSelectedMonth)) + ' only' : ''}${countActiveFilters('langgar') ? ' &middot; ' + countActiveFilters('langgar') + ' column filter(s) active' : ''} &middot; hover the Kronologi cell to read the full chronology</div>
     </div>
   `;
   wireSortHeaders();
