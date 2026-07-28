@@ -329,6 +329,17 @@
   .filter-panel-item input{accent-color:var(--amber);flex-shrink:0;}
   .filter-panel-item span:not(.cnt){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .filter-panel-item .cnt{color:var(--text-faint);font-family:var(--mono);font-size:10.5px;flex-shrink:0;}
+  .filter-panel-month-row{display:flex;align-items:center;}
+  .filter-panel-month-expand{
+    all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:center;
+    width:22px;flex-shrink:0;cursor:pointer;color:var(--text-faint);
+  }
+  .filter-panel-month-expand:hover{color:var(--text);}
+  .filter-panel-month-expand svg{width:9px;height:9px;transition:transform .12s;}
+  .filter-panel-month-expand[aria-expanded="true"] svg{transform:rotate(90deg);}
+  .filter-panel-item.filter-panel-month{flex:1;padding-left:2px;font-weight:600;}
+  .filter-panel-item-indent{padding-left:32px;}
+  .filter-panel-month-days{border-bottom:1px solid var(--border-soft);}
   .filter-panel-footer{padding:7px 8px;border-top:1px solid var(--border-soft);display:flex;justify-content:flex-end;}
   .filter-panel-footer button{
     all:unset;background:var(--amber);color:#1A1400;font-weight:700;font-size:11px;
@@ -877,13 +888,14 @@ function filterRawValue(viewKey, row, key) {
   if (viewKey === 'failures' && key === 'downtimeCalc') return computeDowntimeMs(row);
   return row[key];
 }
+const DATE_FILTER_KEYS = new Set(['dateReceive', 'dateReleased', 'tarikh', 'lastPE', 'nextPE', 'last45', 'next45', 'date']);
 function filterDisplayLabel(key, raw) {
   if (key === 'downtimeCalc') {
     const label = formatDowntime(raw);
     return label === null ? '(Blank)' : label;
   }
   if (raw === null || raw === undefined || raw === '' || raw === '-') return '(Blank)';
-  if (key === 'dateReceive' || key === 'dateReleased' || key === 'tarikh' || key === 'lastPE' || key === 'nextPE' || key === 'last45' || key === 'next45' || key === 'date') {
+  if (DATE_FILTER_KEYS.has(key)) {
     const d = new Date(raw);
     if (!isNaN(d) && /\d{4}-\d{2}-\d{2}/.test(String(raw))) {
       return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -939,6 +951,16 @@ function clearAllFilters(viewKey) {
   renderContent();
   renderTopbarActions();
 }
+function filterPanelItemHtml(key, v, checkedSet, indent) {
+  const vk = normValueKey(v.raw);
+  return `<label class="filter-panel-item${indent ? ' filter-panel-item-indent' : ''}">
+    <input type="checkbox" data-value="${esc(vk)}" ${checkedSet.has(vk) ? 'checked' : ''}>
+    <span>${esc(filterDisplayLabel(key, v.raw))}</span>
+    <span class="cnt">${v.count}</span>
+  </label>`;
+}
+// composite "viewKey|key|YYYY-MM" strings for which month-groups are currently expanded
+let expandedFilterMonths = new Set();
 function renderFilterPanelList(viewKey, key) {
   const searchKey = viewKey + ':' + key;
   const searchTxt = (filterPanelSearch[searchKey] || '').toLowerCase();
@@ -947,13 +969,47 @@ function renderFilterPanelList(viewKey, key) {
   const set = (columnFilters[viewKey] || {})[key];
   const checkedSet = set instanceof Set ? set : new Set(allValues.map(v => normValueKey(v.raw)));
   if (!values.length) return '<div class="filter-panel-empty">No matching values</div>';
-  return values.map(v => {
-    const vk = normValueKey(v.raw);
-    return `<label class="filter-panel-item">
-      <input type="checkbox" data-value="${esc(vk)}" ${checkedSet.has(vk) ? 'checked' : ''}>
-      <span>${esc(filterDisplayLabel(key, v.raw))}</span>
-      <span class="cnt">${v.count}</span>
-    </label>`;
+
+  if (!DATE_FILTER_KEYS.has(key)) {
+    return values.map(v => filterPanelItemHtml(key, v, checkedSet)).join('');
+  }
+
+  // group date-type columns by month, each expandable to reveal its individual days
+  const NO_MONTH = '—';
+  const groups = new Map();
+  values.forEach(v => {
+    const gKey = v.raw ? (monthKey(v.raw) || NO_MONTH) : NO_MONTH;
+    if (!groups.has(gKey)) groups.set(gKey, []);
+    groups.get(gKey).push(v);
+  });
+  const sortedGroupKeys = [...groups.keys()].sort((a, b) => {
+    if (a === NO_MONTH) return 1;
+    if (b === NO_MONTH) return -1;
+    return a.localeCompare(b);
+  });
+
+  return sortedGroupKeys.map(gKey => {
+    const items = groups.get(gKey);
+    const groupLabel = gKey === NO_MONTH ? 'No date' : monthLabel(gKey);
+    const groupCount = items.reduce((s, v) => s + v.count, 0);
+    const itemKeys = items.map(v => normValueKey(v.raw));
+    const checkedCount = itemKeys.filter(vk => checkedSet.has(vk)).length;
+    const allChecked = checkedCount === itemKeys.length;
+    const noneChecked = checkedCount === 0;
+    const compositeKey = `${viewKey}|${key}|${gKey}`;
+    const isExpanded = expandedFilterMonths.has(compositeKey);
+    const itemsHtml = items.map(v => filterPanelItemHtml(key, v, checkedSet, true)).join('');
+    return `<div class="filter-panel-group">
+      <div class="filter-panel-month-row">
+        <button type="button" class="filter-panel-month-expand" data-month-expand="${esc(compositeKey)}" data-view="${esc(viewKey)}" data-key="${esc(key)}" aria-expanded="${isExpanded}" aria-label="${isExpanded ? 'Collapse' : 'Expand'} ${esc(groupLabel)}">${chevronIcon()}</button>
+        <label class="filter-panel-item filter-panel-month">
+          <input type="checkbox" data-month-toggle="1" data-month-values="${esc(itemKeys.join(','))}" ${allChecked ? 'checked' : ''} ${!allChecked && !noneChecked ? 'data-indeterminate="1"' : ''}>
+          <span>${esc(groupLabel)}</span>
+          <span class="cnt">${groupCount}</span>
+        </label>
+      </div>
+      <div class="filter-panel-month-days" ${isExpanded ? '' : 'hidden'}>${itemsHtml}</div>
+    </div>`;
   }).join('');
 }
 function renderFilterPanel(viewKey, key) {
@@ -983,12 +1039,37 @@ function columnHeaderHtml(viewKey, key, label) {
 }
 function wireFilterCheckboxes(viewKey, key, container) {
   container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    if (cb.dataset.indeterminate === '1') cb.indeterminate = true;
+    if (cb.dataset.monthToggle) {
+      cb.addEventListener('change', () => {
+        ensureFilterSetInitialized(viewKey, key);
+        const vals = cb.dataset.monthValues ? cb.dataset.monthValues.split(',') : [];
+        vals.forEach(vk => {
+          if (cb.checked) columnFilters[viewKey][key].add(vk);
+          else columnFilters[viewKey][key].delete(vk);
+        });
+        renderContent();
+        renderTopbarActions();
+      });
+      return;
+    }
     cb.addEventListener('change', () => {
       ensureFilterSetInitialized(viewKey, key);
       if (cb.checked) columnFilters[viewKey][key].add(cb.dataset.value);
       else columnFilters[viewKey][key].delete(cb.dataset.value);
       renderContent();
       renderTopbarActions();
+    });
+  });
+  container.querySelectorAll('[data-month-expand]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const ck = btn.dataset.monthExpand;
+      if (expandedFilterMonths.has(ck)) expandedFilterMonths.delete(ck);
+      else expandedFilterMonths.add(ck);
+      container.innerHTML = renderFilterPanelList(btn.dataset.view, btn.dataset.key);
+      wireFilterCheckboxes(btn.dataset.view, btn.dataset.key, container);
     });
   });
 }
@@ -2266,6 +2347,7 @@ const FAILURE_COLUMNS = [
   { key: 'c3', label: 'Component 3' },
   { key: 'c4', label: 'Component 4' },
   { key: 'materialUsed', label: 'Action Taken' },
+  { key: 'pwo', label: 'PWO' },
   { key: 'dateReleased', label: 'Date Released' },
   { key: 'downtimeCalc', label: 'Downtime' },
   { key: 'remark', label: 'Remark' },
@@ -2297,6 +2379,7 @@ function renderFailures() {
       ${componentCellHtml(f, 3)}
       ${componentCellHtml(f, 4)}
       ${actionTakenCellHtml(f, DATA.failures.indexOf(f))}
+      <td class="dim">${esc(f.pwo)}</td>
       <td class="dim">${fmtDate(f.dateReleased)}</td>
       ${downtimeCellHtml(f)}
       <td class="wrap dim">${esc(f.remark)}</td>
@@ -3852,6 +3935,7 @@ function openModal(view, editIdx = null, prefill = null) {
         <div class="field"><label>Date Released</label><input type="date" id="f_dateReleased" value="${rec ? toDateInputValue(rec.dateReleased) : ''}"></div>
         <div class="field"><label>Time Released</label><input type="time" id="f_timeReleased" value="${rec ? toTimeInputValue(rec.timeReleased) : ''}"></div>
         <div class="field"><label>Downtime</label><input type="text" id="f_downtime" value="${gv('downtime')}" placeholder="e.g. 05:00"></div>
+        <div class="field"><label>PWO</label><input type="text" id="f_pwo" value="${gv('pwo')}" placeholder="e.g. PWO201954"></div>
         <div class="field full"><label>Remark</label><textarea id="f_remark" placeholder="-">${gv('remark')}</textarea></div>
       </div>
       <datalist id="dl_depot">${DEPOTS.map(d => `<option value="${esc(d)}">`).join('')}</datalist>
@@ -3953,6 +4037,7 @@ function readFailureForm() {
     reportByDepot: document.getElementById('f_reportByDepot').value, subSystem: document.getElementById('f_subSystem').value,
     materialUsed: document.getElementById('f_materialUsed').value, dateReleased: document.getElementById('f_dateReleased').value,
     timeReleased: document.getElementById('f_timeReleased').value, downtime: document.getElementById('f_downtime').value,
+    pwo: document.getElementById('f_pwo').value,
     remark: document.getElementById('f_remark').value || '-',
   };
   [1, 2, 3, 4].forEach(n => {
