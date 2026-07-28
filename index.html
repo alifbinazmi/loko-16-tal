@@ -3884,6 +3884,7 @@ function renderContent() {
    NEW REPORT MODAL (pop-up, appears on top of the table)
    ============================================================ */
 const DEPOTS = ['KLSD','Bukit Tengah','Gemas','Bukit Mertajam','Tumpat','Kuala Lipis','Batang Benar','Padang Besar'];
+const PE_DEPOTS = ['KEMPAS','GEMAS','K.LIPIS','TUMPAT','PORT KLANG','KLSD','BUKIT TENGAH','BATU GAJAH','PADANG BESAR','CWBG'];
 const FOUR_M_OPTIONS = ['', 'Material', 'Method', 'Machine', 'Manpower'];
 
 function toDateInputValue(v) {
@@ -3998,10 +3999,14 @@ function openModal(view, editIdx = null, prefill = null) {
           <select id="ph_type" required>${['PE15', 'PE30', 'PE45', 'PE45S', 'PE180', 'PE360'].map(t => `<option value="${t}" ${selectedType === t ? 'selected' : ''}>${t}</option>`).join('')}</select>
         </div>
         <div class="field"><label>Date Completed *</label><input type="date" id="ph_date" value="${rec ? toDateInputValue(rec.date) : (prefill && prefill.date ? toDateInputValue(prefill.date) : '')}" required></div>
-        <div class="field"><label>Depot</label><input list="dl_depot3" id="ph_depot" value="${gv('depot')}" placeholder="e.g. KEMPAS"></div>
+        <div class="field"><label>Depot</label>
+          <select id="ph_depot">
+            <option value="">Select depot…</option>
+            ${PE_DEPOTS.map(d => `<option value="${esc(d)}" ${rec && rec.depot === d ? 'selected' : ''}>${esc(d)}</option>`).join('')}
+          </select>
+        </div>
         <div class="field"><label>PWO</label><input type="text" id="ph_pwo" value="${gv('pwo')}" placeholder="e.g. PWO201954"></div>
       </div>
-      <datalist id="dl_depot3">${DEPOTS.map(d => `<option value="${esc(d)}">`).join('')}</datalist>
     `;
   }
 
