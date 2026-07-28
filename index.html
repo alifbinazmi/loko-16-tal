@@ -3153,11 +3153,16 @@ function dailyValueStyle(rawVal) {
   const hue = hashStringToInt(upper) % 360;
   return `--cell-hue:${hue}`;
 }
+function autoCapitalizeDailyValue(t) {
+  const tu = t.toUpperCase();
+  return (tu.includes('FAILED') || tu.includes('REPAINT')) ? tu : t;
+}
 function collectDailyStatusOptions() {
   const counts = new Map();
   Object.values(DATA.dailyStatus).forEach(v => {
-    const t = (v || '').trim();
+    let t = (v || '').trim();
     if (!t) return;
+    t = autoCapitalizeDailyValue(t);
     counts.set(t, (counts.get(t) || 0) + 1);
   });
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
@@ -3302,7 +3307,8 @@ async function saveDailyCellValue(inp) {
   const date = inp.dataset.date;
   const key = `${asset}|${date}`;
   const oldVal = DATA.dailyStatus[key];
-  const val = inp.value.trim();
+  const val = autoCapitalizeDailyValue(inp.value.trim());
+  inp.value = val;
   if (val) DATA.dailyStatus[key] = val; else delete DATA.dailyStatus[key];
   invalidateAvailabilityCache();
   const isFail = /fail/i.test(val);
