@@ -309,9 +309,9 @@
   .th-filter-btn.active{color:var(--amber);}
   .th-filter-btn svg{width:11px;height:11px;}
   .filter-panel{
-    position:absolute;top:100%;left:0;margin-top:2px;width:230px;
+    position:fixed;width:230px;max-height:min(360px, calc(100vh - 24px));
     background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
-    box-shadow:0 10px 28px rgba(0,0,0,.45);z-index:60;display:flex;flex-direction:column;
+    box-shadow:0 10px 28px rgba(0,0,0,.45);z-index:6000;display:flex;flex-direction:column;
     text-transform:none;font-weight:400;letter-spacing:normal;font-size:12px;color:var(--text);
     white-space:normal;
   }
@@ -576,6 +576,7 @@
 <div id="saveIndicator" class="save-indicator save-indicator-saved" title="All changes saved"></div>
 
 <div id="dailyDropdown" class="daily-dropdown"></div>
+<div id="filterPanelHost"></div>
 
 <div id="actionTakenPopup" class="action-popup" hidden>
   <div class="action-popup-meta"></div>
@@ -973,13 +974,11 @@ function columnHeaderHtml(viewKey, key, label) {
   const active = st && st.key === key;
   const cls = 'sortable' + (active ? ' active' + (st.dir === -1 ? ' dir-desc' : '') : '');
   const filterActive = isColumnFilterActive(viewKey, key);
-  const isOpen = openFilterPanel && openFilterPanel.view === viewKey && openFilterPanel.key === key;
   return `<th class="${cls}" data-sort-view="${viewKey}" data-sort-key="${key}">
     <div class="th-flex">
       <button type="button" class="th-sort-btn">${esc(label)}${sortIcon()}</button>
       <button type="button" class="th-filter-btn${filterActive ? ' active' : ''}" data-filter-view="${viewKey}" data-filter-key="${key}" title="Filter ${esc(label)}">${filterIcon()}</button>
     </div>
-    ${isOpen ? renderFilterPanel(viewKey, key) : ''}
   </th>`;
 }
 function wireFilterCheckboxes(viewKey, key, container) {
@@ -1003,6 +1002,31 @@ function wireFilterButtons() {
       renderContent();
     });
   });
+}
+// Mounts the open filter panel into a body-level host, positioned via getBoundingClientRect
+// (like #dailyDropdown/#actionTakenPopup), so it's never clipped by a table's overflow:auto scroller.
+function syncFilterPanel() {
+  const host = document.getElementById('filterPanelHost');
+  if (!host) return;
+  if (!openFilterPanel) { host.innerHTML = ''; return; }
+  const { view, key } = openFilterPanel;
+  const btn = document.querySelector(`.th-filter-btn[data-filter-view="${view}"][data-filter-key="${key}"]`);
+  if (!btn) { host.innerHTML = ''; openFilterPanel = null; return; }
+  host.innerHTML = renderFilterPanel(view, key);
+  const panel = host.querySelector('.filter-panel');
+  const rect = btn.getBoundingClientRect();
+  panel.style.left = rect.left + 'px';
+  panel.style.top = (rect.bottom + 4) + 'px';
+  requestAnimationFrame(() => {
+    const panelRect = panel.getBoundingClientRect();
+    if (panelRect.right > window.innerWidth - 12) {
+      panel.style.left = Math.max(12, window.innerWidth - panelRect.width - 12) + 'px';
+    }
+    if (panelRect.bottom > window.innerHeight - 12) {
+      panel.style.top = Math.max(12, rect.top - panelRect.height - 4) + 'px';
+    }
+  });
+  wireFilterPanel();
 }
 function wireFilterPanel() {
   if (!openFilterPanel) return;
@@ -2260,7 +2284,6 @@ function renderFailures() {
   wireSortHeaders();
   wireComponentToggles();
   wireFilterButtons();
-  wireFilterPanel();
   wireActionTakenPopups();
   document.querySelectorAll('.failure-edit-btn').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -2446,7 +2469,6 @@ function renderLanggar() {
   `;
   wireSortHeaders();
   wireFilterButtons();
-  wireFilterPanel();
   wireRowClicks('langgar');
 }
 
@@ -2855,6 +2877,7 @@ function refreshReliabilityKpiGrid() {
   } else {
     renderReliability();
   }
+  syncFilterPanel();
 }
 document.addEventListener('click', e => {
   if (currentView !== 'reliability') return;
@@ -2958,7 +2981,6 @@ function renderReliability() {
 
   wireSortHeaders();
   wireFilterButtons();
-  wireFilterPanel();
 }
 
 /* ============================================================
@@ -3398,9 +3420,9 @@ function wireWeeklyPePlanNav() {
   const prev = document.getElementById('peWeekPrev');
   const next = document.getElementById('peWeekNext');
   const today = document.getElementById('peWeekToday');
-  if (prev) prev.addEventListener('click', () => { peWeekNum = Math.max(1, peWeekNum - 1); renderMasterplan(); });
-  if (next) next.addEventListener('click', () => { peWeekNum = peWeekNum + 1; renderMasterplan(); });
-  if (today) today.addEventListener('click', () => { peWeekNum = defaultPeWeekNum(); renderMasterplan(); });
+  if (prev) prev.addEventListener('click', () => { peWeekNum = Math.max(1, peWeekNum - 1); renderMasterplan(); syncFilterPanel(); });
+  if (next) next.addEventListener('click', () => { peWeekNum = peWeekNum + 1; renderMasterplan(); syncFilterPanel(); });
+  if (today) today.addEventListener('click', () => { peWeekNum = defaultPeWeekNum(); renderMasterplan(); syncFilterPanel(); });
 }
 const PE_HISTORY_COLUMNS = [
   { key: 'asset', label: 'Asset' },
@@ -3608,7 +3630,6 @@ function renderMasterplan() {
   wireMonthlyPeStatusInputs();
   wireSortHeaders();
   wireFilterButtons();
-  wireFilterPanel();
   wireComponentToggles();
 }
 
@@ -3689,6 +3710,7 @@ function renderContent() {
   else if (currentView === 'reliability') renderReliability();
   else if (currentView === 'dailyStatus') renderDailyStatus();
   else if (currentView === 'masterplan') renderMasterplan();
+  syncFilterPanel();
 }
 
 /* ============================================================
