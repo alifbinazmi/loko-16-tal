@@ -3200,9 +3200,23 @@ async function saveDailyCellValue(inp) {
     }
   }
 
+  const oldIsRepair = (oldVal || '').toUpperCase().includes('REPAIR');
+  const newIsRepair = val.toUpperCase().includes('REPAIR');
+  if (oldIsRepair && (oldVal || '').trim().toUpperCase() !== val.toUpperCase()) {
+    const before = DATA.failures.length;
+    DATA.failures = DATA.failures.filter(r => r.dsKey !== key);
+    if (DATA.failures.length !== before) {
+      await saveKey('failures');
+      toast('Matching Unscheduled Report removed from USW');
+    }
+  }
+
   if (PE_TRIGGER_CODES.includes(newPeCode)) {
     hideDailyDropdown();
     openModal('peHistory', null, { asset: Number(asset), date, type: newPeCode });
+  } else if (newIsRepair) {
+    hideDailyDropdown();
+    openModal('failures', null, { asset: Number(asset), dateReceive: date, dsKey: key });
   }
 }
 
@@ -3765,19 +3779,21 @@ function componentFormSection(n, rec) {
     </div>`;
 }
 
+let currentModalPrefill = null;
 function openModal(view, editIdx = null, prefill = null) {
+  currentModalPrefill = prefill;
   const modal = document.getElementById('modal');
   let title, formHtml;
   const rec = editIdx != null ? DATA[view][editIdx] : null;
 
   if (view === 'failures') {
-    const gv = k => rec ? esc(rec[k] ?? '') : '';
+    const gv = k => rec ? esc(rec[k] ?? '') : esc((prefill && prefill[k]) ?? '');
     title = rec ? `Edit Unscheduled Report \u2014 Asset ${esc(rec.asset)}` : 'New Unscheduled Report';
     formHtml = `
       <div class="form-grid">
         <div class="field"><label>No. Asset *</label><input type="number" id="f_asset" value="${gv('asset')}" placeholder="e.g. 25204" required></div>
         <div class="field"><label>Depoh</label><input list="dl_depot" id="f_depoh" value="${gv('depoh')}" placeholder="e.g. KLSD"></div>
-        <div class="field"><label>Date Receive *</label><input type="date" id="f_dateReceive" value="${rec ? toDateInputValue(rec.dateReceive) : ''}" required></div>
+        <div class="field"><label>Date Receive *</label><input type="date" id="f_dateReceive" value="${rec ? toDateInputValue(rec.dateReceive) : (prefill && prefill.dateReceive ? toDateInputValue(prefill.dateReceive) : '')}" required></div>
         <div class="field"><label>Time Receive</label><input type="time" id="f_timeReceive" value="${rec ? toTimeInputValue(rec.timeReceive) : ''}"></div>
         <div class="field full"><label>Failure Report by Operation</label><input type="text" id="f_reportByOps" value="${gv('reportByOps')}" placeholder="e.g. Loco Shutdown, Cant Start"></div>
         <div class="field full"><label>Failure Report by Depot</label><input type="text" id="f_reportByDepot" value="${gv('reportByDepot')}" placeholder="detail as reported by depot"></div>
@@ -3878,7 +3894,7 @@ function openModal(view, editIdx = null, prefill = null) {
 
   if (!rec) {
     const todayField = document.getElementById('f_dateReceive') || document.getElementById('l_tarikh');
-    if (todayField) todayField.value = new Date().toISOString().slice(0, 10);
+    if (todayField && !todayField.value) todayField.value = new Date().toISOString().slice(0, 10);
   }
 }
 
@@ -3906,6 +3922,7 @@ function readFailureForm() {
     rec['c' + n + 'Defect'] = document.getElementById('f_c' + n + 'Defect').value;
     rec['c' + n + '_4m'] = document.getElementById('f_c' + n + '_4m').value;
   });
+  if (currentModalPrefill && currentModalPrefill.dsKey) rec.dsKey = currentModalPrefill.dsKey;
   return rec;
 }
 function readIncidentForm() {
