@@ -1987,11 +1987,17 @@ window.addEventListener('resize', () => { if (currentView === 'dashboard') rende
 /* ============================================================
    SUB-SYSTEM SUMMARY (auto-computed, always synced)
    ============================================================ */
+let subsystemSelectedMonth = null; // null = all months
 function renderSubsystem() {
-  const assets = [...new Set(DATA.failures.map(f => f.asset).filter(Boolean))].sort((a,b) => String(a).localeCompare(String(b)));
+  const monthsAvailable = [...new Set(DATA.failures.map(f => monthKey(f.dateReceive)).filter(Boolean))].sort();
+  const scopedFailures = subsystemSelectedMonth
+    ? DATA.failures.filter(f => monthKey(f.dateReceive) === subsystemSelectedMonth)
+    : DATA.failures;
+
+  const assets = [...new Set(scopedFailures.map(f => f.asset).filter(Boolean))].sort((a,b) => String(a).localeCompare(String(b)));
   const grid = {};
   SUBSYSTEMS.forEach(s => { grid[s] = {}; assets.forEach(a => grid[s][a] = 0); });
-  DATA.failures.forEach(f => {
+  scopedFailures.forEach(f => {
     const raw = (f.subSystem || '').trim();
     const match = SUBSYSTEMS.find(s => raw.toLowerCase().startsWith(s.toLowerCase())) || (raw === '-' || raw === '' ? 'NIL' : null);
     if (match && f.asset) grid[match][f.asset] = (grid[match][f.asset] || 0) + 1;
@@ -2013,15 +2019,26 @@ function renderSubsystem() {
 
   document.getElementById('content').innerHTML = `
     <div class="panel">
+      <div class="sortby-box" style="margin-bottom:12px;width:fit-content;">
+        ${ICONS.calendar}
+        <select id="ssMonthSelect">
+          <option value="">All months</option>
+          ${monthsAvailable.map(m => `<option value="${m}" ${subsystemSelectedMonth === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}
+        </select>
+      </div>
       <div class="matrix-scroll">
         <table class="matrix">
           <thead><tr><th>Sub-System \\ Asset</th>${headerCells}<th>Total</th></tr></thead>
           <tbody>${bodyRows}${totalRow}</tbody>
         </table>
       </div>
-      <div class="row-count">${assets.length} locomotives &middot; ${grandTotal} categorised failures &middot; recalculates instantly from Unscheduled Reports</div>
+      <div class="row-count">${assets.length} locomotives &middot; ${grandTotal} categorised failures &middot; ${subsystemSelectedMonth ? 'showing ' + esc(monthLabel(subsystemSelectedMonth)) + ' only' : 'all months'} &middot; recalculates instantly from Unscheduled Reports</div>
     </div>
   `;
+  document.getElementById('ssMonthSelect').addEventListener('change', e => {
+    subsystemSelectedMonth = e.target.value || null;
+    renderSubsystem();
+  });
 }
 
 /* ============================================================
