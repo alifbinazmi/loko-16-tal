@@ -3169,9 +3169,12 @@ async function applyDailyCellValue(inputEl, value, moveDown) {
   if (moveDown) moveToNextDailyRow(inputEl);
 }
 
+const PE_TRIGGER_CODES = ['PE15', 'PE45', 'PE45S', 'PE180', 'PE360'];
 async function saveDailyCellValue(inp) {
   const asset = inp.dataset.asset;
-  const key = `${asset}|${inp.dataset.date}`;
+  const date = inp.dataset.date;
+  const key = `${asset}|${date}`;
+  const oldVal = DATA.dailyStatus[key];
   const val = inp.value.trim();
   if (val) DATA.dailyStatus[key] = val; else delete DATA.dailyStatus[key];
   invalidateAvailabilityCache();
@@ -3185,10 +3188,21 @@ async function saveDailyCellValue(inp) {
   refreshDailyStatusOptions();
   refreshRowKmCells(asset);
 
-  const peCode = val.replace(/\s+/g, '').toUpperCase();
-  if (['PE15', 'PE45', 'PE45S', 'PE180', 'PE360'].includes(peCode)) {
+  const oldPeCode = (oldVal || '').replace(/\s+/g, '').toUpperCase();
+  const newPeCode = val.replace(/\s+/g, '').toUpperCase();
+  if (PE_TRIGGER_CODES.includes(oldPeCode) && oldPeCode !== newPeCode) {
+    const before = DATA.peHistory.length;
+    DATA.peHistory = DATA.peHistory.filter(r => !(r.asset === Number(asset) && r.date === date && r.type === oldPeCode));
+    if (DATA.peHistory.length !== before) {
+      await saveKey('peHistory');
+      recomputePeSchedule();
+      toast('Matching PE record removed from PE History');
+    }
+  }
+
+  if (PE_TRIGGER_CODES.includes(newPeCode)) {
     hideDailyDropdown();
-    openModal('peHistory', null, { asset: Number(asset), date: inp.dataset.date, type: peCode });
+    openModal('peHistory', null, { asset: Number(asset), date, type: newPeCode });
   }
 }
 
