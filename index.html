@@ -3135,6 +3135,7 @@ function dailyValueStyle(rawVal) {
   const upper = val.toUpperCase();
 
   if (upper.includes('REPAIR')) return 'background-color:#FF8A00;color:#FFFFFF;border-color:#CC6E00;font-weight:700;'; // repair: bright orange
+  if (/\bOH\b/.test(upper)) return `--cell-hue:${hashStringToInt(upper) % 360};font-weight:700;`; // OH: same hash color, just bold
 
   // Colors carried over from the source Excel's conditional formatting rules
   if (/^PE\b|^PE\d/.test(upper)) return 'background-color:#7FCDF2;color:#003A5C;border-color:#37AEE8;'; // PE examination codes: cyan
