@@ -388,6 +388,7 @@
 
   /* ---------- Daily Status editable grid ---------- */
   table.daily-table{border-collapse:collapse;}
+  table.daily-table th.cls-col, table.daily-table td.cls-col{width:64px;min-width:64px;max-width:64px;}
   table.daily-table th, table.daily-table td{text-align:center;padding:3px 1px;font-size:11px;white-space:nowrap;border-bottom:1px solid var(--border-soft);}
   table.daily-table thead th{position:sticky;top:0;background:var(--panel-3);color:var(--text-dim);font-weight:700;z-index:5;padding:8px 3px;}
   table.daily-table th:first-child, table.daily-table td:first-child{
@@ -2742,7 +2743,7 @@ function renderDailyAvailabilityGrid() {
     const total = rec ? availDayTotal(rec) : 0;
     const cellsHtml = ['c19', 'c23', 'c24', 'c25'].map(cls => {
       const v = rec && rec[cls] !== undefined ? rec[cls] : '&mdash;';
-      return `<td class="num">${v}</td>`;
+      return `<td class="num cls-col">${v}</td>`;
     }).join('');
     return `<tr><td class="dim">${d}</td>${cellsHtml}<td class="num final-km-cell" style="position:static;box-shadow:none;">${rec ? total : '&mdash;'}</td></tr>`;
   }).join('');
@@ -2764,7 +2765,7 @@ function renderDailyAvailabilityGrid() {
     <div class="panel">
       <div class="table-scroll" style="max-height:520px;">
         <table class="daily-table" style="min-width:0;">
-          <thead><tr><th>Day</th><th>19c</th><th>23c</th><th>24c</th><th>25c</th><th>Total</th></tr></thead>
+          <thead><tr><th>Day</th><th class="cls-col">19c</th><th class="cls-col">23c</th><th class="cls-col">24c</th><th class="cls-col">25c</th><th>Total</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
