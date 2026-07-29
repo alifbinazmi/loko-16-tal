@@ -70,12 +70,10 @@
 
   .sidebar-foot{
     padding:12px 18px 18px 18px;margin-top:auto;margin-bottom:-18px;
-    border-top:1px solid rgba(255,255,255,.2);border-radius:10px 10px 0 0;
-    background:linear-gradient(180deg,#2F6FCB 0%,#1E4E96 100%);
+    border-top:1px solid var(--border-soft);border-radius:10px 10px 0 0;
+    background:linear-gradient(180deg,#E4E6EA 0%,#D3D6DC 100%);
   }
-  .sync-pill{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.75);}
-  .sidebar-foot .btn-ghost{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.35);}
-  .sidebar-foot .btn-ghost:hover{background:rgba(255,255,255,.18);}
+  .sync-pill{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--text-faint);}
   .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(21,146,83,.7);}
   .sync-checkbox{
     width: 12px; height: 12px;
@@ -95,7 +93,7 @@
   .main{flex:1;min-width:0;display:flex;flex-direction:column;}
   .topbar{
     display:flex;align-items:center;gap:14px;
-    padding:14px 26px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#E4E6EA 0%,#D3D6DC 100%);
+    padding:14px 26px;border-bottom:1px solid rgba(255,255,255,.25);background:linear-gradient(180deg,#2F6FCB 0%,#1E4E96 100%);
     position:sticky;top:0;z-index:20;
   }
   .topbar-titles{text-align:center;min-width:0;flex:1;}
@@ -107,8 +105,8 @@
     transition:border-color .18s,box-shadow .18s;
   }
   .topbar-title-icon img{width:100%;height:100%;object-fit:contain;padding:2px;}
-  .topbar-titles h1{margin:0;font-size:19px;font-weight:800;letter-spacing:.005em;white-space:nowrap;}
-  .topbar-titles p{margin:3px 0 0 0;font-size:11.5px;color:var(--text-dim);}
+  .topbar-titles h1{margin:0;font-size:19px;font-weight:800;letter-spacing:.005em;white-space:nowrap;color:#fff;}
+  .topbar-titles p{margin:3px 0 0 0;font-size:11.5px;color:rgba(255,255,255,.85);}
   .topbar-title-accent{display:block;width:38px;height:3px;border-radius:3px;margin:7px auto 0 auto;background:linear-gradient(90deg,var(--amber),var(--amber-soft));transition:background .18s;}
   @keyframes titlePop{0%{opacity:0;transform:translateY(-5px) scale(.96);}100%{opacity:1;transform:translateY(0) scale(1);}}
   .topbar-titles.pop{animation:titlePop .3s ease;}
