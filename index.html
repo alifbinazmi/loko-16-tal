@@ -68,7 +68,11 @@
   }
   .nav-item.active .nav-count{color:var(--amber);border-color:var(--amber-soft);}
 
-  .sidebar-foot{padding:12px 18px 0 18px;border-top:1px solid rgba(255,255,255,.2);margin-top:auto;}
+  .sidebar-foot{
+    padding:12px 18px 18px 18px;margin-top:auto;margin-bottom:-18px;
+    border-top:1px solid rgba(255,255,255,.2);border-radius:10px 10px 0 0;
+    background:linear-gradient(180deg,#2F6FCB 0%,#1E4E96 100%);
+  }
   .sync-pill{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.75);}
   .sidebar-foot .btn-ghost{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.35);}
   .sidebar-foot .btn-ghost:hover{background:rgba(255,255,255,.18);}
