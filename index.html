@@ -3050,6 +3050,15 @@ function drillToAssetFailures(asset) {
   searchTerm = '';
   setView('failures');
 }
+function drillToAssetPeHistory(asset) {
+  columnFilters.peHistory = { asset: new Set([String(asset)]) };
+  searchTerm = '';
+  setView('masterplan');
+  requestAnimationFrame(() => {
+    const el = document.getElementById('peHistorySection');
+    if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  });
+}
 document.addEventListener('click', e => {
   if (currentView !== 'reliability') return;
 
@@ -3057,6 +3066,13 @@ document.addEventListener('click', e => {
   if (unschedCell) {
     e.stopPropagation();
     drillToAssetFailures(unschedCell.dataset.asset);
+    return;
+  }
+
+  const peCell = e.target.closest('.pe-drill');
+  if (peCell) {
+    e.stopPropagation();
+    drillToAssetPeHistory(peCell.dataset.asset);
     return;
   }
 
@@ -3118,7 +3134,7 @@ function renderReliability() {
       <td class="dim">${esc(r.class)}</td>
       <td class="num">${esc(r.asset)}</td>
       <td class="num${r.unscheduled ? ' unsched-drill' : ''}"${r.unscheduled ? ` data-asset="${esc(r.asset)}" style="cursor:pointer;color:var(--blue);text-decoration:underline;" title="View this locomotive's Unscheduled Reports"` : ''}>${r.unscheduled}</td>
-      <td class="num">${r.pe}</td>
+      <td class="num${r.pe ? ' pe-drill' : ''}"${r.pe ? ` data-asset="${esc(r.asset)}" style="cursor:pointer;color:var(--blue);text-decoration:underline;" title="View this locomotive's PE History"` : ''}>${r.pe}</td>
       <td class="num">${r.mileage ? r.mileage.toLocaleString(undefined, { maximumFractionDigits: 1 }) : '&mdash;'}</td>
     </tr>`).join('') : `<tr class="empty-row"><td colspan="${LOCO_PERF_COLUMNS.length}">No locomotives match your filters.</td></tr>`;
 
