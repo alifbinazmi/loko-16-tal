@@ -2698,13 +2698,40 @@ function availabilityPickerHtml() {
 }
 
 let dailyAvailabilityMonth = '2026-07';
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function availabilityMonthYearControlHtml() {
+  const [curYear, curMonthNum] = dailyAvailabilityMonth.split('-').map(Number);
+  const trackedYears = availabilityTrackedMonths().map(m => Number(m.split('-')[0]));
+  const minYear = Math.min(curYear, ...(trackedYears.length ? trackedYears : [curYear]));
+  const maxYear = Math.max(curYear + 2, ...(trackedYears.length ? trackedYears : [curYear]));
+  const years = [];
+  for (let y = minYear; y <= maxYear; y++) years.push(y);
+  return `
+    <div class="sortby-box">
+      ${ICONS.calendar}
+      <select id="daMonthSelect" aria-label="Select month">
+        ${MONTH_NAMES.map((m, i) => `<option value="${i + 1}" ${curMonthNum === i + 1 ? 'selected' : ''}>${m}</option>`).join('')}
+      </select>
+      <select id="daYearSelect" aria-label="Select year">
+        ${years.map(y => `<option value="${y}" ${curYear === y ? 'selected' : ''}>${y}</option>`).join('')}
+      </select>
+    </div>
+    <button class="btn btn-primary" id="daDisplayBtn" style="font-size:11.5px;padding:8px 12px;">Display</button>`;
+}
 function wireDailyAvailabilityNav() {
   const prev = document.getElementById('daPrevMonth');
   const next = document.getElementById('daNextMonth');
   const today = document.getElementById('daToday');
+  const displayBtn = document.getElementById('daDisplayBtn');
   if (prev) prev.addEventListener('click', () => { dailyAvailabilityMonth = shiftMonth(dailyAvailabilityMonth, -1); renderAvailability(); });
   if (next) next.addEventListener('click', () => { dailyAvailabilityMonth = shiftMonth(dailyAvailabilityMonth, 1); renderAvailability(); });
   if (today) today.addEventListener('click', () => { dailyAvailabilityMonth = '2026-07'; renderAvailability(); });
+  if (displayBtn) displayBtn.addEventListener('click', () => {
+    const m = document.getElementById('daMonthSelect').value.padStart(2, '0');
+    const y = document.getElementById('daYearSelect').value;
+    dailyAvailabilityMonth = `${y}-${m}`;
+    renderAvailability();
+  });
 }
 function renderDailyAvailabilityGrid() {
   const nDays = daysInMonthCount(dailyAvailabilityMonth);
@@ -2724,11 +2751,12 @@ function renderDailyAvailabilityGrid() {
   return `
     <div class="panel" style="margin-bottom:14px;" id="availDailyGridPanel">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <button class="btn btn-ghost" id="daPrevMonth">&lsaquo; Prev</button>
           <div style="font-weight:700;font-size:14px;min-width:150px;text-align:center;">${monthLabelLong(dailyAvailabilityMonth)}</div>
           <button class="btn btn-ghost" id="daNextMonth">Next &rsaquo;</button>
           <button class="btn btn-ghost" id="daToday" style="font-size:11px;">Jump to Jul 2026</button>
+          ${availabilityMonthYearControlHtml()}
         </div>
         <div style="font-size:12px;font-weight:700;color:var(--amber);">Average this month: ${avg}<span class="dim" style="font-weight:400;"> / ${target} target</span></div>
       </div>
