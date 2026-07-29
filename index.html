@@ -401,6 +401,16 @@
     font-family:var(--mono);font-weight:700;color:var(--text);
   }
   table.daily-table td:nth-child(2){background:var(--panel);z-index:6;}
+  table.avail-daily-table th:nth-child(2){
+    position:sticky !important;top:0 !important;left:auto !important;text-align:center !important;padding-left:3px !important;
+    font-family:var(--sans) !important;font-weight:700 !important;color:var(--text-dim) !important;background:var(--panel-3) !important;
+    width:64px !important;min-width:64px !important;max-width:64px !important;
+  }
+  table.avail-daily-table td:nth-child(2){
+    position:static !important;left:auto !important;text-align:center !important;padding-left:1px !important;
+    font-family:var(--sans) !important;font-weight:400 !important;color:var(--text) !important;background:transparent !important;
+    width:64px !important;min-width:64px !important;max-width:64px !important;
+  }
   table.daily-table td.day-cell{padding:1px;}
   .daily-cell-input{
     width:100%;min-width:52px;box-sizing:border-box;background:transparent;border:1px solid transparent;border-radius:3px;
@@ -2764,7 +2774,7 @@ function renderDailyAvailabilityGrid() {
     </div>
     <div class="panel">
       <div class="table-scroll" style="max-height:520px;">
-        <table class="daily-table" style="min-width:0;">
+        <table class="daily-table avail-daily-table" style="min-width:0;">
           <thead><tr><th>Day</th><th class="cls-col">19c</th><th class="cls-col">23c</th><th class="cls-col">24c</th><th class="cls-col">25c</th><th>Total</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
