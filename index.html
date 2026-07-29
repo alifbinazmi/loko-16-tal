@@ -2716,7 +2716,7 @@ function availabilityMonthYearControlHtml() {
         ${years.map(y => `<option value="${y}" ${curYear === y ? 'selected' : ''}>${y}</option>`).join('')}
       </select>
     </div>
-    <button class="btn btn-primary" id="daDisplayBtn" style="font-size:11.5px;padding:8px 12px;">Display</button>`;
+    <button class="btn" id="daDisplayBtn" style="font-size:11.5px;padding:8px 12px;background:#8BC34A;color:#0B2E00;border-color:#6FA83A;">Display</button>`;
 }
 function wireDailyAvailabilityNav() {
   const prev = document.getElementById('daPrevMonth');
