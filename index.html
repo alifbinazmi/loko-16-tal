@@ -447,6 +447,12 @@
   }
   .daily-cell-input.has-value:not(.fail-value):hover{border-color:hsl(var(--cell-hue,210),55%,45%);}
   .daily-cell-input.has-value:not(.fail-value):focus{border-color:var(--amber);background:var(--panel-2);color:var(--text);}
+  .dsdep-label-input{
+    width:100%;min-width:110px;box-sizing:border-box;background:transparent;border:1px solid transparent;border-radius:3px;
+    padding:4px 6px;color:var(--text);font-size:12px;text-align:left;font-family:var(--sans);
+  }
+  .dsdep-label-input:hover{border-color:var(--border-soft);background:var(--panel-2);}
+  .dsdep-label-input:focus{outline:none;border-color:var(--amber);background:var(--panel-2);}
   table.daily-table td.km-cell{
     font-family:var(--mono);font-weight:700;color:var(--text-dim);background:var(--panel);
     padding:3px 10px;
@@ -707,7 +713,7 @@ const SUBSYSTEMS = [
 ];
 
 /* ---------- state ---------- */
-let DATA = { failures: [], incidents: [], langgar: [], locoPerf: [], dailyStatus: {}, additionalKm: {}, dailyAvailability: {}, peSchedule: [], peWeeklyStatus: {}, peMonthlyStatus: {} };
+let DATA = { failures: [], incidents: [], langgar: [], locoPerf: [], dailyStatus: {}, additionalKm: {}, dailyAvailability: {}, peSchedule: [], peWeeklyStatus: {}, peMonthlyStatus: {}, dsLabelOverrides: {} };
 let currentView = 'dashboard';
 let searchTerm = '';
 let charts = {};
@@ -1201,7 +1207,7 @@ document.addEventListener('click', e => {
 /* ---------- storage ---------- */
 async function loadData() {
   const seed = JSON.parse(document.getElementById('seed-data-json').textContent);
-  const keys = ['failures', 'incidents', 'langgar', 'dailyStatus', 'additionalKm', 'dailyAvailability', 'peHistory', 'peWeeklyStatus', 'peMonthlyStatus'];
+  const keys = ['failures', 'incidents', 'langgar', 'dailyStatus', 'additionalKm', 'dailyAvailability', 'peHistory', 'peWeeklyStatus', 'peMonthlyStatus', 'dsLabelOverrides'];
   try {
     const { data, error } = await _db.from('dashboard_store').select('key,value').in('key', keys);
     if (error) throw error;
@@ -4043,6 +4049,25 @@ function renderMasterplan() {
 const INTERCITY_CODES = ['26', '27', 'E&O', '8101/8150', '8001/8046', '1', '2', 'S.LIPIS', 'S.KEM', 'S.GEM', 'S.TUM', 'S.KLSD', 'S.DPK', 'L/E', 'S.DBG'];
 const KARGO_CODES = ['YAD PRAI', '474+473', '472-471', 'F.KLANG'];
 const DEPARTMENTAL_CODES = ['B.TIMUR', 'B.SELATAN', 'KVDT', 'B.UTARA'];
+const CODE_LABELS = [
+  ['26', 'Tren 26'], ['27', 'Tren 27'],
+  ['1', 'Shuttle Tebrau'], ['2', 'Shuttle Tebrau'],
+  ['8001/8046', 'Shuttle Hybrid'], ['8101/8150', 'Shuttle Selatan'],
+  ['S.LIPIS', 'Standby Lipis'], ['S.TUM', 'Standby Tumpat'], ['S.KEM', 'Standby Kempas'], ['S.GEM', 'Standby Gemas'],
+  ['YAD PRAI', 'Shunting Yad Prai'],
+  ['472-471', 'Petronas Fertilizer Kargo'], ['474+473', 'Petronas Fertilizer Kargo'],
+  ['SHUNT.BT', 'Shunting Bukit Tengah'], ['SHUNT.BG', 'Shunting Batu Gajah'],
+  ['SHUNT.KLSD', 'Shunting KLSD'], ['SHUNT.DPK', 'Shunting Port Klang'],
+  ['F.KLANG', 'Feeder Klang'],
+  ['B.TIMUR', 'Ballast Timur'], ['B.SELATAN', 'Ballast Selatan'], ['B.UTARA', 'Ballast Utara'],
+  ['KVDT', 'Ballast KVDT'],
+];
+function labelForDailyValue(raw) {
+  const u = (raw || '').trim().toUpperCase();
+  if (!u) return '';
+  const hit = CODE_LABELS.find(([code]) => u === code || u.startsWith(code));
+  return hit ? hit[1] : raw;
+}
 function classifyDailyValue(raw) {
   const v = (raw || '').trim();
   if (!v) return null;
@@ -4069,7 +4094,7 @@ function deploymentSummaryPanelHtml() {
   const { dateStr, buckets } = buildDeploymentSummary(dailyStatusMonth);
   const groups = [
     ['intercity', 'Intercity'], ['kargo', 'Kargo'], ['departmental', 'Departmental'],
-    ['others', 'Others'], ['maintenance', 'Maintenance (PE)'],
+    ['others', 'Others'], ['maintenance', 'PE/Maintenance'],
   ];
   const maxRows = Math.max(1, ...groups.map(([key]) => buckets[key].length));
   const headRow1 = `<th rowspan="2">No</th>` + groups.map(([, label]) => `<th colspan="2">${esc(label)}</th>`).join('');
@@ -4077,7 +4102,10 @@ function deploymentSummaryPanelHtml() {
   const bodyRows = Array.from({ length: maxRows }, (_, i) => {
     const cells = groups.map(([key]) => {
       const row = buckets[key][i];
-      return row ? `<td class="num">${esc(row.asset)}</td><td>${esc(row.value)}</td>` : `<td></td><td></td>`;
+      if (!row) return `<td></td><td></td>`;
+      const overrideKey = `${row.asset}|${dateStr}`;
+      const displayVal = DATA.dsLabelOverrides[overrideKey] || labelForDailyValue(row.value);
+      return `<td class="num">${esc(row.asset)}</td><td><input type="text" class="dsdep-label-input" data-asset="${esc(row.asset)}" data-date="${esc(dateStr)}" value="${esc(displayVal)}"></td>`;
     }).join('');
     return `<tr><td class="num">${i + 1}</td>${cells}</tr>`;
   }).join('');
@@ -4098,6 +4126,22 @@ function deploymentSummaryPanelHtml() {
 function refreshDeploymentSummary() {
   const panel = document.getElementById('dsDeploymentPanel');
   if (panel) panel.innerHTML = deploymentSummaryPanelHtml();
+  wireDeploymentSummaryInputs();
+}
+async function saveDeploymentLabelOverride(inp) {
+  const key = `${inp.dataset.asset}|${inp.dataset.date}`;
+  const rawCode = DATA.dailyStatus[key] || '';
+  const autoLabel = labelForDailyValue(rawCode);
+  const val = inp.value.trim();
+  if (!val || val === autoLabel) delete DATA.dsLabelOverrides[key];
+  else DATA.dsLabelOverrides[key] = val;
+  inp.value = val || autoLabel;
+  await saveKey('dsLabelOverrides');
+}
+function wireDeploymentSummaryInputs() {
+  document.querySelectorAll('.dsdep-label-input').forEach(inp => {
+    inp.addEventListener('change', () => saveDeploymentLabelOverride(inp));
+  });
 }
 function latestFilledDayInMonth(yyyyMm) {
   let maxDay = 0;
@@ -4177,6 +4221,7 @@ function renderDailyStatus() {
   wireDailyStatusNav();
   wireDailyStatusCells();
   wireDailyStatusMonthChips();
+  wireDeploymentSummaryInputs();
 }
 
 function renderContent() {
