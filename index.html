@@ -3557,6 +3557,7 @@ async function saveDailyCellValue(inp) {
   if (counter) counter.textContent = countFilledForMonth(dailyStatusMonth);
   refreshDailyStatusOptions();
   refreshRowKmCells(asset);
+  refreshDeploymentSummary();
 
   const oldPeCode = (oldVal || '').replace(/\s+/g, '').toUpperCase();
   const newPeCode = val.replace(/\s+/g, '').toUpperCase();
@@ -4038,6 +4039,79 @@ function renderMasterplan() {
 }
 
 
+/* ---------- Daily Fleet Deployment Summary ---------- */
+const INTERCITY_CODES = ['26', '27', 'E&O', '8101/8150', '8001/8046', '1', '2', 'S.LIPIS', 'S.KEM', 'S.GEM', 'S.TUM', 'S.KLSD', 'S.DPK', 'L/E', 'S.DBG'];
+const KARGO_CODES = ['YAD PRAI', '474+473', '472-471', 'F.KLANG'];
+const DEPARTMENTAL_CODES = ['B.TIMUR', 'B.SELATAN', 'KVDT', 'B.UTARA'];
+function classifyDailyValue(raw) {
+  const v = (raw || '').trim();
+  if (!v) return null;
+  const u = v.toUpperCase();
+  if (u === 'FAILED' || u.includes('REPAIR') || u.includes('REPAINT') || /\bOH\b/.test(u) || /^PE\s?\d/.test(u) || u === 'PE') return 'maintenance';
+  if (INTERCITY_CODES.some(c => u === c || u.startsWith(c))) return 'intercity';
+  if (KARGO_CODES.some(c => u === c || u.startsWith(c))) return 'kargo';
+  if (DEPARTMENTAL_CODES.some(c => u === c || u.startsWith(c))) return 'departmental';
+  return 'others';
+}
+function buildDeploymentSummary(yyyyMm) {
+  const day = latestFilledDayInMonth(yyyyMm);
+  const buckets = { intercity: [], kargo: [], departmental: [], others: [], maintenance: [] };
+  if (!day) return { dateStr: null, buckets };
+  const dateStr = `${yyyyMm}-${String(day).padStart(2, '0')}`;
+  DATA.locoPerf.forEach(loco => {
+    const val = DATA.dailyStatus[`${loco.asset}|${dateStr}`] || '';
+    const bucket = classifyDailyValue(val);
+    if (bucket) buckets[bucket].push({ asset: loco.asset, value: val.trim() });
+  });
+  return { dateStr, buckets };
+}
+function deploymentSummaryPanelHtml() {
+  const { dateStr, buckets } = buildDeploymentSummary(dailyStatusMonth);
+  const groups = [
+    ['intercity', 'Intercity'], ['kargo', 'Kargo'], ['departmental', 'Departmental'],
+    ['others', 'Others'], ['maintenance', 'Maintenance (PE)'],
+  ];
+  const maxRows = Math.max(1, ...groups.map(([key]) => buckets[key].length));
+  const headRow1 = `<th rowspan="2">No</th>` + groups.map(([, label]) => `<th colspan="2">${esc(label)}</th>`).join('');
+  const headRow2 = groups.map(() => `<th>Asset No</th><th>Value</th>`).join('');
+  const bodyRows = Array.from({ length: maxRows }, (_, i) => {
+    const cells = groups.map(([key]) => {
+      const row = buckets[key][i];
+      return row ? `<td class="num">${esc(row.asset)}</td><td>${esc(row.value)}</td>` : `<td></td><td></td>`;
+    }).join('');
+    return `<tr><td class="num">${i + 1}</td>${cells}</tr>`;
+  }).join('');
+  const totalsRow = `<tr><td></td>${groups.map(([key]) => `<td class="num" colspan="2"><b>${buckets[key].length}</b></td>`).join('')}</tr>`;
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+      <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">Daily Fleet Deployment Summary</div>
+      <div class="dim" style="font-size:11px;">${dateStr ? 'As of ' + esc(dateStr) : 'No data entered this month'}</div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr>${headRow1}</tr><tr>${headRow2}</tr></thead>
+        <tbody>${bodyRows}</tbody>
+        <tfoot>${totalsRow}</tfoot>
+      </table>
+    </div>`;
+}
+function refreshDeploymentSummary() {
+  const panel = document.getElementById('dsDeploymentPanel');
+  if (panel) panel.innerHTML = deploymentSummaryPanelHtml();
+}
+function latestFilledDayInMonth(yyyyMm) {
+  let maxDay = 0;
+  Object.entries(DATA.dailyStatus).forEach(([k, v]) => {
+    if (!v || !String(v).trim()) return;
+    const date = k.split('|')[1];
+    if (date && date.startsWith(yyyyMm)) {
+      const day = parseInt(date.slice(8, 10), 10);
+      if (day > maxDay) maxDay = day;
+    }
+  });
+  return maxDay || null;
+}
+
 function renderDailyStatus() {
   const nDays = daysInMonthCount(dailyStatusMonth);
   let lastClass = null;
@@ -4093,6 +4167,7 @@ function renderDailyStatus() {
       </div>
       <div class="row-count">Click any cell to choose from previously used codes (e.g. "KVDT", "yad prai", "26", "27") or type a new one &mdash; type "Failed" to flag a failure. Total KM is calculated per locomotive from that month's duty codes using the fixed distance-per-code table (26/27 = 723.1km, KVDT/B.Utara/B.Selatan/B.Timur = 150km, etc.) &mdash; codes not in that table contribute 0km. Additional KM is a manual entry for any distance the formula doesn't capture; Total Final KM = Total KM + Additional KM. Leave a cell blank for a normal/unassigned day. Source: Reliability_Loco_16-TAL_3.xlsx</div>
     </div>
+    <div class="panel" id="dsDeploymentPanel" style="margin-top:14px;">${deploymentSummaryPanelHtml()}</div>
     <div class="panel" id="dsMonthlyTotals" style="margin-top:14px;">
       <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;">Fleet Total Final KM by Month</div>
       <div style="display:flex;flex-wrap:wrap;gap:10px;">${monthlyTotalsHtml}</div>
