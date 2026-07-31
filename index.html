@@ -4089,7 +4089,14 @@ function buildDeploymentSummary(yyyyMm) {
     const bucket = classifyDailyValue(val);
     if (bucket) buckets[bucket].push({ asset: loco.asset, value: val.trim() });
   });
+  buckets.maintenance.sort((a, b) => maintenancePriority(a.value) - maintenancePriority(b.value));
   return { dateStr, buckets };
+}
+function maintenancePriority(raw) {
+  const u = (raw || '').toUpperCase();
+  if (/^PE\s?\d/.test(u) || u === 'PE') return 0;
+  if (u === 'FAILED') return 1;
+  return 2;
 }
 function deploymentSummaryPanelHtml() {
   const { dateStr, buckets } = buildDeploymentSummary(dailyStatusMonth);
