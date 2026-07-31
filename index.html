@@ -453,6 +453,7 @@
   }
   .dsdep-label-input:hover{border-color:var(--border-soft);background:var(--panel-2);}
   .dsdep-label-input:focus{outline:none;border-color:var(--amber);background:var(--panel-2);}
+  .deployment-summary-table th.grp-divider, .deployment-summary-table td.grp-divider{border-left:2px solid var(--border);}
   table.daily-table td.km-cell{
     font-family:var(--mono);font-weight:700;color:var(--text-dim);background:var(--panel);
     padding:3px 10px;
@@ -4097,26 +4098,27 @@ function deploymentSummaryPanelHtml() {
     ['others', 'Others'], ['maintenance', 'PE/Maintenance'],
   ];
   const maxRows = Math.max(1, ...groups.map(([key]) => buckets[key].length));
-  const headRow1 = `<th rowspan="2">No</th>` + groups.map(([, label]) => `<th colspan="2">${esc(label)}</th>`).join('');
-  const headRow2 = groups.map(() => `<th>Asset No</th><th>Value</th>`).join('');
+  const headRow1 = `<th rowspan="2">No</th>` + groups.map(([, label], gi) => `<th colspan="2"${gi > 0 ? ' class="grp-divider"' : ''}>${esc(label)}</th>`).join('');
+  const headRow2 = groups.map((_, gi) => `<th${gi > 0 ? ' class="grp-divider"' : ''}>Asset No</th><th>Task</th>`).join('');
   const bodyRows = Array.from({ length: maxRows }, (_, i) => {
-    const cells = groups.map(([key]) => {
+    const cells = groups.map(([key], gi) => {
       const row = buckets[key][i];
-      if (!row) return `<td></td><td></td>`;
+      const divCls = gi > 0 ? ' class="grp-divider"' : '';
+      if (!row) return `<td${divCls}></td><td></td>`;
       const overrideKey = `${row.asset}|${dateStr}`;
       const displayVal = DATA.dsLabelOverrides[overrideKey] || labelForDailyValue(row.value);
-      return `<td class="num">${esc(row.asset)}</td><td><input type="text" class="dsdep-label-input" data-asset="${esc(row.asset)}" data-date="${esc(dateStr)}" value="${esc(displayVal)}"></td>`;
+      return `<td class="num"${divCls}>${esc(row.asset)}</td><td><input type="text" class="dsdep-label-input" data-asset="${esc(row.asset)}" data-date="${esc(dateStr)}" value="${esc(displayVal)}"></td>`;
     }).join('');
     return `<tr><td class="num">${i + 1}</td>${cells}</tr>`;
   }).join('');
-  const totalsRow = `<tr><td></td>${groups.map(([key]) => `<td class="num" colspan="2"><b>${buckets[key].length}</b></td>`).join('')}</tr>`;
+  const totalsRow = `<tr><td></td>${groups.map(([key], gi) => `<td class="num${gi > 0 ? ' grp-divider' : ''}" colspan="2"><b>${buckets[key].length}</b></td>`).join('')}</tr>`;
   return `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
       <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">Daily Fleet Deployment Summary</div>
       <div class="dim" style="font-size:11px;">${dateStr ? 'As of ' + esc(dateStr) : 'No data entered this month'}</div>
     </div>
     <div class="table-scroll">
-      <table>
+      <table class="deployment-summary-table">
         <thead><tr>${headRow1}</tr><tr>${headRow2}</tr></thead>
         <tbody>${bodyRows}</tbody>
         <tfoot>${totalsRow}</tfoot>
