@@ -4100,6 +4100,13 @@ function maintenancePriority(raw) {
   if (u === 'FAILED') return 3;
   return 4;
 }
+function maintenanceCellStyle(raw) {
+  const u = (raw || '').toUpperCase();
+  if (u === 'FAILED') return 'background-color:#FF1E1E;color:#000000;border-color:#CC0000;font-weight:700;';
+  if (u.includes('REPAIR')) return 'background-color:#FF8A00;color:#FFFFFF;border-color:#CC6E00;font-weight:700;';
+  if (/^PE\b|^PE\d/.test(u) || u === 'PE') return 'background-color:#7FCDF2;color:#003A5C;border-color:#37AEE8;';
+  return '';
+}
 function deploymentSummaryPanelHtml() {
   const { dateStr, buckets } = buildDeploymentSummary(dailyStatusMonth);
   const groups = [
@@ -4116,7 +4123,8 @@ function deploymentSummaryPanelHtml() {
       if (!row) return `<td${divCls}></td><td></td>`;
       const overrideKey = `${row.asset}|${dateStr}`;
       const displayVal = DATA.dsLabelOverrides[overrideKey] || labelForDailyValue(row.value);
-      return `<td class="num"${divCls}>${esc(row.asset)}</td><td><input type="text" class="dsdep-label-input" data-asset="${esc(row.asset)}" data-date="${esc(dateStr)}" value="${esc(displayVal)}"></td>`;
+      const cellStyle = key === 'maintenance' ? maintenanceCellStyle(row.value) : '';
+      return `<td class="num"${divCls}>${esc(row.asset)}</td><td><input type="text" class="dsdep-label-input" data-asset="${esc(row.asset)}" data-date="${esc(dateStr)}" value="${esc(displayVal)}"${cellStyle ? ` style="${cellStyle}"` : ''}></td>`;
     }).join('');
     return `<tr><td class="num">${i + 1}</td>${cells}</tr>`;
   }).join('');
