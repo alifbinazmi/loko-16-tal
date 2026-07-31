@@ -4095,8 +4095,10 @@ function buildDeploymentSummary(yyyyMm) {
 function maintenancePriority(raw) {
   const u = (raw || '').toUpperCase();
   if (/^PE\s?\d/.test(u) || u === 'PE') return 0;
-  if (u === 'FAILED') return 1;
-  return 2;
+  if (u.includes('REPAIR')) return 1;
+  if (u.includes('REPAINT')) return 2;
+  if (u === 'FAILED') return 3;
+  return 4;
 }
 function deploymentSummaryPanelHtml() {
   const { dateStr, buckets } = buildDeploymentSummary(dailyStatusMonth);
