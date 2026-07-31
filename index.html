@@ -4079,11 +4079,15 @@ function classifyDailyValue(raw) {
   if (DEPARTMENTAL_CODES.some(c => u === c || u.startsWith(c))) return 'departmental';
   return 'others';
 }
-function buildDeploymentSummary(yyyyMm) {
-  const day = latestFilledDayInMonth(yyyyMm);
+let deploymentSelectedDate = null;
+function deploymentDateOrDefault() {
+  if (deploymentSelectedDate) return deploymentSelectedDate;
+  const day = latestFilledDayInMonth(dailyStatusMonth);
+  return day ? `${dailyStatusMonth}-${String(day).padStart(2, '0')}` : null;
+}
+function buildDeploymentSummary(dateStr) {
   const buckets = { intercity: [], kargo: [], departmental: [], others: [], maintenance: [] };
-  if (!day) return { dateStr: null, buckets };
-  const dateStr = `${yyyyMm}-${String(day).padStart(2, '0')}`;
+  if (!dateStr) return { dateStr: null, buckets };
   DATA.locoPerf.forEach(loco => {
     const val = DATA.dailyStatus[`${loco.asset}|${dateStr}`] || '';
     const bucket = classifyDailyValue(val);
@@ -4107,8 +4111,55 @@ function maintenanceCellStyle(raw) {
   if (/^PE\b|^PE\d/.test(u) || u === 'PE') return 'background-color:#7FCDF2;color:#003A5C;border-color:#37AEE8;';
   return '';
 }
+function deploymentDateControlHtml() {
+  const dateStr = deploymentDateOrDefault() || dailyStatusMonth + '-01';
+  const [curYear, curMonthNum, curDay] = dateStr.split('-').map(Number);
+  const trackedYears = getAllTrackedMonths().map(m => Number(m.split('-')[0]));
+  const minYear = Math.min(curYear, ...(trackedYears.length ? trackedYears : [curYear]));
+  const maxYear = Math.max(curYear + 1, ...(trackedYears.length ? trackedYears : [curYear]));
+  const years = [];
+  for (let y = minYear; y <= maxYear; y++) years.push(y);
+  const daysInSelMonth = daysInMonthCount(`${curYear}-${String(curMonthNum).padStart(2, '0')}`);
+  const dayOptions = Array.from({ length: daysInSelMonth }, (_, i) => i + 1);
+  return `
+    <div class="sortby-box">
+      ${ICONS.calendar}
+      <select id="depDaySelect" aria-label="Select day">
+        ${dayOptions.map(d => `<option value="${d}" ${curDay === d ? 'selected' : ''}>${d}</option>`).join('')}
+      </select>
+      <select id="depMonthSelect" aria-label="Select month">
+        ${MONTH_NAMES.map((m, i) => `<option value="${i + 1}" ${curMonthNum === i + 1 ? 'selected' : ''}>${m}</option>`).join('')}
+      </select>
+      <select id="depYearSelect" aria-label="Select year">
+        ${years.map(y => `<option value="${y}" ${curYear === y ? 'selected' : ''}>${y}</option>`).join('')}
+      </select>
+    </div>
+    <button class="btn" id="depDisplayBtn" style="font-size:11.5px;padding:8px 12px;background:#8BC34A;color:#0B2E00;border-color:#6FA83A;">Display</button>`;
+}
+function wireDeploymentDateControl() {
+  const daySel = document.getElementById('depDaySelect');
+  const monthSel = document.getElementById('depMonthSelect');
+  const yearSel = document.getElementById('depYearSelect');
+  const displayBtn = document.getElementById('depDisplayBtn');
+  function syncDayOptions() {
+    if (!monthSel || !yearSel || !daySel) return;
+    const y = yearSel.value, m = monthSel.value.padStart(2, '0');
+    const n = daysInMonthCount(`${y}-${m}`);
+    const cur = Math.min(Number(daySel.value) || 1, n);
+    daySel.innerHTML = Array.from({ length: n }, (_, i) => i + 1).map(d => `<option value="${d}" ${d === cur ? 'selected' : ''}>${d}</option>`).join('');
+  }
+  if (monthSel) monthSel.addEventListener('change', syncDayOptions);
+  if (yearSel) yearSel.addEventListener('change', syncDayOptions);
+  if (displayBtn) displayBtn.addEventListener('click', () => {
+    const d = daySel.value.padStart(2, '0');
+    const m = monthSel.value.padStart(2, '0');
+    const y = yearSel.value;
+    deploymentSelectedDate = `${y}-${m}-${d}`;
+    refreshDeploymentSummary();
+  });
+}
 function deploymentSummaryPanelHtml() {
-  const { dateStr, buckets } = buildDeploymentSummary(dailyStatusMonth);
+  const { dateStr, buckets } = buildDeploymentSummary(deploymentDateOrDefault());
   const groups = [
     ['intercity', 'Intercity'], ['kargo', 'Kargo'], ['departmental', 'Departmental'],
     ['others', 'Others'], ['maintenance', 'PE/Maintenance'],
@@ -4132,7 +4183,10 @@ function deploymentSummaryPanelHtml() {
   return `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
       <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">Daily Fleet Deployment Summary</div>
-      <div class="dim" style="font-size:11px;">${dateStr ? 'As of ' + esc(dateStr) : 'No data entered this month'}</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div class="dim" style="font-size:11px;">${dateStr ? 'As of ' + esc(dateStr) : 'No data for this date'}</div>
+        ${deploymentDateControlHtml()}
+      </div>
     </div>
     <div class="table-scroll">
       <table class="deployment-summary-table">
@@ -4146,6 +4200,7 @@ function refreshDeploymentSummary() {
   const panel = document.getElementById('dsDeploymentPanel');
   if (panel) panel.innerHTML = deploymentSummaryPanelHtml();
   wireDeploymentSummaryInputs();
+  wireDeploymentDateControl();
 }
 async function saveDeploymentLabelOverride(inp) {
   const key = `${inp.dataset.asset}|${inp.dataset.date}`;
@@ -4241,6 +4296,7 @@ function renderDailyStatus() {
   wireDailyStatusCells();
   wireDailyStatusMonthChips();
   wireDeploymentSummaryInputs();
+  wireDeploymentDateControl();
 }
 
 function renderContent() {
