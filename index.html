@@ -4072,6 +4072,44 @@ function latestFilledDayInMonth(yyyyMm) {
   return maxDay || null;
 }
 
+const KM_REFERENCE_TABLE = [
+  ['Batu Gajah', [
+    ['Padang Besar', 338.8], ['Bukit Tengah', 195], ['KL Sentral', 206], ['Port Klang', 248.98],
+    ['Gemas', 367.5], ['Kempas', 577.7], ['Lipis', 590.4], ['Tumpat', 890.3],
+  ]],
+  ['KL Sentral', [
+    ['Kempas', 371], ['Gemas', 174.85], ['Bukit Tengah', 387.65], ['Lipis', 452.65],
+    ['Port Klang', 42.98], ['Batu Gajah', 206.65], ['Padang Besar', 545.5], ['Seremban', 72.5],
+  ]],
+  ['Gemas', [
+    ['KL Sentral', 174.85], ['Lipis', 222.9], ['Kempas', 184.82], ['Tumpat', 522.8],
+    ['Batu Gajah', 367.5], ['Bukit Tengah', 562.5], ['Port Klang', 217.98], ['Padang Besar', 720.4], ['Seremban', 102.5],
+  ]],
+  ['Kempas', [
+    ['Gemas', 184.8], ['KL Sentral', 371], ['Tumpat', 707.6], ['Lipis', 407.7],
+    ['Batu Gajah', 577.7], ['Bukit Tengah', 758.7], ['Padang Besar', 916.5],
+  ]],
+  ['Lipis', [
+    ['Tumpat', 250],
+  ]],
+];
+function kmReferenceTablePanelHtml() {
+  const rows = KM_REFERENCE_TABLE.map(([origin, routes]) => `
+    <tr><td colspan="2" style="font-weight:700;color:var(--text-dim);background:var(--panel-2);">${esc(origin)}</td></tr>
+    ${routes.map(([dest, km]) => `<tr><td>${esc(origin)} &ndash; ${esc(dest)}</td><td class="num">${km}</td></tr>`).join('')}
+  `).join('');
+  return `
+    <div class="panel" id="dsKmReference" style="margin-top:14px;">
+      <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;">Kilometer Reference Table</div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Route</th><th>Distance (km)</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="row-count">Reference only &mdash; for looking up station-to-station distance when filling in Additional KM manually. Not used in the automatic Total KM formula.</div>
+    </div>`;
+}
 function renderDailyStatus() {
   const nDays = daysInMonthCount(dailyStatusMonth);
   const todayStr = todayDateStr();
@@ -4137,6 +4175,7 @@ function renderDailyStatus() {
       <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;">Fleet Total Final KM by Month</div>
       <div style="display:flex;flex-wrap:wrap;gap:10px;">${monthlyTotalsHtml}</div>
     </div>
+    ${kmReferenceTablePanelHtml()}
     <datalist id="dailyStatusOptions">${optionsHtml}</datalist>
   `;
   wireDailyStatusNav();
