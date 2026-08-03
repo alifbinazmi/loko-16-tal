@@ -419,6 +419,8 @@
   table.avail-daily-table th:first-child, table.avail-daily-table td:first-child{width:74px;text-align:center !important;padding-left:0 !important;}
   table.avail-daily-table th:last-child, table.avail-daily-table td:last-child{width:100px;}
   table.daily-table td.day-cell{padding:1px;}
+  table.daily-table th.today-col{background:var(--amber-soft) !important;color:var(--amber) !important;}
+  table.daily-table td.today-col{box-shadow:inset 0 0 0 2px var(--amber);}
   .daily-cell-input{
     width:100%;min-width:52px;box-sizing:border-box;background:transparent;border:1px solid transparent;border-radius:3px;
     padding:4px 2px;color:var(--text);font-size:10.5px;text-align:center;font-family:var(--sans);
@@ -1557,6 +1559,7 @@ function renderNav() {
 function setView(id) {
   currentView = id;
   searchTerm = '';
+  if (id === 'dailyStatus') dailyStatusMonth = todayMonthKey();
   const cfg = NAV.find(n => n.id === id);
   document.getElementById('viewTitle').textContent = cfg.label;
   document.getElementById('viewSubtitle').innerHTML = cfg.subtitle;
@@ -3191,7 +3194,14 @@ function renderReliability() {
 /* ============================================================
    DAILY STATUS TAB (from Reliability_Loco_16-TAL_3.xlsx) \u2014 editable
    ============================================================ */
-let dailyStatusMonth = '2026-07';
+function todayDateStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function todayMonthKey() {
+  return todayDateStr().slice(0, 7);
+}
+let dailyStatusMonth = todayMonthKey();
 function shiftMonth(yyyyMm, delta) {
   const [y, m] = yyyyMm.split('-').map(Number);
   const d = new Date(y, m - 1 + delta, 1);
@@ -3236,7 +3246,9 @@ function dailyValueStyle(rawVal) {
 }
 function autoCapitalizeDailyValue(t) {
   const tu = t.toUpperCase();
-  return (tu.includes('FAILED') || tu.includes('REPAINT')) ? tu : t;
+  if (tu.includes('FAILED') || tu.includes('REPAINT')) return tu;
+  if (tu === 'YAD PRAI') return 'Yad Prai';
+  return t;
 }
 function collectDailyStatusOptions() {
   const counts = new Map();
@@ -3264,7 +3276,7 @@ function wireDailyStatusNav() {
     renderDailyStatus();
   });
   if (next) next.addEventListener('click', () => { dailyStatusMonth = shiftMonth(dailyStatusMonth, 1); renderDailyStatus(); });
-  if (today) today.addEventListener('click', () => { dailyStatusMonth = '2026-07'; renderDailyStatus(); });
+  if (today) today.addEventListener('click', () => { dailyStatusMonth = todayMonthKey(); renderDailyStatus(); });
 }
 function fleetFinalKmForMonth(yyyyMm) {
   return Math.round(DATA.locoPerf.reduce((s, l) => s + computeFinalKm(l.asset, yyyyMm), 0) * 10) / 10;
@@ -3533,6 +3545,7 @@ const KM_RATE_RULES = [
   { test: v => /^\d{3}[+&]\d{3}$/.test(v), km: 266 },        // e.g. 474+473, 476+471, 474&475
   { test: v => /^\d{3}-\d{3}$/.test(v), km: 532 },           // e.g. 472-471, 472-476, 474-471
   { test: v => v === 'yad utara', km: 55 },
+  { test: v => v === 'yad prai', km: 55 },
   { test: v => v === 'f.klang', km: 55 },
   { test: v => v === 'e&o 24 (g)', km: 222 },
   { test: v => v === 'e&o 24 (m)', km: 381.5 },
@@ -4061,8 +4074,12 @@ function latestFilledDayInMonth(yyyyMm) {
 
 function renderDailyStatus() {
   const nDays = daysInMonthCount(dailyStatusMonth);
+  const todayStr = todayDateStr();
   let lastClass = null;
-  const dayHeaderCells = Array.from({ length: nDays }, (_, i) => `<th>${i + 1}</th>`).join('');
+  const dayHeaderCells = Array.from({ length: nDays }, (_, i) => {
+    const dateStr = `${dailyStatusMonth}-${String(i + 1).padStart(2, '0')}`;
+    return `<th${dateStr === todayStr ? ' class="today-col"' : ''}>${i + 1}</th>`;
+  }).join('');
   const bodyRows = DATA.locoPerf.map(loco => {
     const showClass = loco.class !== lastClass;
     lastClass = loco.class;
@@ -4072,7 +4089,8 @@ function renderDailyStatus() {
       const val = DATA.dailyStatus[key] || '';
       const isFail = /fail/i.test(val);
       const style = dailyValueStyle(val);
-      return `<td class="day-cell"><input type="text" autocomplete="off" class="daily-cell-input${val ? ' has-value' : ''}${isFail ? ' fail-value' : ''}"${style ? ` style="${style}"` : ''} data-asset="${loco.asset}" data-date="${dateStr}" value="${esc(val)}" title="${esc(val)}"></td>`;
+      const todayCls = dateStr === todayStr ? ' today-col' : '';
+      return `<td class="day-cell${todayCls}"><input type="text" autocomplete="off" class="daily-cell-input${val ? ' has-value' : ''}${isFail ? ' fail-value' : ''}"${style ? ` style="${style}"` : ''} data-asset="${loco.asset}" data-date="${dateStr}" value="${esc(val)}" title="${esc(val)}"></td>`;
     }).join('');
     const rowKm = computeMonthlyKm(loco.asset, dailyStatusMonth);
     const addKm = getAdditionalKm(loco.asset, dailyStatusMonth);
@@ -4097,7 +4115,7 @@ function renderDailyStatus() {
           <button class="btn btn-ghost" id="dsPrevMonth"${dailyStatusMonth <= DAILY_STATUS_MIN_MONTH ? ' disabled style="opacity:.35;cursor:not-allowed;"' : ''}>&lsaquo; Prev</button>
           <div style="font-weight:700;font-size:14px;min-width:150px;text-align:center;">${monthLabelLong(dailyStatusMonth)}</div>
           <button class="btn btn-ghost" id="dsNextMonth">Next &rsaquo;</button>
-          <button class="btn btn-ghost" id="dsToday" style="font-size:11px;">Jump to Jul 2026</button>
+          <button class="btn btn-ghost" id="dsToday" style="font-size:11px;">Jump to ${monthLabelLong(todayMonthKey())}</button>
         </div>
         <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
           <div class="dim" style="font-size:11px;"><span id="dsFilledCount">${monthFilled}</span> of ${DATA.locoPerf.length * nDays} cells filled this month</div>
@@ -4126,6 +4144,10 @@ function renderDailyStatus() {
   wireDailyStatusMonthChips();
   wireDeploymentSummaryInputs();
   wireDeploymentDateControl();
+  requestAnimationFrame(() => {
+    const todayCell = document.querySelector('table.daily-table th.today-col');
+    if (todayCell) todayCell.scrollIntoView({ block: 'nearest', inline: 'center' });
+  });
 }
 
 function renderContent() {
