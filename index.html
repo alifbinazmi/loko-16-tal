@@ -4107,6 +4107,11 @@ function maintenancePriority(raw) {
   if (u === 'FAILED') return 3;
   return 4;
 }
+function shiftDateStr(dateStr, deltaDays) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + deltaDays);
+  return d.toISOString().slice(0, 10);
+}
 function deploymentDateControlHtml() {
   const dateStr = deploymentDateOrDefault() || dailyStatusMonth + '-01';
   const [curYear, curMonthNum, curDay] = dateStr.split('-').map(Number);
@@ -4118,6 +4123,7 @@ function deploymentDateControlHtml() {
   const daysInSelMonth = daysInMonthCount(`${curYear}-${String(curMonthNum).padStart(2, '0')}`);
   const dayOptions = Array.from({ length: daysInSelMonth }, (_, i) => i + 1);
   return `
+    <button class="btn btn-ghost" id="depPrevBtn" title="Yesterday" style="font-size:11.5px;padding:8px 10px;">&lsaquo; Prev</button>
     <div class="sortby-box">
       ${ICONS.calendar}
       <select id="depDaySelect" aria-label="Select day">
@@ -4130,13 +4136,24 @@ function deploymentDateControlHtml() {
         ${years.map(y => `<option value="${y}" ${curYear === y ? 'selected' : ''}>${y}</option>`).join('')}
       </select>
     </div>
-    <button class="btn" id="depDisplayBtn" style="font-size:11.5px;padding:8px 12px;background:#8BC34A;color:#0B2E00;border-color:#6FA83A;">Display</button>`;
+    <button class="btn" id="depDisplayBtn" style="font-size:11.5px;padding:8px 12px;background:#8BC34A;color:#0B2E00;border-color:#6FA83A;">Display</button>
+    <button class="btn btn-ghost" id="depNextBtn" title="Tomorrow" style="font-size:11.5px;padding:8px 10px;">Next &rsaquo;</button>`;
 }
 function wireDeploymentDateControl() {
   const daySel = document.getElementById('depDaySelect');
   const monthSel = document.getElementById('depMonthSelect');
   const yearSel = document.getElementById('depYearSelect');
   const displayBtn = document.getElementById('depDisplayBtn');
+  const prevBtn = document.getElementById('depPrevBtn');
+  const nextBtn = document.getElementById('depNextBtn');
+  if (prevBtn) prevBtn.addEventListener('click', () => {
+    deploymentSelectedDate = shiftDateStr(deploymentDateOrDefault() || dailyStatusMonth + '-01', -1);
+    refreshDeploymentSummary();
+  });
+  if (nextBtn) nextBtn.addEventListener('click', () => {
+    deploymentSelectedDate = shiftDateStr(deploymentDateOrDefault() || dailyStatusMonth + '-01', 1);
+    refreshDeploymentSummary();
+  });
   function syncDayOptions() {
     if (!monthSel || !yearSel || !daySel) return;
     const y = yearSel.value, m = monthSel.value.padStart(2, '0');
