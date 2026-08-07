@@ -1552,14 +1552,18 @@ function renderNav() {
       ${counts[n.id] !== '' ? `<span class="nav-count">${counts[n.id]}</span>` : ''}
     </div>`).join('');
   document.querySelectorAll('.nav-item').forEach(el => {
-    el.addEventListener('click', () => setView(el.dataset.view));
+    el.addEventListener('click', () => {
+      const id = el.dataset.view;
+      if (id === 'dailyStatus') dailyStatusMonth = todayMonthKey();
+      if (id === 'availability') dailyAvailabilityMonth = todayMonthKey();
+      setView(id);
+    });
   });
 }
 
 function setView(id) {
   currentView = id;
   searchTerm = '';
-  if (id === 'dailyStatus') dailyStatusMonth = todayMonthKey();
   const cfg = NAV.find(n => n.id === id);
   document.getElementById('viewTitle').textContent = cfg.label;
   document.getElementById('viewSubtitle').innerHTML = cfg.subtitle;
@@ -2727,7 +2731,7 @@ function availabilityPickerHtml() {
   </div>`;
 }
 
-let dailyAvailabilityMonth = '2026-07';
+let dailyAvailabilityMonth = todayMonthKey();
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 function availabilityMonthYearControlHtml() {
   const [curYear, curMonthNum] = dailyAvailabilityMonth.split('-').map(Number);
@@ -2755,7 +2759,7 @@ function wireDailyAvailabilityNav() {
   const displayBtn = document.getElementById('daDisplayBtn');
   if (prev) prev.addEventListener('click', () => { dailyAvailabilityMonth = shiftMonth(dailyAvailabilityMonth, -1); renderAvailability(); });
   if (next) next.addEventListener('click', () => { dailyAvailabilityMonth = shiftMonth(dailyAvailabilityMonth, 1); renderAvailability(); });
-  if (today) today.addEventListener('click', () => { dailyAvailabilityMonth = '2026-07'; renderAvailability(); });
+  if (today) today.addEventListener('click', () => { dailyAvailabilityMonth = todayMonthKey(); renderAvailability(); });
   if (displayBtn) displayBtn.addEventListener('click', () => {
     const m = document.getElementById('daMonthSelect').value.padStart(2, '0');
     const y = document.getElementById('daYearSelect').value;
@@ -2785,7 +2789,7 @@ function renderDailyAvailabilityGrid() {
           <button class="btn btn-ghost" id="daPrevMonth">&lsaquo; Prev</button>
           <div style="font-weight:700;font-size:14px;min-width:150px;text-align:center;">${monthLabelLong(dailyAvailabilityMonth)}</div>
           <button class="btn btn-ghost" id="daNextMonth">Next &rsaquo;</button>
-          <button class="btn btn-ghost" id="daToday" style="font-size:11px;">Jump to Jul 2026</button>
+          <button class="btn btn-ghost" id="daToday" style="font-size:11px;">Jump to ${monthLabelLong(todayMonthKey())}</button>
           ${availabilityMonthYearControlHtml()}
         </div>
         <div style="font-size:12px;font-weight:700;color:var(--amber);">Average this month: ${avg}<span class="dim" style="font-weight:400;"> / ${target} target</span></div>
