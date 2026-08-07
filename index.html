@@ -788,23 +788,25 @@ const PE_PLAN_SUMMARY = { plan: 733, actual: 190 };
      every 360 days -> PE360 (24th cycle \u2014 supersedes PE45 and PE180)
    e.g. cycles 1-11: PE15,PE15,PE45,PE15,PE15,PE45,PE15,PE15,PE45,PE15,PE15,
    cycle 12: PE180 (not PE45), cycle 24: PE360 (not PE45 or PE180). */
-function peTypeForCycle(cycleNum) {
+function peTypeForCycle(cycleNum, locoClass) {
+  if (String(locoClass || '').startsWith('19')) return 'PE30'; // 19 Class only ever does PE30, on its own 30-day cycle
   if (cycleNum % 24 === 0) return 'PE360';
   if (cycleNum % 12 === 0) return 'PE180';
   if (cycleNum % 3 === 0) return 'PE45';
   return 'PE15';
 }
-function computeUpcomingPeCycles(referenceDateStr, count, startCycle) {
+function computeUpcomingPeCycles(referenceDateStr, count, startCycle, locoClass) {
   if (!referenceDateStr) return [];
   const start = new Date(referenceDateStr + 'T00:00:00');
   if (isNaN(start)) return [];
   const base = startCycle || 1;
+  const intervalDays = String(locoClass || '').startsWith('19') ? 30 : 15;
   const results = [];
   for (let i = 0; i < count; i++) {
     const cycleNum = base + i;
     const d = new Date(start);
-    d.setDate(d.getDate() + 15 * (i + 1));
-    results.push({ date: d.toISOString().slice(0, 10), type: peTypeForCycle(cycleNum), cycle: cycleNum });
+    d.setDate(d.getDate() + intervalDays * (i + 1));
+    results.push({ date: d.toISOString().slice(0, 10), type: peTypeForCycle(cycleNum, locoClass), cycle: cycleNum });
   }
   return results;
 }
@@ -815,8 +817,9 @@ function recomputePeSchedule() {
     const referenceDate = r.lastPE || r.nextPE;
     const completedCount = DATA.peHistory.filter(h => h.asset === r.asset).length;
     const cycle = completedCount + 1; // the next PE this locomotive is due for, counting its real completed history
-    const upcomingType = referenceDate ? peTypeForCycle(cycle) : '\u2014';
-    const upcomingDate = r.nextPE || (referenceDate ? computeUpcomingPeCycles(referenceDate, 1)[0].date : null);
+    const locoClass = loco ? loco.class : null;
+    const upcomingType = referenceDate ? peTypeForCycle(cycle, locoClass) : '\u2014';
+    const upcomingDate = r.nextPE || (referenceDate ? computeUpcomingPeCycles(referenceDate, 1, cycle, locoClass)[0].date : null);
     const monthlyEntry = DATA.peMonthlyStatus[String(r.asset)] || {};
     return {
       ...r, class: loco ? loco.class : '\u2014', upcomingType, upcomingDate, nextCycleNumber: referenceDate ? cycle : 1,
@@ -853,7 +856,7 @@ function computeWeeklyPePlanGrid(weekNum) {
       const completedCount = DATA.peHistory.filter(h => h.asset === r.asset).length;
       const refD = new Date(referenceDate + 'T00:00:00');
       const stepsNeeded = Math.max(1, Math.ceil((endD - refD) / (15 * 86400000)) + 2);
-      const cycles = computeUpcomingPeCycles(referenceDate, stepsNeeded, completedCount + 1);
+      const cycles = computeUpcomingPeCycles(referenceDate, stepsNeeded, completedCount + 1, r.class);
       cycles.forEach(c => {
         const idx = days.indexOf(c.date);
         if (idx >= 0) cells[idx] = c.type;
@@ -3767,8 +3770,8 @@ function peTypeColor(type) {
   if (type === 'PE45') return 'var(--amber)';
   return null; // PE15 uses default text color
 }
-function upcomingPeCellHtml(referenceDateStr, startCycle) {
-  const cycles = computeUpcomingPeCycles(referenceDateStr, 24, startCycle); // ~1 year ahead, covers a full PE360 cycle
+function upcomingPeCellHtml(referenceDateStr, startCycle, locoClass) {
+  const cycles = computeUpcomingPeCycles(referenceDateStr, 24, startCycle, locoClass); // ~1 year ahead, covers a full PE360 cycle (or the equivalent span of PE30s for 19 Class)
   if (!cycles.length) return '<td class="dim">&mdash;</td>';
   const detailHtml = cycles.map(c => {
     const color = peTypeColor(c.type);
@@ -3812,7 +3815,7 @@ function renderMasterplan() {
       <td class="dim">${fmtDate(r.nextPE)}</td>
       <td class="num"${r.daysDue !== null && r.daysDue < 0 ? ' style="color:var(--red);font-weight:700;"' : ''}>${formatDaysDue(r.daysDue)}</td>
       <td>${peStatusPill(r.status)}</td>
-      ${upcomingPeCellHtml(r.lastPE || r.nextPE, r.nextCycleNumber)}
+      ${upcomingPeCellHtml(r.lastPE || r.nextPE, r.nextCycleNumber, r.class)}
       <td class="dim">${fmtDate(r.last45)}</td>
       <td class="dim">${fmtDate(r.next45)}</td>
       <td class="num"${r.daysDue45 !== null && r.daysDue45 < 0 ? ' style="color:var(--red);font-weight:700;"' : ''}>${formatDaysDue(r.daysDue45)}</td>
