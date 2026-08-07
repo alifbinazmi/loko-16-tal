@@ -2071,7 +2071,7 @@ function drawDoughnutChart(canvasId, labels, values, colors) {
   const { ctx, w, h } = setupCanvas(canvas);
   ctx.clearRect(0, 0, w, h);
   const total = values.reduce((a, b) => a + b, 0) || 1;
-  const legendW = 110;
+  const legendW = 140;
   const cx = (w - legendW) / 2, cy = h / 2;
   const r = Math.min(cx, cy) - 12, rInner = r * 0.6;
 
@@ -2096,13 +2096,13 @@ function drawDoughnutChart(canvasId, labels, values, colors) {
   ctx.fillText('total', cx, cy + 10);
 
   const legendX = w - legendW + 6;
-  let legendY = cy - (labels.length * 18) / 2;
+  let legendY = cy - (labels.length * 24) / 2;
   labels.forEach((lab, i) => {
     ctx.fillStyle = colors[i % colors.length];
-    roundRectFull(ctx, legendX, legendY, 9, 9, 2); ctx.fill();
-    ctx.fillStyle = CHART_TEXT_STRONG; ctx.font = '10.5px -apple-system,Segoe UI,sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(`${lab} (${values[i]})`, legendX + 14, legendY + 5);
-    legendY += 18;
+    roundRectFull(ctx, legendX, legendY, 13, 13, 3); ctx.fill();
+    ctx.fillStyle = CHART_TEXT_STRONG; ctx.font = '14px -apple-system,Segoe UI,sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(`${lab} (${values[i]})`, legendX + 19, legendY + 7);
+    legendY += 24;
   });
 }
 function roundRectFull(ctx, x, y, w, h, r) {
@@ -3916,7 +3916,7 @@ function renderMasterplan() {
     </div>
 
     <div class="chart-grid" style="grid-template-columns:1fr;">
-      <div class="chart-panel"><h3>PE15/30 Status Breakdown</h3><div class="chart-wrap"><canvas id="chartPeStatus"></canvas></div></div>
+      <div class="chart-panel"><h3>PE Status/Breakdown</h3><div class="chart-wrap"><canvas id="chartPeStatus"></canvas></div></div>
     </div>
 
     <div class="panel" style="margin-top:14px;">
