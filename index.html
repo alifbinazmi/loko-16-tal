@@ -864,7 +864,7 @@ function computeWeeklyPePlanGrid(weekNum) {
   return { days, grid };
 }
 function defaultPeWeekNum() {
-  const today = new Date('2026-07-16T00:00:00');
+  const today = new Date();
   const start = new Date(PE_PLAN_WEEK1_START + 'T00:00:00');
   return Math.max(1, Math.floor((today - start) / (7 * 86400000)) + 1);
 }
