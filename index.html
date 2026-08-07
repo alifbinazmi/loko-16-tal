@@ -717,6 +717,7 @@ let searchTerm = '';
 let charts = {};
 let sortState = { locoPerf: { key: 'unscheduled', dir: -1 }, peSchedule: { key: 'daysDue', dir: 1 }, peHistory: { key: 'date', dir: -1 } }; // per-view: { key, dir }
 let columnFilters = { failures: {}, incidents: {}, langgar: {}, locoPerf: {}, peSchedule: {}, peHistory: {} }; // per-view: { colKey: Set(rawValueKeys) }
+let reliabilityClassFilter = 'all';
 let openFilterPanel = null; // { view, key } | null
 let filterPanelSearch = {}; // "view:key" -> search text typed inside the filter panel
 
@@ -3030,7 +3031,25 @@ const LOCO_PERF_COLUMNS = [
   { key: 'unscheduled', label: 'Unscheduled' },
   { key: 'pe', label: 'Periodic Exam' },
   { key: 'mileage', label: 'Mileage (km)' },
+  { key: 'rank', label: 'Ranking' },
 ];
+function computeLocoRankings() {
+  const byClass = {};
+  DATA.locoPerf.forEach(l => { (byClass[l.class] = byClass[l.class] || []).push(l); });
+  const rankByAsset = {};
+  Object.values(byClass).forEach(group => {
+    const posOf = (sorted, asset) => sorted.findIndex(x => x.asset === asset) + 1;
+    const peOrder = group.slice().sort((a, b) => b.pe - a.pe);
+    const mileageOrder = group.slice().sort((a, b) => b.mileage - a.mileage);
+    const unschedOrder = group.slice().sort((a, b) => a.unscheduled - b.unscheduled);
+    const scored = group.map(l => ({
+      asset: l.asset,
+      score: posOf(peOrder, l.asset) + posOf(mileageOrder, l.asset) + posOf(unschedOrder, l.asset),
+    })).sort((a, b) => a.score - b.score || a.asset - b.asset);
+    scored.forEach((s, i) => { rankByAsset[s.asset] = i + 1; });
+  });
+  return rankByAsset;
+}
 function reliabilityStatusPill(pass) {
   if (pass === null || pass === undefined) return '<span class="dim">&mdash;</span>';
   return pass ? '<span class="badge badge-ok">On target</span>' : '<span class="badge badge-fail">Below</span>';
@@ -3225,8 +3244,13 @@ function renderReliability() {
     </tr>`;
   }).join('');
 
+  const rankByAsset = computeLocoRankings();
+  DATA.locoPerf.forEach(l => { l.rank = rankByAsset[l.asset] || null; });
+
+  const locoClasses = [...new Set(DATA.locoPerf.map(l => l.class))].sort();
   let locoRows = sourceRowsFor('locoPerf').slice();
   locoRows = applyColumnFilters('locoPerf', locoRows);
+  if (reliabilityClassFilter !== 'all') locoRows = locoRows.filter(r => r.class === reliabilityClassFilter);
   const lst = sortState.locoPerf;
   if (lst && lst.key) locoRows = sortRows(locoRows, 'locoPerf', (r, k) => r[k]);
   const locoBody = locoRows.length ? locoRows.map(r => `
@@ -3236,6 +3260,7 @@ function renderReliability() {
       <td class="num${r.unscheduled ? ' unsched-drill' : ''}"${r.unscheduled ? ` data-asset="${esc(r.asset)}" style="cursor:pointer;color:var(--blue);text-decoration:underline;" title="View this locomotive's Unscheduled Reports"` : ''}>${r.unscheduled}</td>
       <td class="num${r.pe ? ' pe-drill' : ''}"${r.pe ? ` data-asset="${esc(r.asset)}" style="cursor:pointer;color:var(--blue);text-decoration:underline;" title="View this locomotive's PE History"` : ''}>${r.pe}</td>
       <td class="num">${r.mileage ? r.mileage.toLocaleString(undefined, { maximumFractionDigits: 1 }) : '&mdash;'}</td>
+      <td class="num">${r.rank ? '#' + r.rank : '&mdash;'}</td>
     </tr>`).join('') : `<tr class="empty-row"><td colspan="${LOCO_PERF_COLUMNS.length}">No locomotives match your filters.</td></tr>`;
 
   document.getElementById('content').innerHTML = `
@@ -3257,6 +3282,13 @@ function renderReliability() {
       <div class="row-count">Running (km) is the fleet-wide Total Final KM summed from the Daily Status tab for that month. MKBF = Running km &divide; Failures for that month, against a ${fmtKm(MKBF_TARGET_KM)} km target. Failures are the originally logged monthly counts from Reliability_Loco_16-TAL.xlsx.</div>
     </div>
 
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px;flex-wrap:wrap;gap:8px;">
+      <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">Locomotive Performance</div>
+      <select id="reliabilityClassSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);">
+        <option value="all"${reliabilityClassFilter === 'all' ? ' selected' : ''}>All Classes</option>
+        ${locoClasses.map(c => `<option value="${esc(c)}"${reliabilityClassFilter === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}
+      </select>
+    </div>
     <div class="panel">
       <div class="table-scroll">
         <table>
@@ -3266,7 +3298,7 @@ function renderReliability() {
           <tbody>${locoBody}</tbody>
         </table>
       </div>
-      <div class="row-count">${locoRows.length} of ${DATA.locoPerf.length} locomotives shown &middot; ${lst && lst.key ? 'sorted by ' + esc(LOCO_PERF_COLUMNS.find(c => c.key === lst.key).label) + (lst.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('locoPerf') ? ' &middot; ' + countActiveFilters('locoPerf') + ' column filter(s) active' : ''}</div>
+      <div class="row-count">${locoRows.length} of ${DATA.locoPerf.length} locomotives shown &middot; ${lst && lst.key ? 'sorted by ' + esc(LOCO_PERF_COLUMNS.find(c => c.key === lst.key).label) + (lst.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('locoPerf') ? ' &middot; ' + countActiveFilters('locoPerf') + ' column filter(s) active' : ''} &middot; Ranking is computed within each class (higher PE, higher mileage, lower unscheduled = better)</div>
     </div>
   `;
 
@@ -3275,6 +3307,11 @@ function renderReliability() {
 
   wireSortHeaders();
   wireFilterButtons();
+  wireReliabilityClassFilter();
+}
+function wireReliabilityClassFilter() {
+  const sel = document.getElementById('reliabilityClassSelect');
+  if (sel) sel.addEventListener('change', () => { reliabilityClassFilter = sel.value; renderReliability(); });
 }
 
 /* ============================================================
