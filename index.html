@@ -720,6 +720,8 @@ let charts = {};
 let sortState = { locoPerf: { key: 'unscheduled', dir: -1 }, peSchedule: { key: 'daysDue', dir: 1 }, peHistory: { key: 'date', dir: -1 } }; // per-view: { key, dir }
 let columnFilters = { failures: {}, incidents: {}, langgar: {}, locoPerf: {}, peSchedule: {}, peHistory: {} }; // per-view: { colKey: Set(rawValueKeys) }
 let reliabilityClassFilter = 'all';
+let reliabilityPerfMonth = 'all';
+let locoPerfEffectiveRows = null;
 let openFilterPanel = null; // { view, key } | null
 let filterPanelSearch = {}; // "view:key" -> search text typed inside the filter panel
 
@@ -979,7 +981,7 @@ function sourceRowsFor(viewKey) {
   if (viewKey === 'failures') return DATA.failures;
   if (viewKey === 'incidents') return DATA.incidents;
   if (viewKey === 'langgar') return DATA.langgar;
-  if (viewKey === 'locoPerf') return DATA.locoPerf || [];
+  if (viewKey === 'locoPerf') return locoPerfEffectiveRows || DATA.locoPerf || [];
   if (viewKey === 'peSchedule') return DATA.peSchedule || [];
   if (viewKey === 'peHistory') return DATA.peHistory || [];
   return [];
@@ -3265,11 +3267,24 @@ function renderReliability() {
     </tr>`;
   }).join('');
 
-  const rankGroup = reliabilityClassFilter === 'all' ? DATA.locoPerf : DATA.locoPerf.filter(l => l.class === reliabilityClassFilter);
+  locoPerfEffectiveRows = reliabilityPerfMonth === 'all'
+    ? DATA.locoPerf
+    : (() => {
+        const counts = dailyStatusEventCountsForMonth(reliabilityPerfMonth);
+        return DATA.locoPerf.map(l => ({
+          asset: l.asset, class: l.class,
+          unscheduled: counts.unscheduledByAsset[l.asset] || 0,
+          pe: counts.peByAsset[l.asset] || 0,
+          mileage: computeFinalKm(l.asset, reliabilityPerfMonth),
+        }));
+      })();
+
+  const rankGroup = reliabilityClassFilter === 'all' ? locoPerfEffectiveRows : locoPerfEffectiveRows.filter(l => l.class === reliabilityClassFilter);
   const rankByAsset = rankByAssetForGroup(rankGroup);
-  DATA.locoPerf.forEach(l => { l.rank = rankByAsset[l.asset] || null; });
+  locoPerfEffectiveRows.forEach(l => { l.rank = rankByAsset[l.asset] || null; });
 
   const locoClasses = [...new Set(DATA.locoPerf.map(l => l.class))].sort();
+  const trackedPerfMonths = getAllTrackedMonths();
   let locoRows = sourceRowsFor('locoPerf').slice();
   locoRows = applyColumnFilters('locoPerf', locoRows);
   if (reliabilityClassFilter !== 'all') locoRows = locoRows.filter(r => r.class === reliabilityClassFilter);
@@ -3306,10 +3321,16 @@ function renderReliability() {
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px;flex-wrap:wrap;gap:8px;">
       <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">Locomotive Performance</div>
-      <select id="reliabilityClassSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);">
-        <option value="all"${reliabilityClassFilter === 'all' ? ' selected' : ''}>All Classes</option>
-        ${locoClasses.map(c => `<option value="${esc(c)}"${reliabilityClassFilter === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}
-      </select>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <select id="reliabilityMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);">
+          <option value="all"${reliabilityPerfMonth === 'all' ? ' selected' : ''}>All Months</option>
+          ${trackedPerfMonths.map(m => `<option value="${esc(m)}"${reliabilityPerfMonth === m ? ' selected' : ''}>${esc(monthLabel(m))}</option>`).join('')}
+        </select>
+        <select id="reliabilityClassSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);">
+          <option value="all"${reliabilityClassFilter === 'all' ? ' selected' : ''}>All Classes</option>
+          ${locoClasses.map(c => `<option value="${esc(c)}"${reliabilityClassFilter === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}
+        </select>
+      </div>
     </div>
     <div class="panel">
       <div class="table-scroll">
@@ -3320,7 +3341,7 @@ function renderReliability() {
           <tbody>${locoBody}</tbody>
         </table>
       </div>
-      <div class="row-count">${locoRows.length} of ${DATA.locoPerf.length} locomotives shown &middot; ${lst && lst.key ? 'sorted by ' + esc(LOCO_PERF_COLUMNS.find(c => c.key === lst.key).label) + (lst.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('locoPerf') ? ' &middot; ' + countActiveFilters('locoPerf') + ' column filter(s) active' : ''} &middot; Ranking is computed ${reliabilityClassFilter === 'all' ? 'fleet-wide, across all classes' : 'within ' + esc(reliabilityClassFilter) + ' only'} (higher PE, higher mileage, lower unscheduled = better)</div>
+      <div class="row-count">${locoRows.length} of ${DATA.locoPerf.length} locomotives shown &middot; ${lst && lst.key ? 'sorted by ' + esc(LOCO_PERF_COLUMNS.find(c => c.key === lst.key).label) + (lst.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('locoPerf') ? ' &middot; ' + countActiveFilters('locoPerf') + ' column filter(s) active' : ''} &middot; ${reliabilityPerfMonth === 'all' ? 'All months (cumulative)' : esc(monthLabel(reliabilityPerfMonth)) + ' only'} &middot; Ranking is computed ${reliabilityClassFilter === 'all' ? 'fleet-wide, across all classes' : 'within ' + esc(reliabilityClassFilter) + ' only'} (higher PE, higher mileage, lower unscheduled = better)</div>
     </div>
   `;
 
@@ -3334,6 +3355,8 @@ function renderReliability() {
 function wireReliabilityClassFilter() {
   const sel = document.getElementById('reliabilityClassSelect');
   if (sel) sel.addEventListener('change', () => { reliabilityClassFilter = sel.value; renderReliability(); });
+  const monthSel = document.getElementById('reliabilityMonthSelect');
+  if (monthSel) monthSel.addEventListener('change', () => { reliabilityPerfMonth = monthSel.value; renderReliability(); });
 }
 
 /* ============================================================
