@@ -444,6 +444,12 @@
   }
   .dsdep-label-input:hover{border-color:var(--border-soft);background:var(--panel-2);}
   .dsdep-label-input:focus{outline:none;border-color:var(--amber);background:var(--panel-2);}
+  .km-ref-grid{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;}
+  .km-ref-group{flex:1 1 190px;min-width:170px;max-width:230px;}
+  table.km-ref-table{width:100%;border-collapse:collapse;font-size:10.5px;}
+  table.km-ref-table th{background:var(--panel-2);color:var(--text-dim);font-weight:700;text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.03em;border:1px solid var(--border-soft);}
+  table.km-ref-table td{padding:4px 8px;border:1px solid var(--border-soft);color:var(--text);}
+  table.km-ref-table td.num{text-align:right;font-family:var(--mono);white-space:nowrap;}
   .deployment-summary-table th.grp-divider, .deployment-summary-table td.grp-divider{border-left:2px solid var(--border);}
   table.daily-table td.km-cell{
     font-family:var(--mono);font-weight:700;color:var(--text-dim);background:var(--panel);
@@ -4105,19 +4111,19 @@ const KM_REFERENCE_TABLE = [
   ]],
 ];
 function kmReferenceTablePanelHtml() {
-  const rows = KM_REFERENCE_TABLE.map(([origin, routes]) => `
-    <tr><td colspan="2" style="font-weight:700;color:var(--text-dim);background:var(--panel-2);">${esc(origin)}</td></tr>
-    ${routes.map(([dest, km]) => `<tr><td>${esc(origin)} &ndash; ${esc(dest)}</td><td class="num">${km}</td></tr>`).join('')}
-  `).join('');
+  const groupsHtml = KM_REFERENCE_TABLE.map(([origin, routes]) => `
+    <div class="km-ref-group">
+      <table class="km-ref-table">
+        <thead><tr><th colspan="2">${esc(origin)}</th></tr></thead>
+        <tbody>
+          ${routes.map(([dest, km]) => `<tr><td>${esc(dest)}</td><td class="num">${km}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`).join('');
   return `
     <div class="panel" id="dsKmReference" style="margin-top:14px;">
       <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;">Kilometer Reference Table</div>
-      <div class="table-scroll">
-        <table>
-          <thead><tr><th>Route</th><th>Distance (km)</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
+      <div class="km-ref-grid">${groupsHtml}</div>
       <div class="row-count">Reference only &mdash; for looking up station-to-station distance when filling in Additional KM manually. Not used in the automatic Total KM formula.</div>
     </div>`;
 }
