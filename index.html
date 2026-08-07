@@ -3318,7 +3318,7 @@ function renderReliability() {
       <div class="table-scroll">
         <table>
           <thead><tr>
-            ${LOCO_PERF_COLUMNS.map(c => columnHeaderHtml('locoPerf', c.key, c.label, c.key === 'rank' ? { noFilter: true, noSort: true } : undefined)).join('')}
+            ${LOCO_PERF_COLUMNS.map(c => columnHeaderHtml('locoPerf', c.key, c.label, c.key === 'rank' ? { noFilter: true } : undefined)).join('')}
           </tr></thead>
           <tbody>${locoBody}</tbody>
         </table>
