@@ -3954,7 +3954,7 @@ function renderMasterplan() {
     </div>
   `;
 
-  drawDoughnutChart('chartPeStatus', ['Overdue', 'OK', 'No Record'], [totalOverdue, totalOK, totalNoRecord], ['#B0202F', '#159253', '#8891A6']);
+  drawDoughnutChart('chartPeStatus', ['Overdue', 'OK', 'No Record'], [totalOverdue, totalOK, totalNoRecord], ['#E5484D', '#22C55E', '#F5A623']);
 
   const addPeBtn = document.getElementById('addPeRecordBtn');
   if (addPeBtn) addPeBtn.addEventListener('click', () => openModal('peHistory'));
