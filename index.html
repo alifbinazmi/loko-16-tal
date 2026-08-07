@@ -418,6 +418,8 @@
   table.avail-daily-table{table-layout:fixed;}
   table.avail-daily-table th:first-child, table.avail-daily-table td:first-child{width:74px;text-align:center !important;padding-left:0 !important;}
   table.avail-daily-table th:last-child, table.avail-daily-table td:last-child{width:100px;}
+  table.avail-daily-table tr.today-row td{background:var(--amber-soft) !important;}
+  table.avail-daily-table tr.today-row td:first-child{color:var(--amber);font-weight:700;}
   table.daily-table td.day-cell{padding:1px;}
   table.daily-table th.today-col{background:var(--amber-soft) !important;color:var(--amber) !important;}
   table.daily-table td.today-col{box-shadow:inset 0 0 0 2px var(--amber);}
@@ -2769,6 +2771,7 @@ function wireDailyAvailabilityNav() {
 }
 function renderDailyAvailabilityGrid() {
   const nDays = daysInMonthCount(dailyAvailabilityMonth);
+  const todayStr = todayDateStr();
   const rows = Array.from({ length: nDays }, (_, i) => {
     const d = i + 1;
     const dateStr = `${dailyAvailabilityMonth}-${String(d).padStart(2, '0')}`;
@@ -2778,7 +2781,8 @@ function renderDailyAvailabilityGrid() {
       const v = rec && rec[cls] !== undefined ? rec[cls] : '&mdash;';
       return `<td class="num cls-col">${v}</td>`;
     }).join('');
-    return `<tr><td class="dim">${d}</td>${cellsHtml}<td class="num final-km-cell" style="position:static;box-shadow:none;">${rec ? total : '&mdash;'}</td></tr>`;
+    const todayCls = dateStr === todayStr ? ' class="today-row"' : '';
+    return `<tr${todayCls}><td class="dim">${d}</td>${cellsHtml}<td class="num final-km-cell" style="position:static;box-shadow:none;">${rec ? total : '&mdash;'}</td></tr>`;
   }).join('');
   const avg = computeDailyAvailabilityAverage(dailyAvailabilityMonth);
   const target = availabilityTargetForMonth(dailyAvailabilityMonth);
