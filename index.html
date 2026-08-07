@@ -1357,7 +1357,7 @@ function kpiMonthOptions(metric) {
     });
   }
   if (metric === 'running') {
-    return RELIABILITY_DATA.reliability.map(r => r.month).map(m => ({ key: m, label: monthLabel(m), count: fmtKm(dailyStatusFleetKmForMonth(m)) }));
+    return getAllTrackedMonths().map(m => ({ key: m, label: monthLabel(m), count: fmtKm(dailyStatusFleetKmForMonth(m)) }));
   }
   if (metric === 'pe') {
     const counts = {};
@@ -1753,7 +1753,9 @@ function buildOrderedKpiCards() {
   const peTotalCompletions = Object.values(peMonthCountsAll).reduce((a, b) => a + b, 0);
   const peV = kpiMetricValue('pe', peAchievedPct);
 
-  const runningV = kpiMetricValue('running', fmtKm(dailyStatusFleetKmForMonth(latestRelMonth)));
+  const trackedRunningMonths = getAllTrackedMonths();
+  const latestRunningMonth = trackedRunningMonths[trackedRunningMonths.length - 1] || latestRelMonth;
+  const runningV = kpiMetricValue('running', fmtKm(dailyStatusFleetKmForMonth(latestRunningMonth)));
 
   const cards = {
     availability: `
@@ -1802,7 +1804,7 @@ function buildOrderedKpiCards() {
         <div class="kpi-value">${runningV.count}<small>km</small></div>
         <div class="kpi-foot">${kpiFootHtml('running', 'Fleet-wide, from Daily Status', runningV)}</div>
         <div class="kpi-corner">${ICONS.reliability}</div>
-        ${openKpiPicker === 'running' ? kpiPickerHtml('running', fmtKm(dailyStatusFleetKmForMonth(latestRelMonth))) : ''}
+        ${openKpiPicker === 'running' ? kpiPickerHtml('running', fmtKm(dailyStatusFleetKmForMonth(latestRunningMonth))) : ''}
       </div>`,
     langgar: `
       <div class="kpi" style="--accent:var(--amber)" data-kpi="langgar">
