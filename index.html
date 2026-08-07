@@ -1095,15 +1095,16 @@ function renderFilterPanel(viewKey, key) {
     <div class="filter-panel-footer"><button type="button" data-filter-action="done">OK</button></div>
   </div>`;
 }
-function columnHeaderHtml(viewKey, key, label) {
+function columnHeaderHtml(viewKey, key, label, opts) {
   const st = sortState[viewKey];
   const active = st && st.key === key;
   const cls = 'sortable' + (active ? ' active' + (st.dir === -1 ? ' dir-desc' : '') : '');
   const filterActive = isColumnFilterActive(viewKey, key);
+  const noFilter = opts && opts.noFilter;
   return `<th class="${cls}" data-sort-view="${viewKey}" data-sort-key="${key}">
     <div class="th-flex">
       <button type="button" class="th-sort-btn">${esc(label)}${sortIcon()}</button>
-      <button type="button" class="th-filter-btn${filterActive ? ' active' : ''}" data-filter-view="${viewKey}" data-filter-key="${key}" title="Filter ${esc(label)}">${filterIcon()}</button>
+      ${noFilter ? '' : `<button type="button" class="th-filter-btn${filterActive ? ' active' : ''}" data-filter-view="${viewKey}" data-filter-key="${key}" title="Filter ${esc(label)}">${filterIcon()}</button>`}
     </div>
   </th>`;
 }
@@ -3293,7 +3294,7 @@ function renderReliability() {
       <div class="table-scroll">
         <table>
           <thead><tr>
-            ${LOCO_PERF_COLUMNS.map(c => columnHeaderHtml('locoPerf', c.key, c.label)).join('')}
+            ${LOCO_PERF_COLUMNS.map(c => columnHeaderHtml('locoPerf', c.key, c.label, c.key === 'rank' ? { noFilter: true } : undefined)).join('')}
           </tr></thead>
           <tbody>${locoBody}</tbody>
         </table>
