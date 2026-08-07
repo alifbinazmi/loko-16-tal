@@ -1308,6 +1308,7 @@ function drillIncidentsByMonth(monthStr) {
   if (!monthStr) return;
   columnFilters.incidents = columnFilters.incidents || {};
   columnFilters.incidents.month = new Set([normValueKey(monthStr)]);
+  incidentsViewMonth = monthStr;
   searchTerm = '';
   setView('incidents');
 }
@@ -1327,7 +1328,7 @@ function failStatusValueSet() {
 function drillIncidentsFailByMonth(monthStr) {
   columnFilters.incidents = columnFilters.incidents || {};
   columnFilters.incidents.status = failStatusValueSet();
-  if (monthStr) columnFilters.incidents.month = new Set([normValueKey(monthStr)]);
+  if (monthStr) { columnFilters.incidents.month = new Set([normValueKey(monthStr)]); incidentsViewMonth = monthStr; }
   else delete columnFilters.incidents.month;
   searchTerm = '';
   setView('incidents');
@@ -2471,105 +2472,139 @@ const INCIDENT_COLUMNS = [
   { key: 'status', label: 'Status' },
   { key: 'driver', label: 'Driver' },
 ];
+let incidentsViewMonth = null;
+function incidentsTrackedMonths() {
+  return [...new Set(DATA.incidents.map(i => i.month).filter(Boolean))].sort();
+}
+function incidentsDefaultMonth() {
+  const months = incidentsTrackedMonths();
+  return months.length ? months[months.length - 1] : todayMonthKey();
+}
+function incidentsMonthYearControlHtml(month) {
+  const [curYear, curMonthNum] = month.split('-').map(Number);
+  const trackedYears = incidentsTrackedMonths().map(m => Number(m.split('-')[0]));
+  const minYear = Math.min(curYear, ...(trackedYears.length ? trackedYears : [curYear]));
+  const maxYear = Math.max(curYear + 1, ...(trackedYears.length ? trackedYears : [curYear]));
+  const years = [];
+  for (let y = minYear; y <= maxYear; y++) years.push(y);
+  return `
+    <div class="sortby-box">
+      ${ICONS.calendar}
+      <select id="incMonthSelect" aria-label="Select month">
+        ${MONTH_NAMES.map((m, i) => `<option value="${i + 1}" ${curMonthNum === i + 1 ? 'selected' : ''}>${m}</option>`).join('')}
+      </select>
+      <select id="incYearSelect" aria-label="Select year">
+        ${years.map(y => `<option value="${y}" ${curYear === y ? 'selected' : ''}>${y}</option>`).join('')}
+      </select>
+    </div>
+    <button class="btn" id="incDisplayBtn" style="font-size:11.5px;padding:8px 12px;background:#8BC34A;color:#0B2E00;border-color:#6FA83A;">Display</button>`;
+}
+function wireIncidentsMonthControl() {
+  const displayBtn = document.getElementById('incDisplayBtn');
+  if (displayBtn) displayBtn.addEventListener('click', () => {
+    const m = document.getElementById('incMonthSelect').value.padStart(2, '0');
+    const y = document.getElementById('incYearSelect').value;
+    incidentsViewMonth = `${y}-${m}`;
+    if (columnFilters.incidents) delete columnFilters.incidents.month;
+    renderIncidents();
+  });
+}
 function renderIncidents() {
   let scoped = applyColumnFilters('incidents', DATA.incidents.slice());
   const hasSearch = searchTerm.trim() !== '';
-  const monthsPresent = [...new Set(scoped.map(i => i.month))].sort().reverse();
+  const month = incidentsViewMonth || incidentsDefaultMonth();
 
-  const sections = monthsPresent.map(month => {
-    let monthRows = scoped.filter(i => i.month === month).sort((a, b) => (a.day || 0) - (b.day || 0));
-    if (hasSearch) {
-      monthRows = monthRows.filter(i => i.asset && matchesSearch(i, ['asset', 'depohAttend', 'kerjaTren', 'faultReport', 'driver', 'status']));
-      if (!monthRows.length) return '';
+  let monthRows = scoped.filter(i => i.month === month).sort((a, b) => (a.day || 0) - (b.day || 0));
+  if (hasSearch) {
+    monthRows = monthRows.filter(i => i.asset && matchesSearch(i, ['asset', 'depohAttend', 'kerjaTren', 'faultReport', 'driver', 'status']));
+  }
+  const incidentCount = monthRows.filter(i => i.asset).length;
+
+  // Group rows by day
+  const dayMap = {};
+  monthRows.forEach(i => {
+    const d = i.day || 0;
+    if (!dayMap[d]) dayMap[d] = [];
+    dayMap[d].push(i);
+  });
+
+  const bodyHtml = Object.keys(dayMap).sort((a, b) => Number(a) - Number(b)).map(day => {
+    const rows = dayMap[day];
+    // blank day — no incidents
+    if (rows.length === 1 && !rows[0].asset) {
+      const idx = DATA.incidents.indexOf(rows[0]);
+      return `<tr data-idx="${idx}" class="incident-blank-row">
+        <td class="num dim">${esc(day)}</td>
+        <td colspan="7" class="dim" style="text-align:center;font-style:italic;">No incident recorded &mdash; click to add</td>
+      </tr>`;
     }
-    const incidentCount = monthRows.filter(i => i.asset).length;
-
-    // Group rows by day
-    const dayMap = {};
-    monthRows.forEach(i => {
-      const d = i.day || 0;
-      if (!dayMap[d]) dayMap[d] = [];
-      dayMap[d].push(i);
-    });
-
-    const bodyHtml = Object.keys(dayMap).sort((a, b) => Number(a) - Number(b)).map(day => {
-      const rows = dayMap[day];
-      // blank day — no incidents
-      if (rows.length === 1 && !rows[0].asset) {
-        const idx = DATA.incidents.indexOf(rows[0]);
-        return `<tr data-idx="${idx}" class="incident-blank-row">
-          <td class="num dim">${esc(day)}</td>
-          <td colspan="7" class="dim" style="text-align:center;font-style:italic;">No incident recorded &mdash; click to add</td>
-        </tr>`;
-      }
-      // single incident for this day — render normally
-      if (rows.length === 1) {
-        const i = rows[0];
-        const idx = DATA.incidents.indexOf(i);
-        return `<tr data-idx="${idx}">
-          <td class="num">${esc(i.day)}</td>
-          <td class="num">${esc(i.asset)}</td>
-          <td>${esc(i.depohAttend)}</td>
-          <td class="wrap" title="${esc(i.kerjaTren)}">${esc(i.kerjaTren)}</td>
-          ${expandableCellHtml(i.faultReport)}
-          ${expandableCellHtml(i.solution)}
-          <td>${statusBadge(i.status)}</td>
-          <td class="dim" style="position:relative;">${esc(i.driver)}<span class="row-edit-flag">${ICONS.edit}Edit</span></td>
-        </tr>`;
-      }
-      // multiple incidents for same day — group with expand/collapse
-      const groupId = `inc-day-${month}-${day}`;
-      const subRowsHtml = rows.map((i, subIdx) => {
-        const idx = DATA.incidents.indexOf(i);
-        return `<tr data-idx="${idx}" class="inc-sub-row" data-group="${groupId}" style="display:none;">
-          <td class="num dim" style="padding-left:28px;">↳</td>
-          <td class="num">${esc(i.asset)}</td>
-          <td>${esc(i.depohAttend)}</td>
-          <td class="wrap" title="${esc(i.kerjaTren)}">${esc(i.kerjaTren)}</td>
-          ${expandableCellHtml(i.faultReport)}
-          ${expandableCellHtml(i.solution)}
-          <td>${statusBadge(i.status)}</td>
-          <td class="dim" style="position:relative;">${esc(i.driver)}<span class="row-edit-flag">${ICONS.edit}Edit</span></td>
-        </tr>`;
-      }).join('');
-      const badges = rows.map(i => statusBadge(i.status)).join(' ');
-      const assets = rows.map(i => i.asset).join(', ');
-      return `<tr class="inc-group-row" data-group="${groupId}" style="cursor:pointer;">
-          <td class="num" style="white-space:nowrap;">
-            <span style="display:inline-flex;align-items:center;gap:5px;">
-              <span class="inc-group-chevron" data-group="${groupId}" style="font-size:10px;color:var(--amber);transition:transform .15s;">▶</span>
-              ${esc(day)}
-            </span>
-          </td>
-          <td class="num dim">${esc(assets)}</td>
-          <td colspan="4" class="dim" style="font-style:italic;">${rows.length} incidents &mdash; click to expand</td>
-          <td>${badges}</td>
-          <td></td>
-        </tr>${subRowsHtml}`;
+    // single incident for this day — render normally
+    if (rows.length === 1) {
+      const i = rows[0];
+      const idx = DATA.incidents.indexOf(i);
+      return `<tr data-idx="${idx}">
+        <td class="num">${esc(i.day)}</td>
+        <td class="num">${esc(i.asset)}</td>
+        <td>${esc(i.depohAttend)}</td>
+        <td class="wrap" title="${esc(i.kerjaTren)}">${esc(i.kerjaTren)}</td>
+        ${expandableCellHtml(i.faultReport)}
+        ${expandableCellHtml(i.solution)}
+        <td>${statusBadge(i.status)}</td>
+        <td class="dim" style="position:relative;">${esc(i.driver)}<span class="row-edit-flag">${ICONS.edit}Edit</span></td>
+      </tr>`;
+    }
+    // multiple incidents for same day — group with expand/collapse
+    const groupId = `inc-day-${month}-${day}`;
+    const subRowsHtml = rows.map((i, subIdx) => {
+      const idx = DATA.incidents.indexOf(i);
+      return `<tr data-idx="${idx}" class="inc-sub-row" data-group="${groupId}" style="display:none;">
+        <td class="num dim" style="padding-left:28px;">↳</td>
+        <td class="num">${esc(i.asset)}</td>
+        <td>${esc(i.depohAttend)}</td>
+        <td class="wrap" title="${esc(i.kerjaTren)}">${esc(i.kerjaTren)}</td>
+        ${expandableCellHtml(i.faultReport)}
+        ${expandableCellHtml(i.solution)}
+        <td>${statusBadge(i.status)}</td>
+        <td class="dim" style="position:relative;">${esc(i.driver)}<span class="row-edit-flag">${ICONS.edit}Edit</span></td>
+      </tr>`;
     }).join('');
+    const badges = rows.map(i => statusBadge(i.status)).join(' ');
+    const assets = rows.map(i => i.asset).join(', ');
+    return `<tr class="inc-group-row" data-group="${groupId}" style="cursor:pointer;">
+        <td class="num" style="white-space:nowrap;">
+          <span style="display:inline-flex;align-items:center;gap:5px;">
+            <span class="inc-group-chevron" data-group="${groupId}" style="font-size:10px;color:var(--amber);transition:transform .15s;">▶</span>
+            ${esc(day)}
+          </span>
+        </td>
+        <td class="num dim">${esc(assets)}</td>
+        <td colspan="4" class="dim" style="font-style:italic;">${rows.length} incidents &mdash; click to expand</td>
+        <td>${badges}</td>
+        <td></td>
+      </tr>${subRowsHtml}`;
+  }).join('');
 
-    return `
-      <div class="panel" style="margin-bottom:14px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+  const tableHtml = Object.keys(dayMap).length ? `
+    <div class="table-scroll">
+      <table>
+        <thead><tr>${INCIDENT_COLUMNS.map(c => `<th>${esc(c.label)}</th>`).join('')}</tr></thead>
+        <tbody>${bodyHtml}</tbody>
+      </table>
+    </div>` : `<div class="row-count">No incidents recorded for ${monthLabelLong(month)}${hasSearch || countActiveFilters('incidents') ? ' matching your search/filters' : ''}.</div>`;
+
+  document.getElementById('content').innerHTML = `
+    <div class="panel" style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <div style="font-weight:700;font-size:14px;">${monthLabelLong(month)}</div>
-          <div class="dim" style="font-size:11px;">${incidentCount} incident${incidentCount === 1 ? '' : 's'} this month &middot; ${Object.keys(dayMap).length} day${Object.keys(dayMap).length === 1 ? '' : 's'} shown</div>
+          ${incidentsMonthYearControlHtml(month)}
         </div>
-        <div class="table-scroll">
-          <table>
-            <thead><tr>${INCIDENT_COLUMNS.map(c => `<th>${esc(c.label)}</th>`).join('')}</tr></thead>
-            <tbody>${bodyHtml}</tbody>
-          </table>
-        </div>
-      </div>`;
-  }).filter(Boolean).join('');
-
-  const totalShown = scoped.filter(i => i.asset).length;
-  document.getElementById('content').innerHTML = sections || `
-    <div class="panel"><div class="row-count">No incidents match your search${countActiveFilters('incidents') ? ' or filters' : ''}.</div></div>
+        <div class="dim" style="font-size:11px;">${incidentCount} incident${incidentCount === 1 ? '' : 's'} this month &middot; ${Object.keys(dayMap).length} day${Object.keys(dayMap).length === 1 ? '' : 's'} shown</div>
+      </div>
+      ${tableHtml}
+    </div>
+    <div class="row-count" style="padding:4px 14px;">${incidentCount} incident${incidentCount === 1 ? '' : 's'} shown for ${monthLabelLong(month)}${countActiveFilters('incidents') ? ' &middot; ' + countActiveFilters('incidents') + ' column filter(s) active' : ''}.</div>
   `;
-  document.getElementById('content').insertAdjacentHTML('beforeend', `
-    <div class="row-count" style="padding:4px 14px;">${totalShown} incident${totalShown === 1 ? '' : 's'} shown across ${monthsPresent.length} month${monthsPresent.length === 1 ? '' : 's'}${countActiveFilters('incidents') ? ' &middot; ' + countActiveFilters('incidents') + ' column filter(s) active' : ''} &middot; each month is its own table, day-by-day &mdash; blank rows mean no incident that day.</div>
-  `);
 
   // wire group row expand/collapse
   document.querySelectorAll('.inc-group-row').forEach(row => {
@@ -2586,6 +2621,7 @@ function renderIncidents() {
 
   wireTextExpanders();
   wireRowClicks('incidents');
+  wireIncidentsMonthControl();
 }
 
 /* ============================================================
