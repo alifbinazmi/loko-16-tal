@@ -1733,13 +1733,23 @@ function openThisMonthCount() {
   const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
   return DATA.incidents.filter(i => i.asset && i.month === ym && (i.status || '').toLowerCase() !== 'ok').length;
 }
+function deploymentMaintenanceCounts() {
+  const { buckets } = buildDeploymentSummary(deploymentDateOrDefault());
+  const maintenance = buckets ? buckets.maintenance : [];
+  const failed = maintenance.filter(r => maintenancePriority(r.value) === 3).length;
+  const pe = maintenance.filter(r => maintenancePriority(r.value) === 0).length;
+  return { failed, pe };
+}
 function renderSidebarStats() {
   const el = document.getElementById('sidebarStats');
   if (!el) return;
   const avail = latestAvailabilityInfo();
+  const dep = deploymentMaintenanceCounts();
   el.innerHTML = `
     <div class="tb-chip" title="From Total Availability table, synced to today's date">${ICONS.gauge}<b>${avail.total}</b>&nbsp;Available${avail.date ? ' &middot; ' + fmtDate(avail.date) : ''}</div>
     <div class="tb-chip">${ICONS.incident}<b>${openThisMonthCount()}</b>&nbsp;Open this month</div>
+    <div class="tb-chip" title="From Daily Fleet Deployment Summary, latest date">${ICONS.failure}<b>${dep.failed}</b>&nbsp;Failed</div>
+    <div class="tb-chip" title="From Daily Fleet Deployment Summary, latest date">${ICONS.masterplan}<b>${dep.pe}</b>&nbsp;PE</div>
     <div class="tb-chip"><span class="tb-dot" id="tbSyncDot"></span><span id="tbSyncLabel">SYNCED</span></div>
   `;
   updateSaveIndicator();
