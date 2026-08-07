@@ -1556,7 +1556,7 @@ function renderNav() {
   document.querySelectorAll('.nav-item').forEach(el => {
     el.addEventListener('click', () => {
       const id = el.dataset.view;
-      if (id === 'dailyStatus') dailyStatusMonth = todayMonthKey();
+      if (id === 'dailyStatus') { dailyStatusMonth = todayMonthKey(); deploymentSelectedDate = null; }
       if (id === 'availability') dailyAvailabilityMonth = todayMonthKey();
       setView(id);
     });
