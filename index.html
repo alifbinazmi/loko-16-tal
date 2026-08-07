@@ -366,6 +366,7 @@
   tbody td.dim{color:var(--text-dim);}
   td.wrap{max-width:260px;white-space:normal;line-height:1.4;}
   .empty-row td{text-align:center;color:var(--text-faint);padding:34px;font-size:12.5px;}
+  tr.pe-class-divider td{background:var(--panel-2);color:var(--text-dim);font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:7px 12px;border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);}
   tr.incident-blank-row td{padding-top:6px;padding-bottom:6px;opacity:.55;}
   tr.incident-blank-row:hover td{opacity:1;background:var(--panel-2);}
 
@@ -710,7 +711,7 @@ const SUBSYSTEMS = [
 ];
 
 /* ---------- state ---------- */
-let DATA = { failures: [], incidents: [], langgar: [], locoPerf: [], dailyStatus: {}, additionalKm: {}, dailyAvailability: {}, peSchedule: [], peWeeklyStatus: {}, peMonthlyStatus: {}, dsLabelOverrides: {} };
+let DATA = { failures: [], incidents: [], langgar: [], locoPerf: [], dailyStatus: {}, additionalKm: {}, dailyAvailability: {}, peSchedule: [], peWeeklyStatus: {}, dsLabelOverrides: {} };
 let currentView = 'dashboard';
 let searchTerm = '';
 let charts = {};
@@ -826,11 +827,13 @@ function computePeStatusFor(asset, locoClass) {
   return peDueStatusFromLastDate(last, intervalDays);
 }
 function computePe45StatusFor(asset, locoClass) {
-  if (String(locoClass || '').startsWith('19')) return { last: null, next: null, daysDue: null, status: 'NO RECORD' };
+  if (String(locoClass || '').startsWith('19')) return { last: null, next: null, daysDue: null, status: 'NO RECORD', lastType: null };
   const big = DATA.peHistory.filter(h => h.asset === asset && h.date && ['PE45', 'PE180', 'PE360'].includes(h.type))
     .sort((a, b) => a.date < b.date ? -1 : 1);
-  const last = big.length ? big[big.length - 1].date : null;
-  return peDueStatusFromLastDate(last, 45);
+  const lastEntry = big.length ? big[big.length - 1] : null;
+  const result = peDueStatusFromLastDate(lastEntry ? lastEntry.date : null, 45);
+  result.lastType = lastEntry ? lastEntry.type : null;
+  return result;
 }
 function recomputePeSchedule() {
   DATA.peSchedule = PE_SCHEDULE_DATA.map(r => {
@@ -843,7 +846,6 @@ function recomputePeSchedule() {
     const cycle = completedCount + 1; // the next PE this locomotive is due for, counting its real completed history
     const upcomingType = referenceDate ? peTypeForCycle(cycle, locoClass) : '\u2014';
     const upcomingDate = live.next || r.nextPE || (referenceDate ? computeUpcomingPeCycles(referenceDate, 1, cycle, locoClass)[0].date : null);
-    const monthlyEntry = DATA.peMonthlyStatus[String(r.asset)] || {};
     return {
       ...r,
       class: loco ? loco.class : '\u2014',
@@ -851,8 +853,8 @@ function recomputePeSchedule() {
       daysDue: live.last ? live.daysDue : r.daysDue, status: live.last ? live.status : r.status,
       last45: live45.last || r.last45, next45: live45.next || r.next45,
       daysDue45: live45.last ? live45.daysDue : r.daysDue45, status45: live45.last ? live45.status : r.status45,
+      last45Type: live45.lastType || r.last45Type || null,
       upcomingType, upcomingDate, nextCycleNumber: referenceDate ? cycle : 1,
-      monthlyStatus: monthlyEntry.status || '', monthlyReason: monthlyEntry.reason || '',
     };
   });
 }
@@ -955,7 +957,7 @@ function filterRawValue(viewKey, row, key) {
   if (viewKey === 'failures' && key === 'downtimeCalc') return computeDowntimeMs(row);
   return row[key];
 }
-const DATE_FILTER_KEYS = new Set(['dateReceive', 'dateReleased', 'tarikh', 'lastPE', 'nextPE', 'last45', 'next45', 'date']);
+const DATE_FILTER_KEYS = new Set(['dateReceive', 'dateReleased', 'tarikh', 'lastPE', 'nextPE', 'last45', 'date']);
 function filterDisplayLabel(key, raw) {
   if (key === 'downtimeCalc') {
     const label = formatDowntime(raw);
@@ -1236,7 +1238,7 @@ document.addEventListener('click', e => {
 /* ---------- storage ---------- */
 async function loadData() {
   const seed = JSON.parse(document.getElementById('seed-data-json').textContent);
-  const keys = ['failures', 'incidents', 'langgar', 'dailyStatus', 'additionalKm', 'dailyAvailability', 'peHistory', 'peWeeklyStatus', 'peMonthlyStatus', 'dsLabelOverrides'];
+  const keys = ['failures', 'incidents', 'langgar', 'dailyStatus', 'additionalKm', 'dailyAvailability', 'peHistory', 'peWeeklyStatus', 'dsLabelOverrides'];
   try {
     const { data, error } = await _db.from('dashboard_store').select('key,value').in('key', keys);
     if (error) throw error;
@@ -3745,23 +3747,6 @@ function wireWeeklyPeStatusInputs() {
     });
   });
 }
-function wireMonthlyPeStatusInputs() {
-  document.querySelectorAll('.pe-monthly-status-input, .pe-monthly-reason-input').forEach(el => {
-    el.addEventListener('change', async () => {
-      const asset = el.dataset.asset;
-      const row = el.closest('tr');
-      const statusEl = row.querySelector('.pe-monthly-status-input');
-      const reasonEl = row.querySelector('.pe-monthly-reason-input');
-      const status = statusEl.value;
-      const reason = reasonEl.value.trim();
-      if (!status && !reason) delete DATA.peMonthlyStatus[String(asset)];
-      else DATA.peMonthlyStatus[String(asset)] = { status, reason };
-      await saveKey('peMonthlyStatus');
-      statusEl.style.color = status === 'Done' ? 'var(--green)' : status === 'Not Done' ? 'var(--red)' : 'var(--text)';
-      statusEl.style.fontWeight = status ? '700' : '400';
-    });
-  });
-}
 function wireWeeklyPePlanNav() {
   const prev = document.getElementById('peWeekPrev');
   const next = document.getElementById('peWeekNext');
@@ -3785,13 +3770,10 @@ const PE_COLUMNS = [
   { key: 'daysDue', label: 'Days Due' },
   { key: 'status', label: 'Status' },
   { key: 'upcomingType', label: 'Upcoming PE Plan' },
-  { key: 'last45', label: 'Last PE45' },
-  { key: 'next45', label: 'Next PE45 Due' },
+  { key: 'last45', label: 'Last PE' },
+  { key: 'last45Type', label: 'PE Type' },
   { key: 'daysDue45', label: 'Days Due45' },
   { key: 'status45', label: 'Status45' },
-  { key: 'monthlyStatus', label: 'PE Done This Month?' },
-  { key: 'monthlyReason', label: 'Reason (if not done)' },
-  { key: 'remark', label: 'Remark' },
 ];
 function peTypeColor(type) {
   if (type === 'PE360') return 'var(--red)';
@@ -3836,7 +3818,7 @@ function renderMasterplan() {
   const st = sortState.peSchedule;
   if (st && st.key) rows = sortRows(rows, 'peSchedule', (r, k) => r[k]);
 
-  const body = rows.length ? rows.map(r => `
+  const peRowHtml = r => `
     <tr>
       <td class="dim">${esc(r.class)}</td>
       <td class="num">${esc(r.asset)}</td>
@@ -3846,19 +3828,25 @@ function renderMasterplan() {
       <td>${peStatusPill(r.status)}</td>
       ${upcomingPeCellHtml(r.lastPE || r.nextPE, r.nextCycleNumber, r.class)}
       <td class="dim">${fmtDate(r.last45)}</td>
-      <td class="dim">${fmtDate(r.next45)}</td>
+      <td${peTypeColor(r.last45Type) ? ` style="color:${peTypeColor(r.last45Type)};font-weight:700;"` : ''}>${r.last45Type ? esc(r.last45Type) : '&mdash;'}</td>
       <td class="num"${r.daysDue45 !== null && r.daysDue45 < 0 ? ' style="color:var(--red);font-weight:700;"' : ''}>${formatDaysDue(r.daysDue45)}</td>
       <td>${peStatusPill(r.status45)}</td>
-      <td class="day-cell">
-        <select class="pe-monthly-status-input" data-asset="${r.asset}" style="color:${r.monthlyStatus === 'Done' ? 'var(--green)' : r.monthlyStatus === 'Not Done' ? 'var(--red)' : 'var(--text)'};font-weight:${r.monthlyStatus ? '700' : '400'};width:100%;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:3px;padding:5px 4px;font-size:11px;">
-          <option value=""${r.monthlyStatus === '' ? ' selected' : ''}>&mdash;</option>
-          <option value="Done"${r.monthlyStatus === 'Done' ? ' selected' : ''}>Done</option>
-          <option value="Not Done"${r.monthlyStatus === 'Not Done' ? ' selected' : ''}>Not Done</option>
-        </select>
-      </td>
-      <td class="day-cell"><input type="text" class="pe-monthly-reason-input" data-asset="${r.asset}" value="${esc(r.monthlyReason)}" placeholder="reason if not done" style="width:100%;min-width:130px;box-sizing:border-box;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:3px;padding:5px 6px;font-size:11px;color:var(--text);"></td>
-      <td class="wrap dim">${r.remark ? esc(r.remark) : '&mdash;'}</td>
-    </tr>`).join('') : `<tr class="empty-row"><td colspan="${PE_COLUMNS.length}">No locomotives match your filters.</td></tr>`;
+    </tr>`;
+
+  const peGroupMap = new Map();
+  rows.forEach(r => {
+    const cls = r.class || '—';
+    if (!peGroupMap.has(cls)) peGroupMap.set(cls, []);
+    peGroupMap.get(cls).push(r);
+  });
+  const peNaturalClassOrder = [];
+  DATA.peSchedule.forEach(r => { const cls = r.class || '—'; if (!peNaturalClassOrder.includes(cls)) peNaturalClassOrder.push(cls); });
+  const peOrderedClasses = peNaturalClassOrder.filter(c => peGroupMap.has(c));
+
+  const body = rows.length ? peOrderedClasses.map(cls => {
+    const group = peGroupMap.get(cls);
+    return `<tr class="pe-class-divider"><td colspan="${PE_COLUMNS.length}">${esc(cls)} <span class="dim">(${group.length})</span></td></tr>${group.map(peRowHtml).join('')}`;
+  }).join('') : `<tr class="empty-row"><td colspan="${PE_COLUMNS.length}">No locomotives match your filters.</td></tr>`;
 
   const totalOverdue = DATA.peSchedule.filter(r => r.status === 'OVERDUE').length;
   const totalOK = DATA.peSchedule.filter(r => r.status === 'OK').length;
@@ -3973,7 +3961,6 @@ function renderMasterplan() {
   wireRowClicks('peHistory');
   wireWeeklyPePlanNav();
   wireWeeklyPeStatusInputs();
-  wireMonthlyPeStatusInputs();
   wireSortHeaders();
   wireFilterButtons();
   wireComponentToggles();
