@@ -684,6 +684,7 @@
    ============================================================ */
 
 const ICONS = {
+  trophy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 4H4v2a4 4 0 0 0 4 4"/><path d="M16 4h4v2a4 4 0 0 1-4 4"/><line x1="12" y1="13" x2="12" y2="17"/><path d="M10 17h4l1 4H9z"/></svg>',
   dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
   failure: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 16H3z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="16.5" r=".6" fill="currentColor" stroke="none"/></svg>',
   subsystem: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>',
@@ -1863,11 +1864,21 @@ function buildOrderedKpiCards() {
         <div class="kpi-corner">${ICONS.langgar}</div>
         ${openKpiPicker === 'langgar' ? kpiPickerHtml('langgar', totalLanggar) : ''}
       </div>`,
+    topPerformer: (() => {
+      const top = fleetTopPerformer();
+      return `
+      <div class="kpi" style="--accent:var(--indigo);cursor:pointer;" data-nav-view="reliability">
+        <div class="kpi-label">Top Performer</div>
+        <div class="kpi-value">${top ? esc(top.asset) : '&mdash;'}<small>${top ? esc(top.class) : ''}</small></div>
+        <div class="kpi-foot">Fleet-wide &middot; best combined PE, mileage &amp; unscheduled score</div>
+        <div class="kpi-corner">${ICONS.trophy}</div>
+      </div>`;
+    })(),
   };
 
   // Requested display order: Fleet Availability, Reliability (MKBF), PE,
-  // Total Unscheduled Reports, Total 16-TAL Incidents, Total Running, 16-TAL Accidents.
-  const order = ['availability', 'reliability', 'pe', 'failures', 'incidents', 'running', 'langgar'];
+  // Total Unscheduled Reports, Total 16-TAL Incidents, Top Performer, Total Running, 16-TAL Accidents.
+  const order = ['availability', 'reliability', 'pe', 'failures', 'incidents', 'topPerformer', 'running', 'langgar'];
   return order.map(k => cards[k]);
 }
 function renderDashboardKpiGridsHtml() {
@@ -3034,22 +3045,29 @@ const LOCO_PERF_COLUMNS = [
   { key: 'mileage', label: 'Mileage (km)' },
   { key: 'rank', label: 'Ranking' },
 ];
+function rankGroupByPerf(group) {
+  const posOf = (sorted, asset) => sorted.findIndex(x => x.asset === asset) + 1;
+  const peOrder = group.slice().sort((a, b) => b.pe - a.pe);
+  const mileageOrder = group.slice().sort((a, b) => b.mileage - a.mileage);
+  const unschedOrder = group.slice().sort((a, b) => a.unscheduled - b.unscheduled);
+  return group.map(l => ({
+    asset: l.asset,
+    score: posOf(peOrder, l.asset) + posOf(mileageOrder, l.asset) + posOf(unschedOrder, l.asset),
+  })).sort((a, b) => a.score - b.score || a.asset - b.asset);
+}
 function computeLocoRankings() {
   const byClass = {};
   DATA.locoPerf.forEach(l => { (byClass[l.class] = byClass[l.class] || []).push(l); });
   const rankByAsset = {};
   Object.values(byClass).forEach(group => {
-    const posOf = (sorted, asset) => sorted.findIndex(x => x.asset === asset) + 1;
-    const peOrder = group.slice().sort((a, b) => b.pe - a.pe);
-    const mileageOrder = group.slice().sort((a, b) => b.mileage - a.mileage);
-    const unschedOrder = group.slice().sort((a, b) => a.unscheduled - b.unscheduled);
-    const scored = group.map(l => ({
-      asset: l.asset,
-      score: posOf(peOrder, l.asset) + posOf(mileageOrder, l.asset) + posOf(unschedOrder, l.asset),
-    })).sort((a, b) => a.score - b.score || a.asset - b.asset);
-    scored.forEach((s, i) => { rankByAsset[s.asset] = i + 1; });
+    rankGroupByPerf(group).forEach((s, i) => { rankByAsset[s.asset] = i + 1; });
   });
   return rankByAsset;
+}
+function fleetTopPerformer() {
+  if (!DATA.locoPerf.length) return null;
+  const topAsset = rankGroupByPerf(DATA.locoPerf)[0].asset;
+  return DATA.locoPerf.find(l => l.asset === topAsset) || null;
 }
 function reliabilityStatusPill(pass) {
   if (pass === null || pass === undefined) return '<span class="dim">&mdash;</span>';
