@@ -811,18 +811,47 @@ function computeUpcomingPeCycles(referenceDateStr, count, startCycle, locoClass)
   return results;
 }
 DATA.peHistory = PE_HISTORY_DATA.map((h, i) => ({ ...h, id: i }));
+function peDueStatusFromLastDate(lastDateStr, intervalDays) {
+  if (!lastDateStr) return { last: null, next: null, daysDue: null, status: 'NO RECORD' };
+  const d = new Date(lastDateStr + 'T00:00:00');
+  d.setDate(d.getDate() + intervalDays);
+  const next = d.toISOString().slice(0, 10);
+  const daysDue = (d - new Date(todayDateStr() + 'T00:00:00')) / 86400000;
+  return { last: lastDateStr, next, daysDue, status: daysDue < 0 ? 'OVERDUE' : 'OK' };
+}
+function computePeStatusFor(asset, locoClass) {
+  const history = DATA.peHistory.filter(h => h.asset === asset && h.date).sort((a, b) => a.date < b.date ? -1 : 1);
+  const last = history.length ? history[history.length - 1].date : null;
+  const intervalDays = String(locoClass || '').startsWith('19') ? 30 : 15;
+  return peDueStatusFromLastDate(last, intervalDays);
+}
+function computePe45StatusFor(asset, locoClass) {
+  if (String(locoClass || '').startsWith('19')) return { last: null, next: null, daysDue: null, status: 'NO RECORD' };
+  const big = DATA.peHistory.filter(h => h.asset === asset && h.date && ['PE45', 'PE180', 'PE360'].includes(h.type))
+    .sort((a, b) => a.date < b.date ? -1 : 1);
+  const last = big.length ? big[big.length - 1].date : null;
+  return peDueStatusFromLastDate(last, 45);
+}
 function recomputePeSchedule() {
   DATA.peSchedule = PE_SCHEDULE_DATA.map(r => {
     const loco = DATA.locoPerf.find(l => l.asset === r.asset);
-    const referenceDate = r.lastPE || r.nextPE;
+    const locoClass = loco ? loco.class : null;
+    const live = computePeStatusFor(r.asset, locoClass);
+    const live45 = computePe45StatusFor(r.asset, locoClass);
+    const referenceDate = live.last || r.lastPE || r.nextPE;
     const completedCount = DATA.peHistory.filter(h => h.asset === r.asset).length;
     const cycle = completedCount + 1; // the next PE this locomotive is due for, counting its real completed history
-    const locoClass = loco ? loco.class : null;
     const upcomingType = referenceDate ? peTypeForCycle(cycle, locoClass) : '\u2014';
-    const upcomingDate = r.nextPE || (referenceDate ? computeUpcomingPeCycles(referenceDate, 1, cycle, locoClass)[0].date : null);
+    const upcomingDate = live.next || r.nextPE || (referenceDate ? computeUpcomingPeCycles(referenceDate, 1, cycle, locoClass)[0].date : null);
     const monthlyEntry = DATA.peMonthlyStatus[String(r.asset)] || {};
     return {
-      ...r, class: loco ? loco.class : '\u2014', upcomingType, upcomingDate, nextCycleNumber: referenceDate ? cycle : 1,
+      ...r,
+      class: loco ? loco.class : '\u2014',
+      lastPE: live.last || r.lastPE, nextPE: live.next || r.nextPE,
+      daysDue: live.last ? live.daysDue : r.daysDue, status: live.last ? live.status : r.status,
+      last45: live45.last || r.last45, next45: live45.next || r.next45,
+      daysDue45: live45.last ? live45.daysDue : r.daysDue45, status45: live45.last ? live45.status : r.status45,
+      upcomingType, upcomingDate, nextCycleNumber: referenceDate ? cycle : 1,
       monthlyStatus: monthlyEntry.status || '', monthlyReason: monthlyEntry.reason || '',
     };
   });
