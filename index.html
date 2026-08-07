@@ -812,7 +812,7 @@ function computeUpcomingPeCycles(referenceDateStr, count, startCycle, locoClass)
     const cycleNum = base + i;
     const d = new Date(start);
     d.setDate(d.getDate() + intervalDays * (i + 1));
-    results.push({ date: d.toISOString().slice(0, 10), type: peTypeForCycle(cycleNum, locoClass), cycle: cycleNum });
+    results.push({ date: localDateStr(d), type: peTypeForCycle(cycleNum, locoClass), cycle: cycleNum });
   }
   return results;
 }
@@ -821,7 +821,7 @@ function peDueStatusFromLastDate(lastDateStr, intervalDays) {
   if (!lastDateStr) return { last: null, next: null, daysDue: null, status: 'NO RECORD' };
   const d = new Date(lastDateStr + 'T00:00:00');
   d.setDate(d.getDate() + intervalDays);
-  const next = d.toISOString().slice(0, 10);
+  const next = localDateStr(d);
   const daysDue = (d - new Date(todayDateStr() + 'T00:00:00')) / 86400000;
   return { last: lastDateStr, next, daysDue, status: daysDue < 0 ? 'OVERDUE' : 'OK' };
 }
@@ -878,7 +878,7 @@ function weekDateRange(weekNum) {
   for (let i = 0; i < 6; i++) {
     const d = new Date(start);
     d.setDate(d.getDate() + i);
-    days.push(d.toISOString().slice(0, 10));
+    days.push(localDateStr(d));
   }
   return days;
 }
@@ -3362,9 +3362,11 @@ function wireReliabilityClassFilter() {
 /* ============================================================
    DAILY STATUS TAB (from Reliability_Loco_16-TAL_3.xlsx) \u2014 editable
    ============================================================ */
-function todayDateStr() {
-  const d = new Date();
+function localDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function todayDateStr() {
+  return localDateStr(new Date());
 }
 function todayMonthKey() {
   return todayDateStr().slice(0, 7);
@@ -4110,7 +4112,7 @@ function maintenancePriority(raw) {
 function shiftDateStr(dateStr, deltaDays) {
   const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() + deltaDays);
-  return d.toISOString().slice(0, 10);
+  return localDateStr(d);
 }
 function deploymentDateControlHtml() {
   const dateStr = deploymentDateOrDefault() || dailyStatusMonth + '-01';
@@ -4526,7 +4528,7 @@ function openModal(view, editIdx = null, prefill = null) {
 
   if (!rec) {
     const todayField = document.getElementById('f_dateReceive') || document.getElementById('l_tarikh');
-    if (todayField && !todayField.value) todayField.value = new Date().toISOString().slice(0, 10);
+    if (todayField && !todayField.value) todayField.value = todayDateStr();
   }
 }
 
