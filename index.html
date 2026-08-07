@@ -4070,11 +4070,12 @@ function wireDeploymentSummaryInputs() {
   });
 }
 function latestFilledDayInMonth(yyyyMm) {
+  const todayStr = todayDateStr();
   let maxDay = 0;
   Object.entries(DATA.dailyStatus).forEach(([k, v]) => {
     if (!v || !String(v).trim()) return;
     const date = k.split('|')[1];
-    if (date && date.startsWith(yyyyMm)) {
+    if (date && date.startsWith(yyyyMm) && date <= todayStr) {
       const day = parseInt(date.slice(8, 10), 10);
       if (day > maxDay) maxDay = day;
     }
