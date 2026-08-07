@@ -1624,6 +1624,7 @@ function setView(id) {
   const colors = VIEW_COLORS[id] || ['var(--amber)', 'var(--amber-soft)'];
   const iconEl = document.getElementById('topbarTitleIcon');
   if (iconEl) {
+    iconEl.innerHTML = NAV_LOGOS[id] ? `<img src="${NAV_LOGOS[id]}" alt="">` : ICONS[cfg.icon];
     iconEl.style.setProperty('--accent', colors[0]);
     iconEl.style.setProperty('--accent-soft', colors[1]);
   }
