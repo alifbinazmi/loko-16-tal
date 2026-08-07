@@ -3061,14 +3061,10 @@ function rankGroupByPerf(group) {
     score: posOf(peOrder, l.asset) + posOf(mileageOrder, l.asset) + posOf(unschedOrder, l.asset),
   })).sort((a, b) => a.score - b.score || a.asset - b.asset);
 }
-function computeLocoRankings() {
-  const byClass = {};
-  DATA.locoPerf.forEach(l => { (byClass[l.class] = byClass[l.class] || []).push(l); });
-  const rankByAsset = {};
-  Object.values(byClass).forEach(group => {
-    rankGroupByPerf(group).forEach((s, i) => { rankByAsset[s.asset] = i + 1; });
-  });
-  return rankByAsset;
+function rankByAssetForGroup(group) {
+  const map = {};
+  rankGroupByPerf(group).forEach((s, i) => { map[s.asset] = i + 1; });
+  return map;
 }
 function fleetTopPerformer() {
   if (!DATA.locoPerf.length) return null;
@@ -3269,7 +3265,8 @@ function renderReliability() {
     </tr>`;
   }).join('');
 
-  const rankByAsset = computeLocoRankings();
+  const rankGroup = reliabilityClassFilter === 'all' ? DATA.locoPerf : DATA.locoPerf.filter(l => l.class === reliabilityClassFilter);
+  const rankByAsset = rankByAssetForGroup(rankGroup);
   DATA.locoPerf.forEach(l => { l.rank = rankByAsset[l.asset] || null; });
 
   const locoClasses = [...new Set(DATA.locoPerf.map(l => l.class))].sort();
@@ -3323,7 +3320,7 @@ function renderReliability() {
           <tbody>${locoBody}</tbody>
         </table>
       </div>
-      <div class="row-count">${locoRows.length} of ${DATA.locoPerf.length} locomotives shown &middot; ${lst && lst.key ? 'sorted by ' + esc(LOCO_PERF_COLUMNS.find(c => c.key === lst.key).label) + (lst.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('locoPerf') ? ' &middot; ' + countActiveFilters('locoPerf') + ' column filter(s) active' : ''} &middot; Ranking is computed within each class (higher PE, higher mileage, lower unscheduled = better)</div>
+      <div class="row-count">${locoRows.length} of ${DATA.locoPerf.length} locomotives shown &middot; ${lst && lst.key ? 'sorted by ' + esc(LOCO_PERF_COLUMNS.find(c => c.key === lst.key).label) + (lst.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('locoPerf') ? ' &middot; ' + countActiveFilters('locoPerf') + ' column filter(s) active' : ''} &middot; Ranking is computed ${reliabilityClassFilter === 'all' ? 'fleet-wide, across all classes' : 'within ' + esc(reliabilityClassFilter) + ' only'} (higher PE, higher mileage, lower unscheduled = better)</div>
     </div>
   `;
 
