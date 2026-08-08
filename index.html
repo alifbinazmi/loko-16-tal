@@ -1381,7 +1381,7 @@ function drillIncidentsFailByMonth(monthStr) {
 
 /* ---------- KPI card month-picker ---------- */
 let openKpiPicker = null; // 'failures' | 'incidents' | 'langgar' | 'incidentsFail' | 'availability' | 'reliability' | 'pe' | 'running' | null
-let kpiSelectedMonth = { failures: null, incidents: null, langgar: null, incidentsFail: null, availability: null, reliability: null, pe: null, running: null };
+let kpiSelectedMonth = { failures: null, incidents: null, langgar: null, incidentsFail: null, availability: null, reliability: null, pe: null, running: null, topPerformer: null };
 function kpiMonthOptions(metric) {
   if (metric === 'failures') {
     const counts = {};
@@ -1417,6 +1417,12 @@ function kpiMonthOptions(metric) {
     const counts = {};
     DATA.peHistory.forEach(h => { if (h.date) { const k = monthKey(h.date); if (k) counts[k] = (counts[k] || 0) + 1; } });
     return Object.keys(counts).sort().map(m => ({ key: m, label: monthLabel(m), count: counts[m] }));
+  }
+  if (metric === 'topPerformer') {
+    return getAllTrackedMonths().map(m => {
+      const top = fleetTopPerformerForMonth(m);
+      return { key: m, label: monthLabel(m), count: top ? top.asset : '—' };
+    });
   }
   return [];
 }
@@ -1489,6 +1495,9 @@ function drillKpi(metric, key) {
       const el = document.getElementById('peHistorySection');
       if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
     });
+  } else if (metric === 'topPerformer') {
+    reliabilityPerfMonth = key || 'all';
+    setView('reliability');
   }
 }
 function wireKpiCards() {
@@ -1885,13 +1894,16 @@ function buildOrderedKpiCards() {
         ${openKpiPicker === 'langgar' ? kpiPickerHtml('langgar', totalLanggar) : ''}
       </div>`,
     topPerformer: (() => {
-      const top = fleetTopPerformer();
+      const topPerformerV = kpiMetricValue('topPerformer', (fleetTopPerformer() || {}).asset || '&mdash;');
+      const effMonth = topPerformerV.key && topPerformerV.key !== 'ALL' ? topPerformerV.key : 'all';
+      const top = fleetTopPerformerForMonth(effMonth);
       return `
-      <div class="kpi" style="--accent:var(--indigo);cursor:pointer;" data-nav-view="reliability">
-        <div class="kpi-label">Top Performer</div>
+      <div class="kpi" style="--accent:var(--indigo);cursor:pointer;" data-kpi="topPerformer">
+        <div class="kpi-label">Top Performer${topPerformerV.label ? `<span class="kpi-month-tag">${esc(topPerformerV.label)}</span>` : ''}</div>
         <div class="kpi-value">${top ? esc(top.asset) : '&mdash;'}<small>${top ? esc(top.class) : ''}</small></div>
-        <div class="kpi-foot">Fleet-wide &middot; best combined PE, mileage &amp; unscheduled score</div>
+        <div class="kpi-foot">${kpiFootHtml('topPerformer', 'Fleet-wide &middot; best combined PE, mileage &amp; unscheduled score', topPerformerV)}</div>
         <div class="kpi-corner">${ICONS.trophy}</div>
+        ${openKpiPicker === 'topPerformer' ? kpiPickerHtml('topPerformer', (fleetTopPerformer() || {}).asset || '&mdash;') : ''}
       </div>`;
     })(),
   };
@@ -3080,10 +3092,25 @@ function rankByAssetForGroup(group) {
   rankGroupByPerf(group).forEach((s, i) => { map[s.asset] = i + 1; });
   return map;
 }
-function fleetTopPerformer() {
+function fleetTopPerformerForMonth(monthKey) {
   if (!DATA.locoPerf.length) return null;
-  const topAsset = rankGroupByPerf(DATA.locoPerf)[0].asset;
-  return DATA.locoPerf.find(l => l.asset === topAsset) || null;
+  let rows;
+  if (!monthKey || monthKey === 'all') {
+    rows = DATA.locoPerf;
+  } else {
+    const counts = dailyStatusEventCountsForMonth(monthKey);
+    rows = DATA.locoPerf.map(l => ({
+      asset: l.asset, class: l.class,
+      unscheduled: counts.unscheduledByAsset[l.asset] || 0,
+      pe: counts.peByAsset[l.asset] || 0,
+      mileage: computeFinalKm(l.asset, monthKey),
+    }));
+  }
+  const topAsset = rankGroupByPerf(rows)[0].asset;
+  return rows.find(l => l.asset === topAsset) || null;
+}
+function fleetTopPerformer() {
+  return fleetTopPerformerForMonth('all');
 }
 function reliabilityStatusPill(pass) {
   if (pass === null || pass === undefined) return '<span class="dim">&mdash;</span>';
