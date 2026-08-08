@@ -1728,11 +1728,6 @@ function latestAvailabilityInfo() {
   const rec = getAvailabilityRecord(useDate);
   return { date: useDate, total: rec ? availDayTotal(rec) : 0 };
 }
-function openThisMonthCount() {
-  const now = new Date();
-  const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  return DATA.incidents.filter(i => i.asset && i.month === ym && (i.status || '').toLowerCase() !== 'ok').length;
-}
 function deploymentMaintenanceCounts() {
   const { buckets } = buildDeploymentSummary(deploymentDateOrDefault());
   const maintenance = buckets ? buckets.maintenance : [];
@@ -1740,16 +1735,22 @@ function deploymentMaintenanceCounts() {
   const pe = maintenance.filter(r => maintenancePriority(r.value) === 0).length;
   return { failed, pe };
 }
+let initialDataLoaded = false;
 function renderSidebarStats() {
   const el = document.getElementById('sidebarStats');
   if (!el) return;
+  if (!initialDataLoaded) {
+    el.innerHTML = `<div class="tb-chip"><span class="tb-dot saving"></span><span>LOADING&hellip;</span></div>`;
+    return;
+  }
   const avail = latestAvailabilityInfo();
   const dep = deploymentMaintenanceCounts();
+  const peNotClosed = DATA.peHistory.filter(h => !h.date).length;
   el.innerHTML = `
     <div class="tb-chip" title="From Total Availability table, synced to today's date">${ICONS.gauge}<b>${avail.total}</b>&nbsp;Available${avail.date ? ' &middot; ' + fmtDate(avail.date) : ''}</div>
-    <div class="tb-chip">${ICONS.incident}<b>${openThisMonthCount()}</b>&nbsp;Open this month</div>
-    <div class="tb-chip" title="From Daily Fleet Deployment Summary, latest date">${ICONS.failure}<b>${dep.failed}</b>&nbsp;Failed</div>
-    <div class="tb-chip" title="From Daily Fleet Deployment Summary, latest date">${ICONS.masterplan}<b>${dep.pe}</b>&nbsp;PE</div>
+    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.failure}<b>${dep.failed}</b>&nbsp;Failed</div>
+    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.masterplan}<b>${dep.pe}</b>&nbsp;PE</div>
+    <div class="tb-chip" title="PE Completion History records with no Date Completed yet">${ICONS.masterplan}<b>${peNotClosed}</b>&nbsp;PE Not Closed</div>
     <div class="tb-chip"><span class="tb-dot" id="tbSyncDot"></span><span id="tbSyncLabel">SYNCED</span></div>
   `;
   updateSaveIndicator();
@@ -4697,7 +4698,9 @@ document.addEventListener('keydown', e => {
 
 /* ---------- init ---------- */
 async function startApp() {
+  renderSidebarStats();
   await loadData();
+  initialDataLoaded = true;
   recomputePeSchedule();
   renderNav();
   renderTopbarActions();
