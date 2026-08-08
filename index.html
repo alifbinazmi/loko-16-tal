@@ -1747,7 +1747,7 @@ function renderSidebarStats() {
   const dep = deploymentMaintenanceCounts();
   const peNotClosed = DATA.peHistory.filter(h => !h.date).length;
   el.innerHTML = `
-    <div class="tb-chip" title="From Total Availability table, synced to today's date">${ICONS.gauge}<b>${avail.total}</b>&nbsp;Available${avail.date ? ' &middot; ' + fmtDate(avail.date) : ''}</div>
+    <div class="tb-chip" title="From Total Availability table, synced to today's date">${ICONS.gauge}<b>${avail.total}</b>&nbsp;Available</div>
     <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.failure}<b>${dep.failed}</b>&nbsp;Failed</div>
     <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.masterplan}<b>${dep.pe}</b>&nbsp;PE</div>
     <div class="tb-chip" title="PE Completion History records with no Date Completed yet">${ICONS.masterplan}<b>${peNotClosed}</b>&nbsp;PE Not Closed</div>
