@@ -1021,6 +1021,7 @@ function applyColumnFilters(viewKey, rows) {
 }
 function clearAllFilters(viewKey) {
   columnFilters[viewKey] = {};
+  sortState[viewKey] = null;
   openFilterPanel = null;
   renderContent();
   renderTopbarActions();
