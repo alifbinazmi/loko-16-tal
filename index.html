@@ -2484,7 +2484,14 @@ function renderFailures() {
     .filter(f => matchesSearch(f, ['asset','depoh','reportByOps','reportByDepot','subSystem','c1Type','c2Type','c3Type','c4Type','remark']));
   rows = applyColumnFilters('failures', rows);
   const st = sortState.failures;
-  rows = st && st.key ? sortRows(rows, 'failures', failureCellValue) : rows.slice().reverse();
+  rows = st && st.key ? sortRows(rows, 'failures', failureCellValue) : rows.slice().sort((a, b) => {
+    const ta = parseFailureDateTime(a.dateReceive, a.timeReceive);
+    const tb = parseFailureDateTime(b.dateReceive, b.timeReceive);
+    if (ta && tb) return tb - ta;
+    if (ta) return -1;
+    if (tb) return 1;
+    return DATA.failures.indexOf(b) - DATA.failures.indexOf(a);
+  });
 
   const ssTotals = computeSubsystemTotals();
   const topSS = Object.entries(ssTotals).sort((a, b) => b[1] - a[1])[0] || ['\u2014', 0];
