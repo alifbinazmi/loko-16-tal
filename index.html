@@ -2239,7 +2239,7 @@ function renderSubsystem() {
       const v = grid[s][a];
       return `<td class="${severityClass(v)}">${v}</td>`;
     }).join('');
-    return `<tr><td>${esc(s)}</td>${cells}<td class="total-col ${severityClass(rowTotal(s))}">${rowTotal(s)}</td></tr>`;
+    return `<tr><td>${esc(s)}</td>${cells}<td class="total-col ${severityClass(rowTotal(s))} subsystem-total-cell" data-subsystem="${esc(s)}" style="cursor:pointer;" title="View ${esc(s)} in Unscheduled Reports">${rowTotal(s)}</td></tr>`;
   }).join('');
   const totalRow = `<tr class="total-row"><td>Total Failure by Loco</td>${assets.map(a => `<td class="${severityClass(colTotal(a))}">${colTotal(a)}</td>`).join('')}<td class="total-col ${severityClass(grandTotal)}">${grandTotal}</td></tr>`;
 
@@ -2264,6 +2264,9 @@ function renderSubsystem() {
   document.getElementById('ssMonthSelect').addEventListener('change', e => {
     subsystemSelectedMonth = e.target.value || null;
     renderSubsystem();
+  });
+  document.querySelectorAll('.subsystem-total-cell').forEach(cell => {
+    cell.addEventListener('click', () => goToSubsystem(cell.dataset.subsystem));
   });
 }
 
