@@ -2362,11 +2362,11 @@ function actionTakenCellHtml(f, idx) {
     <span class="dim">${esc(short)}</span>
   </td>`;
 }
-function showActionTakenPopup(idx, anchorEl) {
+function showRecordTextPopup(idx, anchorEl, textFn) {
   const rec = DATA.failures[idx];
   if (!rec) return;
   const popup = document.getElementById('actionTakenPopup');
-  popup.querySelector('.action-popup-body').textContent = (rec.materialUsed || '').trim();
+  popup.querySelector('.action-popup-body').textContent = textFn(rec);
   popup.querySelector('.action-popup-meta').textContent = `Asset ${rec.asset || '\u2014'} \u00b7 ${fmtDate(rec.dateReceive)}`;
   popup.dataset.idx = idx;
   popup.hidden = false;
@@ -2385,38 +2385,44 @@ function showActionTakenPopup(idx, anchorEl) {
     }
   });
 }
+function showActionTakenPopup(idx, anchorEl) {
+  showRecordTextPopup(idx, anchorEl, rec => (rec.materialUsed || '').trim());
+}
+function showReportPopup(idx, anchorEl) {
+  showRecordTextPopup(idx, anchorEl, rec => {
+    const byOps = (rec.reportByOps || '').trim();
+    const byDepot = (rec.reportByDepot || '').trim();
+    if (byOps && byDepot && byOps !== byDepot) return `By Ops:\n${byOps}\n\nBy Depoh:\n${byDepot}`;
+    return byOps || byDepot || '';
+  });
+}
 function hideActionTakenPopup() {
   const popup = document.getElementById('actionTakenPopup');
   if (popup) popup.hidden = true;
 }
-function wireActionTakenPopups() {
+function wireFailurePopups() {
   document.querySelectorAll('.action-taken-cell[data-action-idx]').forEach(cell => {
     cell.addEventListener('click', e => {
       e.stopPropagation();
       showActionTakenPopup(Number(cell.dataset.actionIdx), cell);
     });
   });
+  document.querySelectorAll('.report-cell[data-report-idx]').forEach(cell => {
+    cell.addEventListener('click', e => {
+      e.stopPropagation();
+      showReportPopup(Number(cell.dataset.reportIdx), cell);
+    });
+  });
 }
-function reportCellHtml(f) {
+function reportCellHtml(f, idx) {
   const byOps = (f.reportByOps || '').trim();
   const byDepot = (f.reportByDepot || '').trim();
   const isBlank = v => !v || v === '-';
   if (isBlank(byOps) && isBlank(byDepot)) return '<td class="dim">&mdash;</td>';
-  if (isBlank(byDepot) || byOps === byDepot) {
-    return `<td class="wrap"><span class="dim" style="font-size:10px;">By Ops:</span> ${esc(byOps || byDepot)}</td>`;
-  }
-  if (isBlank(byOps)) {
-    return `<td class="wrap"><span class="dim" style="font-size:10px;">By Depoh:</span> ${esc(byDepot)}</td>`;
-  }
-  const detailHtml = `
-    <div class="comp-detail-row"><span class="comp-detail-label">By Ops</span><span class="comp-detail-value">${esc(byOps)}</span></div>
-    <div class="comp-detail-row"><span class="comp-detail-label">By Depoh</span><span class="comp-detail-value">${esc(byDepot)}</span></div>`;
-  return `<td class="wrap comp-cell">
-    <div class="comp-main">
-      <button type="button" class="comp-expand" aria-expanded="false" aria-label="Toggle report details">${chevronIcon()}</button>
-      <span>${esc(byOps)}</span>
-    </div>
-    <div class="comp-detail" hidden>${detailHtml}</div>
+  const preview = (byOps || byDepot).replace(/\s+/g, ' ').trim();
+  const short = preview.length > 70 ? preview.slice(0, 70).trim() + '\u2026' : preview;
+  return `<td class="wrap report-cell" data-report-idx="${idx}" style="cursor:pointer;">
+    <span class="dim">${esc(short)}</span>
   </td>`;
 }
 function wireComponentToggles() {
@@ -2505,7 +2511,7 @@ function renderFailures() {
       <td class="num">${esc(f.asset)}</td>
       <td class="dim">${fmtDate(f.dateReceive)}</td>
       <td>${esc(f.depoh)}</td>
-      ${reportCellHtml(f)}
+      ${reportCellHtml(f, DATA.failures.indexOf(f))}
       <td><span class="badge badge-other">${esc(f.subSystem)}</span></td>
       ${componentCellHtml(f, 1)}
       ${componentCellHtml(f, 2)}
@@ -2540,7 +2546,7 @@ function renderFailures() {
   wireSortHeaders();
   wireComponentToggles();
   wireFilterButtons();
-  wireActionTakenPopups();
+  wireFailurePopups();
   document.querySelectorAll('.failure-edit-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -4727,7 +4733,7 @@ document.getElementById('actionPopupEditBtn').addEventListener('click', () => {
 document.addEventListener('click', e => {
   const popup = document.getElementById('actionTakenPopup');
   if (popup.hidden) return;
-  if (popup.contains(e.target) || e.target.closest('.action-taken-cell')) return;
+  if (popup.contains(e.target) || e.target.closest('.action-taken-cell') || e.target.closest('.report-cell')) return;
   hideActionTakenPopup();
 });
 document.addEventListener('keydown', e => {
