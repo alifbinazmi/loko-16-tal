@@ -4108,16 +4108,16 @@ function renderMasterplan() {
 
 
 /* ---------- Daily Fleet Deployment Summary ---------- */
-const INTERCITY_CODES = ['26', '27', 'E&O', '8101/8150', '8001/8046', '1', '2', 'S.LIPIS', 'S.KEM', 'S.GEM', 'S.TUM', 'S.KLSD', 'S.DPK', 'L/E', 'S.DBG'];
-const KARGO_CODES = ['YAD PRAI', '474+473', '472-471', 'F.KLANG'];
+const INTERCITY_CODES = ['26', '27', 'E&O', '8101/8150', '8001/8046', '1', '2', 'S.LIPIS', 'S.KEM', 'S.GEM', 'S.TUM', 'S.KLSD', 'L/E'];
+const KARGO_CODES = ['YAD PRAI', '474+473', '472-471', 'F.KLANG', 'S.DPK', 'S.DBG', 'S.DBT'];
 const DEPARTMENTAL_CODES = ['B.TIMUR', 'B.SELATAN', 'KVDT', 'B.UTARA'];
 const CODE_LABELS = [
   ['26', 'Tren 26'], ['27', 'Tren 27'],
   ['1', 'Shuttle Tebrau'], ['2', 'Shuttle Tebrau'],
   ['8001/8046', 'Shuttle Hybrid'], ['8101/8150', 'Shuttle Selatan'],
   ['S.LIPIS', 'Standby Lipis'], ['S.TUM', 'Standby Tumpat'], ['S.KEM', 'Standby Kempas'], ['S.GEM', 'Standby Gemas'],
-  ['S.DPK', 'Standby Port Klang'],
   ['YAD PRAI', 'Shunting Yad Prai'],
+  ['S.DPK', 'Standby Port Klang'], ['S.DBG', 'Standby Batu Gajah'], ['S.DBT', 'Standby Bukit Tengah'],
   ['472-471', 'Petronas Fertilizer Kargo'], ['474+473', 'Petronas Fertilizer Kargo'],
   ['SHUNT.BT', 'Shunting Bukit Tengah'], ['SHUNT.BG', 'Shunting Batu Gajah'],
   ['SHUNT.KLSD', 'Shunting KLSD'], ['SHUNT.DPK', 'Shunting Port Klang'],
