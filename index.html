@@ -2208,7 +2208,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   const availData = availMonths.map(m => ({ month: m, value: computeDailyAvailabilityAverage(m), target: availabilityTargetForMonth(m) }));
   drawBarChart('chartDashAvailability', availData.map(a => monthLabel(a.month)), availData.map(a => a.value),
     availData.map(a => a.value >= a.target ? '#159253' : '#B0202F'),
-    { rotate: false, targetLine: availData.length ? availData[availData.length - 1].target : 0, onClick: () => setView('availability') });
+    { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability') });
 
   const relMonths = RELIABILITY_DATA.reliability.map(r => r.month);
   const mkbfData = relMonths.map(m => computeMkbfKm(m) || 0);
