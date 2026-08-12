@@ -1990,7 +1990,9 @@ function drawBarChart(canvasId, labels, values, color, opts = {}) {
   const padL = 30, padR = 8, padT = 8, rotate = opts.rotate !== false;
   const padB = rotate ? 68 : 26;
   const chartW = w - padL - padR, chartH = h - padT - padB;
-  const maxV = niceMax(Math.max(...values, opts.targetLine || 0, 1));
+  const targetArr = Array.isArray(opts.targetLine) ? opts.targetLine : null;
+  const targetScalar = targetArr ? null : opts.targetLine;
+  const maxV = niceMax(Math.max(...values, targetArr ? Math.max(...targetArr) : (targetScalar || 0), 1));
   const steps = 4;
 
   ctx.strokeStyle = CHART_GRID; ctx.lineWidth = 1; ctx.font = '10px -apple-system,Segoe UI,sans-serif'; ctx.fillStyle = CHART_TEXT;
@@ -2030,15 +2032,28 @@ function drawBarChart(canvasId, labels, values, color, opts = {}) {
     ctx.restore();
   });
 
-  if (opts.targetLine) {
-    const ty = padT + chartH - chartH * (opts.targetLine / maxV);
+  if (targetArr && targetArr.length) {
+    ctx.save();
+    ctx.strokeStyle = '#A85D00'; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    targetArr.forEach((t, i) => {
+      const ty = padT + chartH - chartH * (t / maxV);
+      const xStart = padL + slot * i, xEnd = padL + slot * (i + 1);
+      if (i === 0) ctx.moveTo(xStart, ty); else ctx.lineTo(xStart, ty);
+      ctx.lineTo(xEnd, ty);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  } else if (targetScalar) {
+    const ty = padT + chartH - chartH * (targetScalar / maxV);
     ctx.save();
     ctx.strokeStyle = '#A85D00'; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
     ctx.beginPath(); ctx.moveTo(padL, ty); ctx.lineTo(padL + chartW, ty); ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = '#A85D00'; ctx.font = '9px -apple-system,Segoe UI,sans-serif';
     ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    ctx.fillText('Target ' + opts.targetLine, padL + 3, ty - 2);
+    ctx.fillText('Target ' + targetScalar, padL + 3, ty - 2);
     ctx.restore();
   }
 
@@ -3100,7 +3115,7 @@ function renderAvailability() {
   `;
 
   drawBarChart('chartAvailability', avail.map(a => monthLabel(a.month)), avail.map(a => a.value),
-    avail.map(a => a.value >= a.target ? '#159253' : '#B0202F'), { rotate: false, targetLine: avail[avail.length - 1].target });
+    avail.map(a => a.value >= a.target ? '#159253' : '#B0202F'), { rotate: false, targetLine: avail.map(a => a.target) });
   wireDailyAvailabilityNav();
   wireAvailabilityTargetInputs();
 }
