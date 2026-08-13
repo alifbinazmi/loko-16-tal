@@ -3281,7 +3281,11 @@ function dailyStatusFleetKmForMonth(yyyyMm) {
   return Math.round(DATA.locoPerf.reduce((s, l) => s + computeFinalKm(l.asset, yyyyMm), 0) * 10) / 10;
 }
 const MKBF_TARGET_KM = 12000;
+const MKBF_LIVE_FORMULA_START_MONTH = '2026-07';
 function failuresForMonth(yyyyMm) {
+  if (yyyyMm >= MKBF_LIVE_FORMULA_START_MONTH) {
+    return DATA.incidents.filter(i => i.month === yyyyMm && (i.status || '').toUpperCase() === 'FAIL').length;
+  }
   const entry = RELIABILITY_DATA.reliability.find(r => r.month === yyyyMm);
   return entry ? entry.failures : null;
 }
@@ -3460,7 +3464,7 @@ function renderReliability() {
     return `<tr>
       <td class="dim">${monthLabel(r.month)}</td>
       <td class="num">${fmtKm(dailyStatusFleetKmForMonth(r.month))}</td>
-      <td class="num">${r.failures}</td>
+      <td class="num">${failuresForMonth(r.month)}</td>
       <td class="num">${mkbf === null ? '&mdash;' : fmtKm(mkbf)}</td>
       <td class="num dim">${fmtKm(MKBF_TARGET_KM)}</td>
       <td>${reliabilityStatusPill(pass)}</td>
