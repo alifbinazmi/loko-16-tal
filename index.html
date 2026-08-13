@@ -834,13 +834,30 @@ function peDueStatusFromLastDate(lastDateStr, intervalDays) {
   const daysDue = (d - new Date(todayDateStr() + 'T00:00:00')) / 86400000;
   return { last: lastDateStr, next, daysDue, status: daysDue < 0 ? 'OVERDUE' : 'OK' };
 }
+function peDueStatusFromActivation(activationDateStr, intervalDays) {
+  const d = new Date(activationDateStr + 'T00:00:00');
+  d.setDate(d.getDate() + intervalDays);
+  const next = localDateStr(d);
+  const daysDue = (d - new Date(todayDateStr() + 'T00:00:00')) / 86400000;
+  return { last: null, next, daysDue, status: daysDue < 0 ? 'OVERDUE' : 'OK' };
+}
 function computePeStatusFor(asset, locoClass) {
+  if (isInactiveRanged(asset, todayDateStr())) return { last: null, next: null, daysDue: null, status: 'INACTIVE' };
   const history = DATA.peHistory.filter(h => h.asset === asset && h.date).sort((a, b) => a.date < b.date ? -1 : 1);
   const last = history.length ? history[history.length - 1].date : null;
   const intervalDays = String(locoClass || '').startsWith('19') ? 30 : 15;
+  if (!last) {
+    const range = DATA.inactiveRanges[asset];
+    if (range && range.to) {
+      const d = new Date(range.to + 'T00:00:00');
+      d.setDate(d.getDate() + 1);
+      return peDueStatusFromActivation(localDateStr(d), intervalDays);
+    }
+  }
   return peDueStatusFromLastDate(last, intervalDays);
 }
 function computePe45StatusFor(asset, locoClass) {
+  if (isInactiveRanged(asset, todayDateStr())) return { last: null, next: null, daysDue: null, status: 'INACTIVE', lastType: null };
   if (String(locoClass || '').startsWith('19')) return { last: null, next: null, daysDue: null, status: 'NO RECORD', lastType: null };
   const big = DATA.peHistory.filter(h => h.asset === asset && h.date && ['PE45', 'PE180', 'PE360'].includes(h.type))
     .sort((a, b) => a.date < b.date ? -1 : 1);
@@ -860,13 +877,15 @@ function recomputePeSchedule() {
     const cycle = completedCount + 1; // the next PE this locomotive is due for, counting its real completed history
     const upcomingType = referenceDate ? peTypeForCycle(cycle, locoClass) : '\u2014';
     const upcomingDate = live.next || r.nextPE || (referenceDate ? computeUpcomingPeCycles(referenceDate, 1, cycle, locoClass)[0].date : null);
+    const liveActive = live.status !== 'NO RECORD';
+    const live45Active = live45.status !== 'NO RECORD';
     return {
       ...r,
       class: loco ? loco.class : '\u2014',
-      lastPE: live.last || r.lastPE, nextPE: live.next || r.nextPE,
-      daysDue: live.last ? live.daysDue : r.daysDue, status: live.last ? live.status : r.status,
-      last45: live45.last || r.last45, next45: live45.next || r.next45,
-      daysDue45: live45.last ? live45.daysDue : r.daysDue45, status45: live45.last ? live45.status : r.status45,
+      lastPE: live.last || r.lastPE, nextPE: liveActive ? live.next : r.nextPE,
+      daysDue: liveActive ? live.daysDue : r.daysDue, status: liveActive ? live.status : r.status,
+      last45: live45.last || r.last45, next45: live45Active ? live45.next : r.next45,
+      daysDue45: live45Active ? live45.daysDue : r.daysDue45, status45: live45Active ? live45.status : r.status45,
       last45Type: live45.lastType || r.last45Type || null,
       upcomingType, upcomingDate, nextCycleNumber: referenceDate ? cycle : 1,
     };
@@ -4073,6 +4092,7 @@ function upcomingPeCellHtml(referenceDateStr, startCycle, locoClass) {
 function peStatusPill(status) {
   if (status === 'OVERDUE') return '<span class="badge badge-fail">OVERDUE</span>';
   if (status === 'OK') return '<span class="badge badge-ok">OK</span>';
+  if (status === 'INACTIVE') return '<span class="badge badge-other">INACTIVE</span>';
   return '<span class="badge badge-other">NO RECORD</span>';
 }
 function formatDaysDue(days) {
@@ -4119,6 +4139,7 @@ function renderMasterplan() {
   const totalOverdue = DATA.peSchedule.filter(r => r.status === 'OVERDUE').length;
   const totalOK = DATA.peSchedule.filter(r => r.status === 'OK').length;
   const totalNoRecord = DATA.peSchedule.filter(r => r.status === 'NO RECORD').length;
+  const totalActiveFleet = DATA.peSchedule.filter(r => r.status !== 'INACTIVE').length;
   const achievedPct = Math.round((PE_PLAN_SUMMARY.actual / PE_PLAN_SUMMARY.plan) * 1000) / 10;
 
   const typeColors = { PE15: null, PE45: '#A85D00', PE180: '#2F7EE0', PE360: '#B0202F' };
@@ -4165,13 +4186,13 @@ function renderMasterplan() {
       </div>
       <div class="kpi" style="--accent:var(--red)">
         <div class="kpi-label">Overdue for PE</div>
-        <div class="kpi-value">${totalOverdue}<small>/ ${DATA.peSchedule.length} locomotives</small></div>
+        <div class="kpi-value">${totalOverdue}<small>/ ${totalActiveFleet} locomotives</small></div>
         <div class="kpi-foot">PE15/30 cycle past its due date</div>
         <div class="kpi-corner">${ICONS.masterplan}</div>
       </div>
       <div class="kpi" style="--accent:var(--green)">
         <div class="kpi-label">On Schedule</div>
-        <div class="kpi-value">${totalOK}<small>/ ${DATA.peSchedule.length} locomotives</small></div>
+        <div class="kpi-value">${totalOK}<small>/ ${totalActiveFleet} locomotives</small></div>
         <div class="kpi-foot">PE15/30 cycle currently on target</div>
         <div class="kpi-corner">${ICONS.masterplan}</div>
       </div>
@@ -4648,6 +4669,7 @@ async function markInactiveAssetInactive() {
   DATA.inactiveRanges[asset] = { from: todayDateStr(), to: null };
   invalidateAvailabilityCache();
   await saveKey('inactiveRanges');
+  recomputePeSchedule();
   closeModal();
   renderContent();
   toast(`Asset ${asset} marked inactive`);
@@ -4656,9 +4678,12 @@ async function markInactiveAssetActiveNow() {
   const asset = document.getElementById('eiaAsset').value;
   if (!asset) return;
   if (!DATA.inactiveRanges[asset]) { toast(`Asset ${asset} has no inactive range set`); return; }
-  delete DATA.inactiveRanges[asset];
+  const d = new Date(todayDateStr() + 'T00:00:00');
+  d.setDate(d.getDate() - 1);
+  DATA.inactiveRanges[asset].to = localDateStr(d);
   invalidateAvailabilityCache();
   await saveKey('inactiveRanges');
+  recomputePeSchedule();
   closeModal();
   renderContent();
   toast(`Asset ${asset} marked active now`);
