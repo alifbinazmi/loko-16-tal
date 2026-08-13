@@ -715,7 +715,7 @@ const SUBSYSTEMS = [
 ];
 
 /* ---------- state ---------- */
-let DATA = { failures: [], incidents: [], langgar: [], locoPerf: [], dailyStatus: {}, additionalKm: {}, dailyAvailability: {}, peSchedule: [], peWeeklyStatus: {}, dsLabelOverrides: {}, dsMaintenanceNotes: {}, availabilityTargetOverrides: {} };
+let DATA = { failures: [], incidents: [], langgar: [], locoPerf: [], dailyStatus: {}, additionalKm: {}, dailyAvailability: {}, peSchedule: [], peWeeklyStatus: {}, dsLabelOverrides: {}, dsMaintenanceNotes: {}, availabilityTargetOverrides: {}, inactiveRanges: {} };
 let currentView = 'dashboard';
 let searchTerm = '';
 let charts = {};
@@ -1258,7 +1258,7 @@ document.addEventListener('click', e => {
 /* ---------- storage ---------- */
 async function loadData() {
   const seed = JSON.parse(document.getElementById('seed-data-json').textContent);
-  const keys = ['failures', 'incidents', 'langgar', 'dailyStatus', 'additionalKm', 'dailyAvailability', 'peHistory', 'peWeeklyStatus', 'dsLabelOverrides', 'dsMaintenanceNotes', 'availabilityTargetOverrides'];
+  const keys = ['failures', 'incidents', 'langgar', 'dailyStatus', 'additionalKm', 'dailyAvailability', 'peHistory', 'peWeeklyStatus', 'dsLabelOverrides', 'dsMaintenanceNotes', 'availabilityTargetOverrides', 'inactiveRanges'];
   try {
     const { data, error } = await _db.from('dashboard_store').select('key,value').in('key', keys);
     if (error) throw error;
@@ -2858,9 +2858,15 @@ function isInactiveCarried(asset, dateStr) {
   const val = (DATA.dailyStatus[`${asset}|${prior}`] || '').trim().toUpperCase();
   return val === 'INACTIVE';
 }
+function isInactiveRanged(asset, dateStr) {
+  const range = DATA.inactiveRanges[asset];
+  return !!(range && range.from && range.to && dateStr >= range.from && dateStr <= range.to);
+}
 function effectiveDailyValue(asset, dateStr) {
   const explicit = (DATA.dailyStatus[`${asset}|${dateStr}`] || '').trim();
-  return explicit || (isInactiveCarried(asset, dateStr) ? 'INACTIVE' : '');
+  if (explicit) return explicit;
+  if (isInactiveRanged(asset, dateStr)) return 'INACTIVE';
+  return isInactiveCarried(asset, dateStr) ? 'INACTIVE' : '';
 }
 function computeAvailabilityFromStatus(dateStr) {
   const counts = { c19: 0, c23: 0, c24: 0, c25: 0 };
@@ -4477,7 +4483,7 @@ function renderDailyStatus() {
           <div style="font-weight:700;font-size:14px;min-width:150px;text-align:center;">${monthLabelLong(dailyStatusMonth)}</div>
           <button class="btn btn-ghost" id="dsNextMonth">Next &rsaquo;</button>
           <button class="btn btn-ghost" id="dsToday" style="font-size:11px;">Jump to ${monthLabelLong(todayMonthKey())}</button>
-          <button class="btn btn-ghost" id="dsFillInactive" style="font-size:11px;">Fill Inactive Range</button>
+          <button class="btn btn-ghost" id="dsFillInactive" style="font-size:11px;">Edit Inactive Asset</button>
         </div>
         <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
           <div class="dim" style="font-size:11px;"><span id="dsFilledCount">${monthFilled}</span> of ${DATA.locoPerf.length * nDays} cells filled this month</div>
@@ -4559,55 +4565,72 @@ function componentFormSection(n, rec) {
     </div>`;
 }
 
+function fillEditInactiveAssetFields(asset) {
+  const range = DATA.inactiveRanges[asset];
+  const fromField = document.getElementById('eiaFrom');
+  const untilField = document.getElementById('eiaUntil');
+  if (fromField) fromField.value = range ? range.from : '';
+  if (untilField) untilField.value = range ? range.to : '';
+}
 function openInactiveRangeModal() {
   const modal = document.getElementById('modal');
-  const assetOptions = DATA.locoPerf.map(l => `<option value="${l.asset}">${esc(l.asset)} (${esc(l.class)})</option>`).join('');
+  const sortedLocos = DATA.locoPerf.slice().sort((a, b) => a.asset - b.asset);
+  const assetOptions = sortedLocos.map(l => `<option value="${l.asset}">${esc(l.asset)} (${esc(l.class)})${DATA.inactiveRanges[l.asset] ? ' — currently inactive' : ''}</option>`).join('');
   modal.innerHTML = `
     <div class="modal-head">
-      <h2>Fill Inactive Range</h2>
+      <h2>Edit Inactive Asset</h2>
       <button class="modal-close" id="modalCloseBtn">${ICONS.close}</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="field"><label>Asset *</label><select id="birAsset">${assetOptions}</select></div>
-        <div class="field"><label>From *</label><input type="date" id="birFrom" min="${DAILY_STATUS_MIN_MONTH}-01" required></div>
-        <div class="field"><label>To *</label><input type="date" id="birTo" min="${DAILY_STATUS_MIN_MONTH}-01" required></div>
+        <div class="field"><label>Asset *</label><select id="eiaAsset">${assetOptions}</select></div>
+        <div class="field"><label>From *</label><input type="date" id="eiaFrom" min="${DAILY_STATUS_MIN_MONTH}-01" required></div>
+        <div class="field"><label>Active again from *</label><input type="date" id="eiaUntil" min="${DAILY_STATUS_MIN_MONTH}-01" required></div>
       </div>
-      <div class="dim" style="font-size:11px;margin-top:10px;">Marks every day in this range as Inactive for the selected asset. Existing entries within the range will be overwritten. Days after the range still auto-continue as Inactive until a different status is entered, same as usual.</div>
+      <div class="dim" style="font-size:11px;margin-top:10px;">The asset shows as Inactive on every day from "From" up to and including the day before "Active again from" &mdash; after that it automatically goes back to normal, no further action needed. Pick an asset that's already inactive to edit its dates. If it returns to service early, use "Mark Active Now" below instead.</div>
     </div>
     <div class="modal-foot">
+      <button class="btn btn-ghost" id="eiaClearBtn" style="color:var(--red);margin-right:auto;">Mark Active Now</button>
       <button class="btn btn-ghost" id="modalCancelBtn">Cancel</button>
-      <button class="btn btn-primary" id="birApplyBtn">${ICONS.check}Fill Range</button>
+      <button class="btn btn-primary" id="eiaSaveBtn">${ICONS.check}Save Range</button>
     </div>
   `;
   document.getElementById('modalBackdrop').classList.add('open');
   document.getElementById('modalBackdrop').scrollTop = 0;
   document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
   document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
-  document.getElementById('birApplyBtn').addEventListener('click', applyInactiveRange);
-  const fromField = document.getElementById('birFrom');
-  if (fromField) fromField.value = todayDateStr();
+  document.getElementById('eiaSaveBtn').addEventListener('click', saveEditInactiveAsset);
+  document.getElementById('eiaClearBtn').addEventListener('click', markInactiveAssetActiveNow);
+  const assetField = document.getElementById('eiaAsset');
+  assetField.addEventListener('change', () => fillEditInactiveAssetFields(assetField.value));
+  fillEditInactiveAssetFields(assetField.value);
 }
-async function applyInactiveRange() {
-  const asset = document.getElementById('birAsset').value;
-  const from = document.getElementById('birFrom').value;
-  const to = document.getElementById('birTo').value;
-  if (!asset || !from || !to) { toast('Fill in asset, from, and to dates'); return; }
-  if (to < from) { toast('"To" date must be on or after "From" date'); return; }
-  let d = new Date(from + 'T00:00:00');
-  const end = new Date(to + 'T00:00:00');
-  let count = 0;
-  while (d <= end) {
-    DATA.dailyStatus[`${asset}|${localDateStr(d)}`] = 'INACTIVE';
-    count++;
-    d.setDate(d.getDate() + 1);
-  }
+async function saveEditInactiveAsset() {
+  const asset = document.getElementById('eiaAsset').value;
+  const from = document.getElementById('eiaFrom').value;
+  const until = document.getElementById('eiaUntil').value;
+  if (!asset || !from || !until) { toast('Fill in asset, from, and active-again dates'); return; }
+  if (until <= from) { toast('"Active again from" must be after "From"'); return; }
+  const d = new Date(until + 'T00:00:00');
+  d.setDate(d.getDate() - 1);
+  DATA.inactiveRanges[asset] = { from, to: localDateStr(d) };
   invalidateAvailabilityCache();
-  await saveKey('dailyStatus');
+  await saveKey('inactiveRanges');
   closeModal();
   dailyStatusMonth = from.slice(0, 7);
   renderContent();
-  toast(`Marked ${count} day(s) as Inactive for asset ${asset}`);
+  toast(`Asset ${asset} marked inactive ${from} to ${until}`);
+}
+async function markInactiveAssetActiveNow() {
+  const asset = document.getElementById('eiaAsset').value;
+  if (!asset) return;
+  if (!DATA.inactiveRanges[asset]) { toast(`Asset ${asset} has no inactive range set`); return; }
+  delete DATA.inactiveRanges[asset];
+  invalidateAvailabilityCache();
+  await saveKey('inactiveRanges');
+  closeModal();
+  renderContent();
+  toast(`Asset ${asset} marked active now`);
 }
 
 let currentModalPrefill = null;
