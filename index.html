@@ -117,6 +117,14 @@
   .tb-chip svg{width:12px;height:12px;flex-shrink:0;color:var(--text-faint);}
   .tb-chip b{color:var(--text);font-family:var(--mono);font-weight:700;font-size:11px;}
   .tb-chip.tb-clock{font-family:var(--mono);color:var(--text);}
+  .sidebar-stats .tb-chip{
+    border-left:3px solid var(--accent, var(--border));
+    background:color-mix(in srgb, var(--accent, var(--panel-2)) 12%, var(--panel-2));
+    transition:transform .12s ease;
+  }
+  .sidebar-stats .tb-chip:hover{transform:translateX(2px);}
+  .sidebar-stats .tb-chip svg{color:var(--accent, var(--text-faint));}
+  .sidebar-stats .tb-chip b{color:var(--accent, var(--text));}
   .tb-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(21,146,83,.7);flex-shrink:0;transition:background .2s;}
   .tb-dot.saving{background:var(--red);box-shadow:0 0 6px rgba(176,32,47,.7);animation:saveIndicatorPulse 1s ease-in-out infinite;}
   .topbar-actions{display:flex;align-items:center;gap:10px;justify-content:flex-end;flex-wrap:wrap;}
@@ -1795,11 +1803,11 @@ function renderSidebarStats() {
   const avail = latestAvailabilityInfo();
   const dep = deploymentMaintenanceCounts();
   el.innerHTML = `
-    <div class="tb-chip" title="From Total Availability table, synced to today's date">${ICONS.gauge}<b>${avail.total}</b>&nbsp;Available</div>
-    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today (Failed + Repair)">${ICONS.failure}<b>${dep.failed}</b>&nbsp;Under Maintenance</div>
-    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.masterplan}<b>${dep.pe}</b>&nbsp;PE</div>
-    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.gear}<b>${dep.overhaul}</b>&nbsp;Overhaul</div>
-    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.pause}<b>${dep.inactive}</b>&nbsp;Inactive</div>
+    <div class="tb-chip" style="--accent:var(--green);" title="From Total Availability table, synced to today's date">${ICONS.gauge}<b>${avail.total}</b>&nbsp;Available</div>
+    <div class="tb-chip" style="--accent:var(--red);" title="From Daily Fleet Deployment Summary, today (Failed + Repair)">${ICONS.failure}<b>${dep.failed}</b>&nbsp;Under Maintenance</div>
+    <div class="tb-chip" style="--accent:var(--amber);" title="From Daily Fleet Deployment Summary, today">${ICONS.masterplan}<b>${dep.pe}</b>&nbsp;PE</div>
+    <div class="tb-chip" style="--accent:var(--indigo);" title="From Daily Fleet Deployment Summary, today">${ICONS.gear}<b>${dep.overhaul}</b>&nbsp;Overhaul</div>
+    <div class="tb-chip" style="--accent:#5B6272;" title="From Daily Fleet Deployment Summary, today">${ICONS.pause}<b>${dep.inactive}</b>&nbsp;Inactive</div>
     <div class="tb-chip"><span class="tb-dot" id="tbSyncDot"></span><span id="tbSyncLabel">SYNCED</span></div>
   `;
   updateSaveIndicator();
