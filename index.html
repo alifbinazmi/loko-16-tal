@@ -2695,7 +2695,7 @@ function renderIncidents() {
         ${expandableCellHtml(i.faultReport)}
         ${expandableCellHtml(i.solution)}
         <td>${statusBadge(i.status)}</td>
-        <td class="dim" style="position:relative;">${esc(i.driver)}<span class="row-edit-flag">${ICONS.edit}Edit</span></td>
+        <td class="dim wrap" style="position:relative;max-width:110px;">${esc(i.driver)}<span class="row-edit-flag">${ICONS.edit}Edit</span></td>
       </tr>`;
     }
     // multiple incidents for same day — group with expand/collapse
@@ -2710,7 +2710,7 @@ function renderIncidents() {
         ${expandableCellHtml(i.faultReport)}
         ${expandableCellHtml(i.solution)}
         <td>${statusBadge(i.status)}</td>
-        <td class="dim" style="position:relative;">${esc(i.driver)}<span class="row-edit-flag">${ICONS.edit}Edit</span></td>
+        <td class="dim wrap" style="position:relative;max-width:110px;">${esc(i.driver)}<span class="row-edit-flag">${ICONS.edit}Edit</span></td>
       </tr>`;
     }).join('');
     const badges = rows.map(i => statusBadge(i.status)).join(' ');
@@ -2732,7 +2732,10 @@ function renderIncidents() {
   const tableHtml = Object.keys(dayMap).length ? `
     <div class="table-scroll">
       <table>
-        <thead><tr>${INCIDENT_COLUMNS.map(c => `<th>${esc(c.label)}</th>`).join('')}</tr></thead>
+        <thead><tr>${INCIDENT_COLUMNS.map(c => {
+          const w = c.key === 'driver' ? ' style="width:110px;"' : c.key === 'solution' ? ' style="width:30%;"' : '';
+          return `<th${w}>${esc(c.label)}</th>`;
+        }).join('')}</tr></thead>
         <tbody>${bodyHtml}</tbody>
       </table>
     </div>` : `<div class="row-count">No incidents recorded for ${monthLabelLong(month)}${hasSearch || countActiveFilters('incidents') ? ' matching your search/filters' : ''}.</div>`;
