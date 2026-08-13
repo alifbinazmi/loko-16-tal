@@ -129,7 +129,9 @@
   .topbar-clock-divider{width:1px;height:16px;background:rgba(255,255,255,.35);flex-shrink:0;}
   .topbar-clock-time{font-family:var(--mono);font-size:16px;font-weight:800;letter-spacing:.03em;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.2);}
   .sidebar-stats{display:flex;flex-direction:column;gap:6px;margin-top:10px;padding:0;}
-  .sidebar-stats .tb-chip{width:100%;justify-content:flex-start;}
+  .sidebar-stats .tb-chip{width:100%;justify-content:flex-start;padding:7px 10px;}
+  .sidebar-stats .tb-chip b{font-size:14px;font-weight:800;letter-spacing:-.02em;}
+  .sidebar-stats .tb-chip-label{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);}
 
 
 
@@ -1795,11 +1797,11 @@ function renderSidebarStats() {
   const avail = latestAvailabilityInfo();
   const dep = deploymentMaintenanceCounts();
   el.innerHTML = `
-    <div class="tb-chip" title="From Total Availability table, synced to today's date">${ICONS.gauge}<b>${avail.total}</b>&nbsp;Available</div>
-    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today (Failed + Repair)">${ICONS.failure}<b>${dep.failed}</b>&nbsp;Under Maintenance</div>
-    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.masterplan}<b>${dep.pe}</b>&nbsp;PE</div>
-    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.gear}<b>${dep.overhaul}</b>&nbsp;Overhaul</div>
-    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.pause}<b>${dep.inactive}</b>&nbsp;Inactive</div>
+    <div class="tb-chip" title="From Total Availability table, synced to today's date">${ICONS.gauge}<b>${avail.total}</b><span class="tb-chip-label">Available</span></div>
+    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today (Failed + Repair)">${ICONS.failure}<b>${dep.failed}</b><span class="tb-chip-label">Under Maintenance</span></div>
+    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.masterplan}<b>${dep.pe}</b><span class="tb-chip-label">PE</span></div>
+    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.gear}<b>${dep.overhaul}</b><span class="tb-chip-label">Overhaul</span></div>
+    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.pause}<b>${dep.inactive}</b><span class="tb-chip-label">Inactive</span></div>
     <div class="tb-chip"><span class="tb-dot" id="tbSyncDot"></span><span id="tbSyncLabel">SYNCED</span></div>
   `;
   updateSaveIndicator();
