@@ -182,6 +182,7 @@
 
   /* ---------- KPI plates ---------- */
   .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+  .kpi-grid.reliability-kpi-grid{grid-template-columns:repeat(5,1fr);}
   .kpi{
     position:relative;background:var(--panel);border:1px solid var(--border);border-radius:8px;
     padding:16px 16px 14px 16px;overflow:visible;cursor:pointer;transition:border-color .12s,transform .08s;
@@ -3313,16 +3314,13 @@ function reliabilityTrackedMonths() {
   const liveMonths = getTrackedMonthsWithData().filter(m => m >= MKBF_LIVE_FORMULA_START_MONTH);
   return [...new Set([...staticMonths, ...liveMonths])].sort();
 }
-let reliabilitySelectedMonth = { mkbf: null, running: null, maintenance: null, topUnscheduled: null };
-let openReliabilityPicker = null;
-function reliabilityPickerHtml(metric) {
+let reliabilitySelectedMonth = { mkbf: null, running: null, pe: null, unscheduled: null, topUnscheduled: null };
+function reliabilityMonthSelectHtml(metric, selectedMonth) {
   const months = reliabilityTrackedMonths();
-  const sel = reliabilitySelectedMonth[metric];
-  const items = months.map(m => `<div class="kpi-picker-item${sel === m ? ' selected' : ''}" data-month="${m}"><span>${esc(monthLabel(m))}</span></div>`).join('');
-  return `<div class="kpi-picker" data-reliability-panel="${metric}">
-    <div class="kpi-picker-item all-months${!sel ? ' selected' : ''}" data-month=""><span>Latest / YTD</span></div>
-    ${items}
-  </div>`;
+  return `<select class="reliability-month-select" data-reliability-metric="${metric}" onclick="event.stopPropagation()" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text);">
+    <option value=""${!selectedMonth ? ' selected' : ''}>Latest / YTD</option>
+    ${months.map(m => `<option value="${m}"${selectedMonth === m ? ' selected' : ''}>${esc(monthLabel(m))}</option>`).join('')}
+  </select>`;
 }
 function buildReliabilityKpiGridHtml() {
   const relMonths = reliabilityTrackedMonths();
@@ -3337,10 +3335,11 @@ function buildReliabilityKpiGridHtml() {
   const runningMonth = reliabilitySelectedMonth.running || latestMonth;
   const runningKmVal = dailyStatusFleetKmForMonth(runningMonth);
 
-  const maintMonth = reliabilitySelectedMonth.maintenance;
-  const maintCounts = maintMonth ? dailyStatusEventCountsForMonth(maintMonth) : null;
-  const peValue = maintCounts ? maintCounts.peTotal : totalPe;
-  const unschedValue = maintCounts ? maintCounts.unscheduledTotal : totalUnscheduled;
+  const peMonth = reliabilitySelectedMonth.pe;
+  const peValue = peMonth ? dailyStatusEventCountsForMonth(peMonth).peTotal : totalPe;
+
+  const unschedMonth = reliabilitySelectedMonth.unscheduled;
+  const unschedValue = unschedMonth ? dailyStatusEventCountsForMonth(unschedMonth).unscheduledTotal : totalUnscheduled;
 
   const topMonth = reliabilitySelectedMonth.topUnscheduled;
   let topAsset, topCount;
@@ -3354,33 +3353,35 @@ function buildReliabilityKpiGridHtml() {
   }
 
   return `
-    <div class="kpi" style="--accent:${mkbfPass ? 'var(--green)' : 'var(--red)'};cursor:pointer;" data-reliability-metric="mkbf">
-      <div class="kpi-label">Reliability (MKBF)${reliabilitySelectedMonth.mkbf ? `<span class="kpi-month-tag">${esc(monthLabel(mkbfMonth))}</span>` : ''}</div>
+    <div class="kpi" style="--accent:${mkbfPass ? 'var(--green)' : 'var(--red)'};">
+      <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Reliability (MKBF)</span>${reliabilityMonthSelectHtml('mkbf', reliabilitySelectedMonth.mkbf)}</div>
       <div class="kpi-value">${mkbfKm === null ? '&mdash;' : fmtKm(mkbfKm)}<small>/ ${fmtKm(MKBF_TARGET_KM)} km target</small></div>
       <div class="kpi-foot">${monthLabel(mkbfMonth)} &middot; running km &divide; failures &middot; ${mkbfKm === null ? 'no failure data' : (mkbfPass ? 'On target' : 'Below target')}</div>
       <div class="kpi-corner">${ICONS.reliability}</div>
-      ${openReliabilityPicker === 'mkbf' ? reliabilityPickerHtml('mkbf') : ''}
     </div>
-    <div class="kpi" style="--accent:var(--blue);cursor:pointer;" data-reliability-metric="running">
-      <div class="kpi-label">Total Running${reliabilitySelectedMonth.running ? `<span class="kpi-month-tag">${esc(monthLabel(runningMonth))}</span>` : ''}</div>
+    <div class="kpi" style="--accent:var(--blue);">
+      <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Total Running</span>${reliabilityMonthSelectHtml('running', reliabilitySelectedMonth.running)}</div>
       <div class="kpi-value">${fmtKm(runningKmVal)}<small>km</small></div>
       <div class="kpi-foot"><span class="kpi-foot-link" data-reliability-action="view-daily" data-month="${runningMonth}">View records &rarr;</span></div>
       <div class="kpi-corner">${ICONS.reliability}</div>
-      ${openReliabilityPicker === 'running' ? reliabilityPickerHtml('running') : ''}
     </div>
-    <div class="kpi" style="--accent:var(--amber);cursor:pointer;" data-reliability-metric="maintenance">
-      <div class="kpi-label">Periodically Examination (PE)${reliabilitySelectedMonth.maintenance ? `<span class="kpi-month-tag">${esc(monthLabel(maintMonth))}</span>` : ''}</div>
-      <div class="kpi-value">${peValue}<small>/ ${unschedValue} unsched.</small></div>
-      <div class="kpi-foot">${maintMonth ? monthLabel(maintMonth) + ' \u00b7 from Daily Status' : 'Year to date, fleet-wide'}</div>
+    <div class="kpi" style="--accent:var(--amber);">
+      <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Periodically Examination (PE)</span>${reliabilityMonthSelectHtml('pe', peMonth)}</div>
+      <div class="kpi-value">${peValue}</div>
+      <div class="kpi-foot">${peMonth ? monthLabel(peMonth) + ' \u00b7 from Daily Status' : 'Year to date, fleet-wide'}</div>
       <div class="kpi-corner">${ICONS.reliability}</div>
-      ${openReliabilityPicker === 'maintenance' ? reliabilityPickerHtml('maintenance') : ''}
     </div>
-    <div class="kpi" style="--accent:var(--red);cursor:pointer;" data-reliability-metric="topUnscheduled">
-      <div class="kpi-label">Top Unscheduled${reliabilitySelectedMonth.topUnscheduled ? `<span class="kpi-month-tag">${esc(monthLabel(topMonth))}</span>` : ''}</div>
+    <div class="kpi" style="--accent:var(--indigo);">
+      <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Unscheduled</span>${reliabilityMonthSelectHtml('unscheduled', unschedMonth)}</div>
+      <div class="kpi-value">${unschedValue}</div>
+      <div class="kpi-foot">${unschedMonth ? monthLabel(unschedMonth) + ' \u00b7 from Daily Status' : 'Year to date, fleet-wide'}</div>
+      <div class="kpi-corner">${ICONS.reliability}</div>
+    </div>
+    <div class="kpi" style="--accent:var(--red);">
+      <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top Unscheduled</span>${reliabilityMonthSelectHtml('topUnscheduled', topMonth)}</div>
       <div class="kpi-value">Asset ${esc(topAsset)}</div>
       <div class="kpi-foot">${topCount} unscheduled repair(s) &middot; ${topMonth ? monthLabel(topMonth) + ' (Daily Status)' : 'highest in fleet, YTD'}</div>
       <div class="kpi-corner">${ICONS.reliability}</div>
-      ${openReliabilityPicker === 'topUnscheduled' ? reliabilityPickerHtml('topUnscheduled') : ''}
     </div>
   `;
 }
@@ -3432,30 +3433,14 @@ document.addEventListener('click', e => {
     return;
   }
 
-  const pickerItem = e.target.closest('.kpi-picker-item');
-  const panel = pickerItem ? pickerItem.closest('[data-reliability-panel]') : null;
-  if (pickerItem && panel && panel.closest('.kpi[data-reliability-metric]')) {
-    e.stopPropagation();
-    const metric = panel.dataset.reliabilityPanel;
-    reliabilitySelectedMonth[metric] = pickerItem.dataset.month || null;
-    openReliabilityPicker = null;
-    refreshReliabilityKpiGrid();
-    return;
-  }
-
-  const card = e.target.closest('.kpi[data-reliability-metric]');
-  if (card) {
-    if (e.target.closest('.kpi-picker')) return;
-    const metric = card.dataset.reliabilityMetric;
-    openReliabilityPicker = openReliabilityPicker === metric ? null : metric;
-    refreshReliabilityKpiGrid();
-    return;
-  }
-
-  if (openReliabilityPicker) {
-    openReliabilityPicker = null;
-    refreshReliabilityKpiGrid();
-  }
+});
+document.addEventListener('change', e => {
+  if (currentView !== 'reliability') return;
+  const sel = e.target.closest('select.reliability-month-select');
+  if (!sel) return;
+  const metric = sel.dataset.reliabilityMetric;
+  reliabilitySelectedMonth[metric] = sel.value || null;
+  refreshReliabilityKpiGrid();
 });
 function renderReliability() {
   const rel = reliabilityTrackedMonths();
@@ -3507,7 +3492,7 @@ function renderReliability() {
     </tr>`).join('') : `<tr class="empty-row"><td colspan="${LOCO_PERF_COLUMNS.length}">No locomotives match your filters.</td></tr>`;
 
   document.getElementById('content').innerHTML = `
-    <div class="kpi-grid">${buildReliabilityKpiGridHtml()}</div>
+    <div class="kpi-grid reliability-kpi-grid">${buildReliabilityKpiGridHtml()}</div>
 
     <div class="chart-grid" style="grid-template-columns:1fr;">
       <div class="chart-panel"><h3>Reliability (MKBF) by Month</h3><div class="chart-wrap"><canvas id="chartReliability"></canvas></div></div>
