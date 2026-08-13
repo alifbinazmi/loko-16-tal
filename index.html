@@ -1301,7 +1301,7 @@ async function loadData() {
     toast(`Marked ${NEW_INACTIVE_ASSETS.length} new assets inactive since ${DAILY_STATUS_MIN_MONTH}-01`);
   }
 }
-const NEW_INACTIVE_ASSETS = [23103, 24108, 24116, 24119, 24122, 25106];
+const NEW_INACTIVE_ASSETS = [19101, 23103, 24108, 24116, 24119, 24122, 25106];
 function backfillNewAssetInactiveRanges() {
   let changed = false;
   NEW_INACTIVE_ASSETS.forEach(asset => {
