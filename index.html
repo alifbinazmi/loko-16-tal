@@ -3527,7 +3527,7 @@ function dailyValueStyle(rawVal) {
   const upper = val.toUpperCase();
 
   if (upper.includes('REPAIR')) return 'background-color:#FF8A00;color:#FFFFFF;border-color:#CC6E00;font-weight:700;'; // repair: bright orange
-  if (upper === 'INACTIVE') return 'background-color:#2B2F36;color:#FFFFFF;border-color:#14161A;font-weight:700;'; // inactive: dark charcoal
+  if (upper === 'INACTIVE') return 'background-color:#5B2A86;color:#5B2A86;border-color:#3E1D5E;font-weight:700;'; // inactive: deep purple, text hidden so cell reads as a plain color block
   if (/\bOH\b/.test(upper)) return `--cell-hue:${hashStringToInt(upper) % 360};font-weight:700;`; // OH: same hash color, just bold
 
   // Colors carried over from the source Excel's conditional formatting rules
@@ -4444,6 +4444,7 @@ function renderDailyStatus() {
   const bodyRows = DATA.locoPerf.map(loco => {
     const showClass = loco.class !== lastClass;
     lastClass = loco.class;
+    const isCurrentlyInactive = effectiveDailyValue(loco.asset, todayStr) === 'INACTIVE';
     const dayCells = Array.from({ length: nDays }, (_, i) => {
       const dateStr = `${dailyStatusMonth}-${String(i + 1).padStart(2, '0')}`;
       const val = effectiveDailyValue(loco.asset, dateStr);
@@ -4455,7 +4456,7 @@ function renderDailyStatus() {
     const rowKm = computeMonthlyKm(loco.asset, dailyStatusMonth);
     const addKm = getAdditionalKm(loco.asset, dailyStatusMonth);
     const finalKm = computeFinalKm(loco.asset, dailyStatusMonth);
-    return `<tr><td>${showClass ? esc(loco.class) : ''}</td><td>${esc(loco.asset)}</td>${dayCells}<td class="num km-cell" id="dsKm-${loco.asset}">${fmtKm(rowKm)}</td><td class="day-cell additional-km-cell"><input type="number" step="0.1" class="additional-km-input${addKm ? ' has-value' : ''}" data-asset="${loco.asset}" value="${addKm || ''}" placeholder="0"></td><td class="num final-km-cell" id="dsFinalKm-${loco.asset}">${fmtKm(finalKm)}</td></tr>`;
+    return `<tr><td>${showClass ? esc(loco.class) : ''}</td><td${isCurrentlyInactive ? ' style="background-color:#000000;color:#FFFFFF;font-weight:700;"' : ''}>${esc(loco.asset)}</td>${dayCells}<td class="num km-cell" id="dsKm-${loco.asset}">${fmtKm(rowKm)}</td><td class="day-cell additional-km-cell"><input type="number" step="0.1" class="additional-km-input${addKm ? ' has-value' : ''}" data-asset="${loco.asset}" value="${addKm || ''}" placeholder="0"></td><td class="num final-km-cell" id="dsFinalKm-${loco.asset}">${fmtKm(finalKm)}</td></tr>`;
   }).join('');
   const monthFilled = countFilledForMonth(dailyStatusMonth);
   const optionsHtml = collectDailyStatusOptions().map(v => `<option value="${esc(v)}">`).join('');
