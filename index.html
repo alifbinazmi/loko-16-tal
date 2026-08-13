@@ -1440,7 +1440,6 @@ function drillIncidentsFailByMonth(monthStr) {
 }
 
 /* ---------- KPI card month-picker ---------- */
-let openKpiPicker = null; // 'failures' | 'incidents' | 'langgar' | 'incidentsFail' | 'availability' | 'reliability' | 'pe' | 'running' | null
 let kpiSelectedMonth = { failures: null, incidents: null, langgar: null, incidentsFail: null, availability: null, reliability: null, pe: null, running: null, topPerformer: null };
 function kpiMonthOptions(metric) {
   if (metric === 'failures') {
@@ -1504,17 +1503,14 @@ function kpiMetricValue(metric, totalFallback) {
   const found = kpiMonthOptions(metric).find(o => o.key === eff);
   return { count: found ? found.count : 0, label: found ? found.label : eff, key: eff };
 }
-function kpiPickerHtml(metric, totalCount) {
+function kpiMonthSelectHtml(metric) {
   const options = kpiMonthOptions(metric);
   const sel = kpiSelectedMonth[metric];
-  const eff = effectiveKpiMonth(metric);
-  const itemsHtml = options.length
-    ? options.map(o => `<div class="kpi-picker-item${eff === o.key ? ' selected' : ''}" data-kpi-month="${esc(o.key)}"><span>${esc(o.label)}</span><span class="cnt">${o.count}</span></div>`).join('')
-    : '<div class="kpi-picker-empty">No dated records</div>';
-  return `<div class="kpi-picker" data-kpi-panel="${metric}">
-    <div class="kpi-picker-item all-months${sel === 'ALL' ? ' selected' : ''}" data-kpi-month="ALL"><span>All months</span><span class="cnt">${totalCount}</span></div>
-    ${itemsHtml}
-  </div>`;
+  return `<select class="kpi-month-select" data-kpi-metric="${metric}" onclick="event.stopPropagation()" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text);max-width:110px;">
+    <option value=""${!sel ? ' selected' : ''}>Latest</option>
+    <option value="ALL"${sel === 'ALL' ? ' selected' : ''}>All months</option>
+    ${options.map(o => `<option value="${esc(o.key)}"${sel === o.key ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}
+  </select>`;
 }
 function drillKpi(metric, key) {
   if (metric === 'failures') {
@@ -1579,34 +1575,15 @@ function wireKpiCards() {
     });
   });
 
-  document.querySelectorAll('.kpi-picker-item').forEach(pickerItem => {
-    pickerItem.addEventListener('click', e => {
+  document.querySelectorAll('.kpi-month-select').forEach(sel => {
+    sel.addEventListener('change', e => {
       e.stopPropagation();
-      const panel = pickerItem.closest('[data-kpi-panel]');
-      if (!panel) return;
-      const metric = panel.dataset.kpiPanel;
-      const key = pickerItem.dataset.kpiMonth;
-      openKpiPicker = null;
-      kpiSelectedMonth[metric] = key === 'ALL' ? 'ALL' : key;
-      refreshKpiGrid(); // show the number for that month right on the card; stays on the dashboard
-    });
-  });
-
-  document.querySelectorAll('.kpi[data-kpi]').forEach(card => {
-    card.addEventListener('click', e => {
-      if (e.target.closest('[data-kpi-action]') || e.target.closest('.kpi-picker')) return;
-      const metric = card.dataset.kpi;
-      openKpiPicker = openKpiPicker === metric ? null : metric;
+      const metric = sel.dataset.kpiMetric;
+      kpiSelectedMonth[metric] = sel.value || null;
       refreshKpiGrid();
     });
   });
 }
-document.addEventListener('click', e => {
-  if (currentView === 'dashboard' && openKpiPicker && !e.target.closest('.kpi[data-kpi]')) {
-    openKpiPicker = null;
-    refreshKpiGrid();
-  }
-});
 function statusBadge(status) {
   const s = (status || '').toUpperCase();
   if (s === 'FAIL') return `<span class="badge badge-fail">${ICONS.bolt.replace('<svg','<svg style="width:9px;height:9px"')}FAIL</span>`;
@@ -1900,60 +1877,53 @@ function buildOrderedKpiCards() {
 
   const cards = {
     availability: `
-      <div class="kpi" style="--accent:${availPass ? 'var(--green)' : 'var(--red)'};cursor:pointer;" data-kpi="availability">
-        <div class="kpi-label">Fleet Availability${availV.label ? `<span class="kpi-month-tag">${esc(availV.label)}</span>` : ''}</div>
+      <div class="kpi" style="--accent:${availPass ? 'var(--green)' : 'var(--red)'};" data-kpi="availability">
+        <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Fleet Availability</span>${kpiMonthSelectHtml('availability')}</div>
         <div class="kpi-value">${availV.count}<small>/ ${availTarget} target</small></div>
         <div class="kpi-foot">${kpiFootHtml('availability', monthLabel(availShownMonth) + ' &middot; avg locos/day &middot; ' + (availPass ? 'On target' : 'Below target'), availV)}</div>
         <div class="kpi-corner">${ICONS.gauge}</div>
-        ${openKpiPicker === 'availability' ? kpiPickerHtml('availability', computeDailyAvailabilityAverage(latestAvailMonth)) : ''}
       </div>`,
     reliability: `
-      <div class="kpi" style="--accent:${mkbfPass ? 'var(--green)' : 'var(--red)'};cursor:pointer;" data-kpi="reliability">
-        <div class="kpi-label">Reliability (MKBF)${mkbfV.label ? `<span class="kpi-month-tag">${esc(mkbfV.label)}</span>` : ''}</div>
+      <div class="kpi" style="--accent:${mkbfPass ? 'var(--green)' : 'var(--red)'};" data-kpi="reliability">
+        <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Reliability (MKBF)</span>${kpiMonthSelectHtml('reliability')}</div>
         <div class="kpi-value">${mkbfV.count}<small>/ ${fmtKm(MKBF_TARGET_KM)} km</small></div>
         <div class="kpi-foot">${kpiFootHtml('reliability', monthLabel(mkbfShownMonth) + ' &middot; running km &divide; failures', mkbfV)}</div>
         <div class="kpi-corner">${ICONS.reliability}</div>
-        ${openKpiPicker === 'reliability' ? kpiPickerHtml('reliability', latestMkbf === null ? '\u2014' : fmtKm(latestMkbf)) : ''}
       </div>`,
     pe: `
-      <div class="kpi" style="--accent:${peAchievedPct >= 80 ? 'var(--green)' : peAchievedPct >= 50 ? 'var(--amber)' : 'var(--red)'};cursor:pointer;" data-kpi="pe">
-        <div class="kpi-label">Periodic Examination (PE)${peV.label && peV.key !== 'ALL' ? `<span class="kpi-month-tag">${esc(peV.label)}</span>` : ''}</div>
+      <div class="kpi" style="--accent:${peAchievedPct >= 80 ? 'var(--green)' : peAchievedPct >= 50 ? 'var(--amber)' : 'var(--red)'};" data-kpi="pe">
+        <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Periodic Examination (PE)</span>${kpiMonthSelectHtml('pe')}</div>
         <div class="kpi-value">${peV.key && peV.key !== 'ALL' ? peV.count : peAchievedPct}<small>${peV.key && peV.key !== 'ALL' ? ' completed' : '%'}</small></div>
         <div class="kpi-foot">${kpiFootHtml('pe', PE_PLAN_SUMMARY.actual + ' of ' + PE_PLAN_SUMMARY.plan + ' planned PE tasks, YTD', peV)}</div>
         <div class="kpi-corner">${ICONS.masterplan}</div>
-        ${openKpiPicker === 'pe' ? kpiPickerHtml('pe', peTotalCompletions) : ''}
       </div>`,
     failures: `
       <div class="kpi" style="--accent:var(--green)" data-kpi="failures">
-        <div class="kpi-label">Total Unscheduled Reports${failuresV.label ? `<span class="kpi-month-tag">${esc(failuresV.label)}</span>` : ''}</div>
+        <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Total Unscheduled Reports</span>${kpiMonthSelectHtml('failures')}</div>
         <div class="kpi-value">${failuresV.count}</div>
         <div class="kpi-foot">${kpiFootHtml('failures', 'Unscheduled Report Details', failuresV)}</div>
         <div class="kpi-corner">${ICONS.failure}</div>
-        ${openKpiPicker === 'failures' ? kpiPickerHtml('failures', totalFailures) : ''}
       </div>`,
     incidents: `
       <div class="kpi" style="--accent:var(--blue)" data-kpi="incidents">
-        <div class="kpi-label">Total 16-TAL Incidents${incidentsV.label ? `<span class="kpi-month-tag">${esc(incidentsV.label)}</span>` : ''}</div>
+        <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Total 16-TAL Incidents</span>${kpiMonthSelectHtml('incidents')}</div>
         <div class="kpi-value">${incidentsV.count}</div>
         <div class="kpi-foot">${kpiFootHtml('incidents', 'Total 16-TAL Incidents', incidentsV)}</div>
         <div class="kpi-corner">${ICONS.incident}</div>
-        ${openKpiPicker === 'incidents' ? kpiPickerHtml('incidents', totalIncidents) : ''}
       </div>`,
     running: `
-      <div class="kpi" style="--accent:var(--blue);cursor:pointer;" data-kpi="running">
-        <div class="kpi-label">Total Running${runningV.label ? `<span class="kpi-month-tag">${esc(runningV.label)}</span>` : ''}</div>
+      <div class="kpi" style="--accent:var(--blue);" data-kpi="running">
+        <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Total Running</span>${kpiMonthSelectHtml('running')}</div>
         <div class="kpi-value">${runningV.count}<small>km</small></div>
         <div class="kpi-foot">${kpiFootHtml('running', 'Fleet-wide, from Daily Status', runningV)}</div>
         <div class="kpi-corner">${ICONS.reliability}</div>
-        ${openKpiPicker === 'running' ? kpiPickerHtml('running', fmtKm(dailyStatusFleetKmForMonth(latestRunningMonth))) : ''}
       </div>`,
     langgar: `
       <div class="kpi" style="--accent:var(--amber)" data-kpi="langgar">
-        <div class="kpi-label">16-TAL Accidents${langgarV.label ? `<span class="kpi-month-tag">${esc(langgarV.label)}</span>` : ''}</div>
+        <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>16-TAL Accidents</span>${kpiMonthSelectHtml('langgar')}</div>
         <div class="kpi-value">${langgarV.count}</div>
         <div class="kpi-foot">${kpiFootHtml('langgar', 'Wilayah Timur, 01/01&ndash;31/12/2026', langgarV)}</div>
         <div class="kpi-corner">${ICONS.langgar}</div>
-        ${openKpiPicker === 'langgar' ? kpiPickerHtml('langgar', totalLanggar) : ''}
       </div>`,
     topPerformer: (() => {
       const topPerf = fleetTopPerformer();
@@ -1961,12 +1931,11 @@ function buildOrderedKpiCards() {
       const effMonth = topPerformerV.key && topPerformerV.key !== 'ALL' ? topPerformerV.key : 'all';
       const top = effMonth === 'all' ? topPerf : fleetTopPerformerForMonth(effMonth);
       return `
-      <div class="kpi" style="--accent:var(--indigo);cursor:pointer;" data-kpi="topPerformer">
-        <div class="kpi-label">Top Performer${topPerformerV.label ? `<span class="kpi-month-tag">${esc(topPerformerV.label)}</span>` : ''}</div>
+      <div class="kpi" style="--accent:var(--indigo);" data-kpi="topPerformer">
+        <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top Performer</span>${kpiMonthSelectHtml('topPerformer')}</div>
         <div class="kpi-value">${top ? esc(top.asset) : '&mdash;'}<small>${top ? esc(top.class) : ''}</small></div>
         <div class="kpi-foot">${kpiFootHtml('topPerformer', 'Fleet-wide &middot; best combined PE, mileage &amp; unscheduled score', topPerformerV)}</div>
         <div class="kpi-corner">${ICONS.trophy}</div>
-        ${openKpiPicker === 'topPerformer' ? kpiPickerHtml('topPerformer', (topPerf || {}).asset || '&mdash;') : ''}
       </div>`;
     })(),
   };
