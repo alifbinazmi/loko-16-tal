@@ -3579,6 +3579,8 @@ function wireDailyStatusNav() {
   });
   if (next) next.addEventListener('click', () => { dailyStatusMonth = shiftMonth(dailyStatusMonth, 1); renderDailyStatus(); });
   if (today) today.addEventListener('click', () => { dailyStatusMonth = todayMonthKey(); renderDailyStatus(); });
+  const fillInactive = document.getElementById('dsFillInactive');
+  if (fillInactive) fillInactive.addEventListener('click', openInactiveRangeModal);
 }
 function fleetFinalKmForMonth(yyyyMm) {
   return Math.round(DATA.locoPerf.reduce((s, l) => s + computeFinalKm(l.asset, yyyyMm), 0) * 10) / 10;
@@ -4474,6 +4476,7 @@ function renderDailyStatus() {
           <div style="font-weight:700;font-size:14px;min-width:150px;text-align:center;">${monthLabelLong(dailyStatusMonth)}</div>
           <button class="btn btn-ghost" id="dsNextMonth">Next &rsaquo;</button>
           <button class="btn btn-ghost" id="dsToday" style="font-size:11px;">Jump to ${monthLabelLong(todayMonthKey())}</button>
+          <button class="btn btn-ghost" id="dsFillInactive" style="font-size:11px;">Fill Inactive Range</button>
         </div>
         <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
           <div class="dim" style="font-size:11px;"><span id="dsFilledCount">${monthFilled}</span> of ${DATA.locoPerf.length * nDays} cells filled this month</div>
@@ -4553,6 +4556,57 @@ function componentFormSection(n, rec) {
     <div class="field"><label>4M</label>
       <select id="f_c${n}_4m">${FOUR_M_OPTIONS.map(o => `<option value="${o}" ${fourMVal === o ? 'selected' : ''}>${o || '\u2014'}</option>`).join('')}</select>
     </div>`;
+}
+
+function openInactiveRangeModal() {
+  const modal = document.getElementById('modal');
+  const assetOptions = DATA.locoPerf.map(l => `<option value="${l.asset}">${esc(l.asset)} (${esc(l.class)})</option>`).join('');
+  modal.innerHTML = `
+    <div class="modal-head">
+      <h2>Fill Inactive Range</h2>
+      <button class="modal-close" id="modalCloseBtn">${ICONS.close}</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label>Asset *</label><select id="birAsset">${assetOptions}</select></div>
+        <div class="field"><label>From *</label><input type="date" id="birFrom" min="${DAILY_STATUS_MIN_MONTH}-01" required></div>
+        <div class="field"><label>To *</label><input type="date" id="birTo" min="${DAILY_STATUS_MIN_MONTH}-01" required></div>
+      </div>
+      <div class="dim" style="font-size:11px;margin-top:10px;">Marks every day in this range as Inactive for the selected asset. Existing entries within the range will be overwritten. Days after the range still auto-continue as Inactive until a different status is entered, same as usual.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="modalCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="birApplyBtn">${ICONS.check}Fill Range</button>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.add('open');
+  document.getElementById('modalBackdrop').scrollTop = 0;
+  document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+  document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
+  document.getElementById('birApplyBtn').addEventListener('click', applyInactiveRange);
+  const fromField = document.getElementById('birFrom');
+  if (fromField) fromField.value = todayDateStr();
+}
+async function applyInactiveRange() {
+  const asset = document.getElementById('birAsset').value;
+  const from = document.getElementById('birFrom').value;
+  const to = document.getElementById('birTo').value;
+  if (!asset || !from || !to) { toast('Fill in asset, from, and to dates'); return; }
+  if (to < from) { toast('"To" date must be on or after "From" date'); return; }
+  let d = new Date(from + 'T00:00:00');
+  const end = new Date(to + 'T00:00:00');
+  let count = 0;
+  while (d <= end) {
+    DATA.dailyStatus[`${asset}|${localDateStr(d)}`] = 'INACTIVE';
+    count++;
+    d.setDate(d.getDate() + 1);
+  }
+  invalidateAvailabilityCache();
+  await saveKey('dailyStatus');
+  closeModal();
+  dailyStatusMonth = from.slice(0, 7);
+  renderContent();
+  toast(`Marked ${count} day(s) as Inactive for asset ${asset}`);
 }
 
 let currentModalPrefill = null;
