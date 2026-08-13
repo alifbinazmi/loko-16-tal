@@ -1525,7 +1525,6 @@ function drillKpi(metric, key) {
     if (!key) { if (columnFilters.langgar) delete columnFilters.langgar.tarikh; searchTerm = ''; setView('langgar'); return; }
     drillLanggarByMonth(key);
   } else if (metric === 'availability') {
-    availabilitySelectedMonth = key || null;
     if (key) dailyAvailabilityMonth = key;
     setView('availability');
     if (key) requestAnimationFrame(() => {
@@ -2956,14 +2955,6 @@ function availabilityTrackedMonths() {
   _availMonthsCacheVersion = _availCacheVersion;
   return _availMonthsCache;
 }
-let availabilitySelectedMonth = null;
-function availabilityMonthSelectHtml() {
-  const months = availabilityTrackedMonths();
-  return `<select class="availability-month-select" onclick="event.stopPropagation()" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text);max-width:110px;">
-    <option value=""${!availabilitySelectedMonth ? ' selected' : ''}>Latest</option>
-    ${months.map(m => `<option value="${m}"${availabilitySelectedMonth === m ? ' selected' : ''}>${esc(monthLabel(m))}</option>`).join('')}
-  </select>`;
-}
 
 let dailyAvailabilityMonth = todayMonthKey();
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -3042,86 +3033,6 @@ function renderDailyAvailabilityGrid() {
     </div>
   `;
 }
-function buildAvailabilityKpiGridHtml() {
-  const months = availabilityTrackedMonths();
-  const latestMonth = months[months.length - 1];
-  const avail = months.map(m => ({ month: m, value: computeDailyAvailabilityAverage(m), target: availabilityTargetForMonth(m) }));
-  const latestAvail = avail[avail.length - 1];
-  const availPass = latestAvail.value >= latestAvail.target;
-  const bestMonth = avail.reduce((m, a) => a.value > m.value ? a : m, avail[0]);
-  const monthsOnTarget = avail.filter(a => a.value >= a.target).length;
-
-  const selectedEntry = availabilitySelectedMonth ? avail.find(a => a.month === availabilitySelectedMonth) : null;
-  const cardEntry = selectedEntry || latestAvail;
-  const cardPass = cardEntry.value >= cardEntry.target;
-
-  return `
-    <div class="kpi" id="availabilityKpiCard" style="--accent:${cardPass ? 'var(--green)' : 'var(--red)'};">
-      <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Fleet Availability</span>${availabilityMonthSelectHtml()}</div>
-      <div class="kpi-value">${cardEntry.value}<small>/ ${cardEntry.target} target</small></div>
-      <div class="kpi-foot">
-        <span class="kpi-foot-link" data-avail-action="view-records" data-month="${cardEntry.month}">View records &rarr;</span>
-        ${selectedEntry ? `<span class="kpi-foot-clear" data-avail-action="clear">&times; latest month</span>` : ''}
-      </div>
-      <div class="kpi-corner">${ICONS.gauge}</div>
-    </div>
-    <div class="kpi" style="--accent:var(--blue)">
-      <div class="kpi-label">Best Month</div>
-      <div class="kpi-value">${bestMonth.value}<small>locos/day</small></div>
-      <div class="kpi-foot">${monthLabel(bestMonth.month)} &middot; highest average availability recorded</div>
-      <div class="kpi-corner">${ICONS.gauge}</div>
-    </div>
-    <div class="kpi" style="--accent:var(--amber)">
-      <div class="kpi-label">Months On Target</div>
-      <div class="kpi-value">${monthsOnTarget}<small>/ ${avail.length} months</small></div>
-      <div class="kpi-foot">Months meeting or exceeding the KPI target</div>
-      <div class="kpi-corner">${ICONS.gauge}</div>
-    </div>
-    <div class="kpi" style="--accent:var(--green)">
-      <div class="kpi-label">Fleet Size Tracked</div>
-      <div class="kpi-value">${DATA.locoPerf.length}<small>locomotives</small></div>
-      <div class="kpi-foot">19/23/24/25 Class combined roster</div>
-      <div class="kpi-corner">${ICONS.gauge}</div>
-    </div>
-  `;
-}
-function refreshAvailabilityKpiGrid() {
-  const el = document.querySelector('.kpi-grid');
-  if (el && currentView === 'availability') {
-    el.innerHTML = buildAvailabilityKpiGridHtml();
-  } else {
-    renderAvailability();
-  }
-}
-document.addEventListener('click', e => {
-  if (currentView !== 'availability') return;
-
-  const viewBtn = e.target.closest('[data-avail-action="view-records"]');
-  if (viewBtn) {
-    e.stopPropagation();
-    dailyAvailabilityMonth = viewBtn.dataset.month;
-    renderAvailability();
-    requestAnimationFrame(() => {
-      const grid = document.getElementById('availDailyGridPanel');
-      if (grid) grid.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    });
-    return;
-  }
-  const clearBtn = e.target.closest('[data-avail-action="clear"]');
-  if (clearBtn) {
-    e.stopPropagation();
-    availabilitySelectedMonth = null;
-    refreshAvailabilityKpiGrid();
-    return;
-  }
-});
-document.addEventListener('change', e => {
-  if (currentView !== 'availability') return;
-  const sel = e.target.closest('select.availability-month-select');
-  if (!sel) return;
-  availabilitySelectedMonth = sel.value || null;
-  refreshAvailabilityKpiGrid();
-});
 async function saveAvailabilityTargetOverride(inp) {
   const month = inp.dataset.month;
   const val = parseFloat(inp.value);
@@ -3151,8 +3062,6 @@ function renderAvailability() {
   }).join('');
 
   document.getElementById('content').innerHTML = `
-    <div class="kpi-grid">${buildAvailabilityKpiGridHtml()}</div>
-
     <div class="chart-grid" style="grid-template-columns:1fr;">
       <div class="chart-panel"><h3>Fleet Availability by Month</h3><div class="chart-wrap"><canvas id="chartAvailability"></canvas></div></div>
     </div>
