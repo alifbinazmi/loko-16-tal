@@ -1277,6 +1277,18 @@ async function loadData() {
     keys.forEach(k => { DATA[k] = seed[k] || {}; });
   }
   if (purgeStaleInactiveDailyStatus()) await saveKey('dailyStatus');
+  if (backfillNewAssetInactiveRanges()) await saveKey('inactiveRanges');
+}
+const NEW_INACTIVE_ASSETS = [23103, 24108, 24116, 24119, 24122, 25106];
+function backfillNewAssetInactiveRanges() {
+  let changed = false;
+  NEW_INACTIVE_ASSETS.forEach(asset => {
+    if (!DATA.inactiveRanges[asset]) {
+      DATA.inactiveRanges[asset] = { from: DAILY_STATUS_MIN_MONTH + '-01', to: null };
+      changed = true;
+    }
+  });
+  return changed;
 }
 function purgeStaleInactiveDailyStatus() {
   let changed = false;
