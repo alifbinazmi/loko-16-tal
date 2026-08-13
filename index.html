@@ -2957,18 +2957,12 @@ function availabilityTrackedMonths() {
   return _availMonthsCache;
 }
 let availabilitySelectedMonth = null;
-let openAvailabilityPicker = false;
-function availabilityPickerHtml() {
+function availabilityMonthSelectHtml() {
   const months = availabilityTrackedMonths();
-  const latestMonth = months[months.length - 1];
-  const itemsHtml = months.map(m => `
-    <div class="kpi-picker-item availability-picker-item${availabilitySelectedMonth === m ? ' selected' : ''}" data-month="${esc(m)}">
-      <span>${esc(monthLabel(m))}</span><span class="cnt">${computeDailyAvailabilityAverage(m)}</span>
-    </div>`).join('');
-  return `<div class="kpi-picker" data-kpi-panel="availabilityMonth">
-    <div class="kpi-picker-item availability-picker-item all-months${!availabilitySelectedMonth ? ' selected' : ''}" data-month=""><span>Latest month</span><span class="cnt">${computeDailyAvailabilityAverage(latestMonth)}</span></div>
-    ${itemsHtml}
-  </div>`;
+  return `<select class="availability-month-select" onclick="event.stopPropagation()" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text);max-width:110px;">
+    <option value=""${!availabilitySelectedMonth ? ' selected' : ''}>Latest</option>
+    ${months.map(m => `<option value="${m}"${availabilitySelectedMonth === m ? ' selected' : ''}>${esc(monthLabel(m))}</option>`).join('')}
+  </select>`;
 }
 
 let dailyAvailabilityMonth = todayMonthKey();
@@ -3062,15 +3056,14 @@ function buildAvailabilityKpiGridHtml() {
   const cardPass = cardEntry.value >= cardEntry.target;
 
   return `
-    <div class="kpi" id="availabilityKpiCard" style="--accent:${cardPass ? 'var(--green)' : 'var(--red)'};cursor:pointer;">
-      <div class="kpi-label">Fleet Availability${selectedEntry ? `<span class="kpi-month-tag">${esc(monthLabel(selectedEntry.month))}</span>` : ''}</div>
+    <div class="kpi" id="availabilityKpiCard" style="--accent:${cardPass ? 'var(--green)' : 'var(--red)'};">
+      <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Fleet Availability</span>${availabilityMonthSelectHtml()}</div>
       <div class="kpi-value">${cardEntry.value}<small>/ ${cardEntry.target} target</small></div>
       <div class="kpi-foot">
         <span class="kpi-foot-link" data-avail-action="view-records" data-month="${cardEntry.month}">View records &rarr;</span>
         ${selectedEntry ? `<span class="kpi-foot-clear" data-avail-action="clear">&times; latest month</span>` : ''}
       </div>
       <div class="kpi-corner">${ICONS.gauge}</div>
-      ${openAvailabilityPicker ? availabilityPickerHtml() : ''}
     </div>
     <div class="kpi" style="--accent:var(--blue)">
       <div class="kpi-label">Best Month</div>
@@ -3121,25 +3114,13 @@ document.addEventListener('click', e => {
     refreshAvailabilityKpiGrid();
     return;
   }
-  const pickerItem = e.target.closest('.availability-picker-item');
-  if (pickerItem) {
-    e.stopPropagation();
-    availabilitySelectedMonth = pickerItem.dataset.month || null;
-    openAvailabilityPicker = false;
-    refreshAvailabilityKpiGrid();
-    return;
-  }
-  const card = e.target.closest('#availabilityKpiCard');
-  if (card) {
-    if (e.target.closest('.kpi-picker')) return;
-    openAvailabilityPicker = !openAvailabilityPicker;
-    refreshAvailabilityKpiGrid();
-    return;
-  }
-  if (openAvailabilityPicker) {
-    openAvailabilityPicker = false;
-    refreshAvailabilityKpiGrid();
-  }
+});
+document.addEventListener('change', e => {
+  if (currentView !== 'availability') return;
+  const sel = e.target.closest('select.availability-month-select');
+  if (!sel) return;
+  availabilitySelectedMonth = sel.value || null;
+  refreshAvailabilityKpiGrid();
 });
 async function saveAvailabilityTargetOverride(inp) {
   const month = inp.dataset.month;
