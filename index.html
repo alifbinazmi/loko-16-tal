@@ -3103,10 +3103,12 @@ function rankGroupByPerf(group) {
   const peOrder = group.slice().sort((a, b) => b.pe - a.pe);
   const mileageOrder = group.slice().sort((a, b) => b.mileage - a.mileage);
   const unschedOrder = group.slice().sort((a, b) => a.unscheduled - b.unscheduled);
+  const todayStr = todayDateStr();
   return group.map(l => ({
     asset: l.asset,
+    inactive: isInactiveRanged(l.asset, todayStr),
     score: posOf(peOrder, l.asset) + posOf(mileageOrder, l.asset) + posOf(unschedOrder, l.asset),
-  })).sort((a, b) => a.score - b.score || a.asset - b.asset);
+  })).sort((a, b) => (a.inactive === b.inactive ? 0 : a.inactive ? 1 : -1) || a.score - b.score || a.asset - b.asset);
 }
 function rankByAssetForGroup(group) {
   const map = {};
