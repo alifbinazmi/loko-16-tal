@@ -1296,13 +1296,18 @@ async function loadData() {
     keys.forEach(k => { DATA[k] = seed[k] || {}; });
   }
   if (purgeStaleInactiveDailyStatus()) await saveKey('dailyStatus');
-  if (backfillNewAssetInactiveRanges()) await saveKey('inactiveRanges');
+  if (backfillNewAssetInactiveRanges()) {
+    await saveKey('inactiveRanges');
+    toast(`Marked ${NEW_INACTIVE_ASSETS.length} new assets inactive since ${DAILY_STATUS_MIN_MONTH}-01`);
+  }
 }
 const NEW_INACTIVE_ASSETS = [23103, 24108, 24116, 24119, 24122, 25106];
 function backfillNewAssetInactiveRanges() {
   let changed = false;
   NEW_INACTIVE_ASSETS.forEach(asset => {
-    if (!DATA.inactiveRanges[asset]) {
+    const range = DATA.inactiveRanges[asset];
+    const needsFix = !range || (!range.to && range.from !== DAILY_STATUS_MIN_MONTH + '-01');
+    if (needsFix) {
       DATA.inactiveRanges[asset] = { from: DAILY_STATUS_MIN_MONTH + '-01', to: null };
       changed = true;
     }
