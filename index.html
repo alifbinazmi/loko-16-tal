@@ -1421,7 +1421,7 @@ function kpiMonthOptions(metric) {
     });
   }
   if (metric === 'running') {
-    return getAllTrackedMonths().map(m => ({ key: m, label: monthLabel(m), count: fmtKm(dailyStatusFleetKmForMonth(m)) }));
+    return getTrackedMonthsWithData().map(m => ({ key: m, label: monthLabel(m), count: fmtKm(dailyStatusFleetKmForMonth(m)) }));
   }
   if (metric === 'pe') {
     const counts = {};
@@ -1429,7 +1429,7 @@ function kpiMonthOptions(metric) {
     return Object.keys(counts).sort().map(m => ({ key: m, label: monthLabel(m), count: counts[m] }));
   }
   if (metric === 'topPerformer') {
-    return getAllTrackedMonths().map(m => {
+    return getTrackedMonthsWithData().map(m => {
       const top = fleetTopPerformerForMonth(m);
       return { key: m, label: monthLabel(m), count: top ? top.asset : '—' };
     });
@@ -1844,7 +1844,7 @@ function buildOrderedKpiCards() {
   const peTotalCompletions = Object.values(peMonthCountsAll).reduce((a, b) => a + b, 0);
   const peV = kpiMetricValue('pe', peAchievedPct);
 
-  const trackedRunningMonths = getAllTrackedMonths();
+  const trackedRunningMonths = getTrackedMonthsWithData();
   const latestRunningMonth = trackedRunningMonths[trackedRunningMonths.length - 1] || latestRelMonth;
   const runningV = kpiMetricValue('running', fmtKm(dailyStatusFleetKmForMonth(latestRunningMonth)));
 
@@ -3608,6 +3608,18 @@ function getAllTrackedMonths() {
     if (month) months.add(month);
   });
   months.add(dailyStatusMonth);
+  return [...months].sort();
+}
+function getTrackedMonthsWithData() {
+  const months = new Set();
+  Object.keys(DATA.dailyStatus).forEach(k => {
+    const date = k.split('|')[1];
+    if (date) months.add(date.slice(0, 7));
+  });
+  Object.keys(DATA.additionalKm).forEach(k => {
+    const month = k.split('|')[1];
+    if (month) months.add(month);
+  });
   return [...months].sort();
 }
 function refreshRowKmCells(asset) {
