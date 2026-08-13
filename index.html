@@ -2613,7 +2613,7 @@ const INCIDENT_COLUMNS = [
   { key: 'depohAttend', label: 'Depoh Attend' },
   { key: 'kerjaTren', label: 'Kerja Tren' },
   { key: 'faultReport', label: 'Fault Report' },
-  { key: 'solution', label: 'Solution' },
+  { key: 'solution', label: 'Chronology' },
   { key: 'status', label: 'Status' },
   { key: 'driver', label: 'Driver' },
 ];
@@ -4620,7 +4620,7 @@ function openModal(view, editIdx = null, prefill = null) {
         <div class="field full"><label>Kerja Tren</label><input type="text" id="i_kerjaTren" value="${gv('kerjaTren')}" placeholder="e.g. 1001 (KLSD-Kempas Baru)"></div>
         <div class="field full"><label>Fault Report</label><input type="text" id="i_faultReport" value="${gv('faultReport')}" placeholder="e.g. Loco Shutdown, Cant Start"></div>
         <div class="field full"><label>Remark</label><textarea id="i_remark">${gv('remark')}</textarea></div>
-        <div class="field full"><label>Solution</label><textarea id="i_solution">${gv('solution')}</textarea></div>
+        <div class="field full"><label>Chronology</label><textarea id="i_solution" style="min-height:100px">${gv('solution')}</textarea></div>
         <div class="field"><label>CWO</label><input type="text" id="i_cwo" value="${gv('cwo')}" placeholder="e.g. CWO204771"></div>
         <div class="field"><label>Driver</label><input type="text" id="i_driver" value="${gv('driver')}"></div>
       </div>
