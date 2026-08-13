@@ -2493,21 +2493,14 @@ function wireComponentToggles() {
 function expandableCellHtml(text) {
   const t = text === null || text === undefined ? '' : String(text);
   if (!t.trim()) return '<td class="wrap dim">&mdash;</td>';
-  const oneLine = t.replace(/\s+/g, ' ').trim();
   const isLong = t.length > 160 || /\n/.test(t);
   if (!isLong) {
     return `<td class="wrap" title="${esc(t)}">${esc(t)}</td>`;
   }
-  let preview = oneLine;
-  if (oneLine.length > 160) {
-    const cut = oneLine.slice(0, 160);
-    const lastSpace = cut.lastIndexOf(' ');
-    preview = (lastSpace > 60 ? cut.slice(0, lastSpace) : cut) + '\u2026';
-  }
   return `<td class="wrap text-cell">
     <div class="text-cell-main">
       <button type="button" class="text-expand" aria-expanded="false" aria-label="Toggle full text">${chevronIcon()}</button>
-      <span>${esc(preview)}</span>
+      <span class="dim" style="font-style:italic;">Click to view full text</span>
     </div>
     <div class="text-detail" hidden>${esc(t)}</div>
   </td>`;
