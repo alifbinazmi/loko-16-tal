@@ -1276,6 +1276,17 @@ async function loadData() {
     console.error('loadData failed, using seed', e);
     keys.forEach(k => { DATA[k] = seed[k] || {}; });
   }
+  if (purgeStaleInactiveDailyStatus()) await saveKey('dailyStatus');
+}
+function purgeStaleInactiveDailyStatus() {
+  let changed = false;
+  Object.keys(DATA.dailyStatus).forEach(key => {
+    if ((DATA.dailyStatus[key] || '').trim().toUpperCase() === 'INACTIVE') {
+      delete DATA.dailyStatus[key];
+      changed = true;
+    }
+  });
+  return changed;
 }
 let pendingSaveCount = 0;
 function updateSaveIndicator() {
