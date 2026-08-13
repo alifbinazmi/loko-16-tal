@@ -1156,8 +1156,7 @@ function wireFilterCheckboxes(viewKey, key, container) {
           if (cb.checked) columnFilters[viewKey][key].add(vk);
           else columnFilters[viewKey][key].delete(vk);
         });
-        renderContent();
-        renderTopbarActions();
+        renderContentPreservingScroll(true);
       });
       return;
     }
@@ -1165,8 +1164,7 @@ function wireFilterCheckboxes(viewKey, key, container) {
       ensureFilterSetInitialized(viewKey, key);
       if (cb.checked) columnFilters[viewKey][key].add(cb.dataset.value);
       else columnFilters[viewKey][key].delete(cb.dataset.value);
-      renderContent();
-      renderTopbarActions();
+      renderContentPreservingScroll(true);
     });
   });
   container.querySelectorAll('[data-month-expand]').forEach(btn => {
@@ -1181,6 +1179,13 @@ function wireFilterCheckboxes(viewKey, key, container) {
     });
   });
 }
+function renderContentPreservingScroll(includeTopbar) {
+  const scrollX = window.scrollX, scrollY = window.scrollY;
+  renderContent();
+  if (includeTopbar) renderTopbarActions();
+  window.scrollTo(scrollX, scrollY);
+  requestAnimationFrame(() => window.scrollTo(scrollX, scrollY));
+}
 function wireFilterButtons() {
   document.querySelectorAll('.th-filter-btn').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -1188,7 +1193,7 @@ function wireFilterButtons() {
       const view = btn.dataset.filterView, key = btn.dataset.filterKey;
       openFilterPanel = (openFilterPanel && openFilterPanel.view === view && openFilterPanel.key === key)
         ? null : { view, key };
-      renderContent();
+      renderContentPreservingScroll(false);
     });
   });
 }
@@ -1244,8 +1249,7 @@ function wireFilterPanel() {
             columnFilters[view][key].add(normValueKey(v.raw));
           }
         });
-        renderContent();
-        renderTopbarActions();
+        renderContentPreservingScroll(true);
       } else if (action === 'none') {
         ensureFilterSetInitialized(view, key);
         const searchTxt = (filterPanelSearch[`${view}:${key}`] || '').toLowerCase();
@@ -1254,15 +1258,13 @@ function wireFilterPanel() {
             columnFilters[view][key].delete(normValueKey(v.raw));
           }
         });
-        renderContent();
-        renderTopbarActions();
+        renderContentPreservingScroll(true);
       } else if (action === 'clear') {
         if (columnFilters[view]) delete columnFilters[view][key];
-        renderContent();
-        renderTopbarActions();
+        renderContentPreservingScroll(true);
       } else if (action === 'done') {
         openFilterPanel = null;
-        renderContent();
+        renderContentPreservingScroll(false);
       }
     });
   });
@@ -1270,7 +1272,7 @@ function wireFilterPanel() {
 document.addEventListener('click', e => {
   if (openFilterPanel && !e.target.closest('.filter-panel') && !e.target.closest('.th-filter-btn')) {
     openFilterPanel = null;
-    renderContent();
+    renderContentPreservingScroll(false);
   }
 });
 
@@ -3107,11 +3109,15 @@ function rankGroupByPerf(group) {
   const mileageOrder = group.slice().sort((a, b) => b.mileage - a.mileage);
   const unschedOrder = group.slice().sort((a, b) => a.unscheduled - b.unscheduled);
   const todayStr = todayDateStr();
-  return group.map(l => ({
-    asset: l.asset,
-    inactive: isInactiveRanged(l.asset, todayStr),
-    score: posOf(peOrder, l.asset) + posOf(mileageOrder, l.asset) + posOf(unschedOrder, l.asset),
-  })).sort((a, b) => (a.inactive === b.inactive ? 0 : a.inactive ? 1 : -1) || a.score - b.score || a.asset - b.asset);
+  return group.map(l => {
+    const inactive = isInactiveRanged(l.asset, todayStr);
+    const tier = inactive ? 2 : (l.mileage === 0 ? 1 : 0);
+    return {
+      asset: l.asset,
+      tier,
+      score: posOf(peOrder, l.asset) + posOf(mileageOrder, l.asset) + posOf(unschedOrder, l.asset),
+    };
+  }).sort((a, b) => a.tier - b.tier || a.score - b.score || a.asset - b.asset);
 }
 function rankByAssetForGroup(group) {
   const map = {};
