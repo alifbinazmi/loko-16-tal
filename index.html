@@ -1464,7 +1464,7 @@ function kpiMonthOptions(metric) {
     return availabilityTrackedMonths().map(m => ({ key: m, label: monthLabel(m), count: computeDailyAvailabilityAverage(m) }));
   }
   if (metric === 'reliability') {
-    return RELIABILITY_DATA.reliability.map(r => r.month).map(m => {
+    return reliabilityTrackedMonths().map(m => {
       const km = computeMkbfKm(m);
       return { key: m, label: monthLabel(m), count: km === null ? '\u2014' : fmtKm(km) };
     });
@@ -1880,7 +1880,7 @@ function buildOrderedKpiCards() {
   const availTarget = availabilityTargetForMonth(availShownMonth);
   const availPass = availV.count >= availTarget;
 
-  const relMonths = RELIABILITY_DATA.reliability.map(r => r.month);
+  const relMonths = reliabilityTrackedMonths();
   const latestRelMonth = relMonths[relMonths.length - 1];
   const latestMkbf = computeMkbfKm(latestRelMonth);
   const mkbfV = kpiMetricValue('reliability', latestMkbf === null ? '\u2014' : fmtKm(latestMkbf));
@@ -2269,7 +2269,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
     availData.map(a => a.value >= a.target ? '#159253' : '#B0202F'),
     { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability') });
 
-  const relMonths = RELIABILITY_DATA.reliability.map(r => r.month);
+  const relMonths = reliabilityTrackedMonths();
   const mkbfData = relMonths.map(m => computeMkbfKm(m) || 0);
   drawBarChart('chartDashReliability', relMonths.map(monthLabel), mkbfData,
     mkbfData.map(v => v >= MKBF_TARGET_KM ? '#159253' : '#B0202F'),
@@ -3309,7 +3309,9 @@ function dailyStatusEventCountsForMonth(yyyyMm) {
   return { peByAsset, unscheduledByAsset, peTotal, unscheduledTotal };
 }
 function reliabilityTrackedMonths() {
-  return RELIABILITY_DATA.reliability.map(r => r.month);
+  const staticMonths = RELIABILITY_DATA.reliability.map(r => r.month);
+  const liveMonths = getTrackedMonthsWithData().filter(m => m >= MKBF_LIVE_FORMULA_START_MONTH);
+  return [...new Set([...staticMonths, ...liveMonths])].sort();
 }
 let reliabilitySelectedMonth = { mkbf: null, running: null, maintenance: null, topUnscheduled: null };
 let openReliabilityPicker = null;
@@ -3323,16 +3325,16 @@ function reliabilityPickerHtml(metric) {
   </div>`;
 }
 function buildReliabilityKpiGridHtml() {
-  const rel = RELIABILITY_DATA.reliability;
-  const latestRel = rel[rel.length - 1];
+  const relMonths = reliabilityTrackedMonths();
+  const latestMonth = relMonths[relMonths.length - 1];
   const totalUnscheduled = DATA.locoPerf.reduce((s, r) => s + (r.unscheduled || 0), 0);
   const totalPe = DATA.locoPerf.reduce((s, r) => s + (r.pe || 0), 0);
 
-  const mkbfMonth = reliabilitySelectedMonth.mkbf || latestRel.month;
+  const mkbfMonth = reliabilitySelectedMonth.mkbf || latestMonth;
   const mkbfKm = computeMkbfKm(mkbfMonth);
   const mkbfPass = mkbfKm !== null && mkbfKm >= MKBF_TARGET_KM;
 
-  const runningMonth = reliabilitySelectedMonth.running || latestRel.month;
+  const runningMonth = reliabilitySelectedMonth.running || latestMonth;
   const runningKmVal = dailyStatusFleetKmForMonth(runningMonth);
 
   const maintMonth = reliabilitySelectedMonth.maintenance;
@@ -3456,15 +3458,15 @@ document.addEventListener('click', e => {
   }
 });
 function renderReliability() {
-  const rel = RELIABILITY_DATA.reliability;
+  const rel = reliabilityTrackedMonths();
 
-  const monthlyRows = rel.map(r => {
-    const mkbf = computeMkbfKm(r.month);
+  const monthlyRows = rel.map(m => {
+    const mkbf = computeMkbfKm(m);
     const pass = mkbf !== null && mkbf >= MKBF_TARGET_KM;
     return `<tr>
-      <td class="dim">${monthLabel(r.month)}</td>
-      <td class="num">${fmtKm(dailyStatusFleetKmForMonth(r.month))}</td>
-      <td class="num">${failuresForMonth(r.month)}</td>
+      <td class="dim">${monthLabel(m)}</td>
+      <td class="num">${fmtKm(dailyStatusFleetKmForMonth(m))}</td>
+      <td class="num">${failuresForMonth(m)}</td>
       <td class="num">${mkbf === null ? '&mdash;' : fmtKm(mkbf)}</td>
       <td class="num dim">${fmtKm(MKBF_TARGET_KM)}</td>
       <td>${reliabilityStatusPill(pass)}</td>
@@ -3520,7 +3522,7 @@ function renderReliability() {
           <tbody>${monthlyRows}</tbody>
         </table>
       </div>
-      <div class="row-count">Running (km) is the fleet-wide Total Final KM summed from the Daily Status tab for that month. MKBF = Running km &divide; Failures for that month, against a ${fmtKm(MKBF_TARGET_KM)} km target. Failures are the originally logged monthly counts from Reliability_Loco_16-TAL.xlsx.</div>
+      <div class="row-count">Running (km) is the fleet-wide Total Final KM summed from the Daily Status tab for that month. Failures are from the original Reliability_Loco_16-TAL.xlsx logs through June 2026, and live 16-TAL Incident records (status = FAIL only) from July 2026 onward. MKBF = Running km &divide; Failures for that month, against a ${fmtKm(MKBF_TARGET_KM)} km target.</div>
     </div>
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px;flex-wrap:wrap;gap:8px;">
@@ -3549,8 +3551,8 @@ function renderReliability() {
     </div>
   `;
 
-  drawBarChart('chartReliability', rel.map(r => monthLabel(r.month)), rel.map(r => computeMkbfKm(r.month) || 0),
-    rel.map(r => (computeMkbfKm(r.month) || 0) >= MKBF_TARGET_KM ? '#159253' : '#B0202F'), { rotate: false, targetLine: MKBF_TARGET_KM });
+  drawBarChart('chartReliability', rel.map(m => monthLabel(m)), rel.map(m => computeMkbfKm(m) || 0),
+    rel.map(m => (computeMkbfKm(m) || 0) >= MKBF_TARGET_KM ? '#159253' : '#B0202F'), { rotate: false, targetLine: MKBF_TARGET_KM });
 
   wireSortHeaders();
   wireFilterButtons();
