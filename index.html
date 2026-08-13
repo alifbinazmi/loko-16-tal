@@ -2494,11 +2494,16 @@ function expandableCellHtml(text) {
   const t = text === null || text === undefined ? '' : String(text);
   if (!t.trim()) return '<td class="wrap dim">&mdash;</td>';
   const oneLine = t.replace(/\s+/g, ' ').trim();
-  const isLong = t.length > 80 || /\n/.test(t);
+  const isLong = t.length > 160 || /\n/.test(t);
   if (!isLong) {
     return `<td class="wrap" title="${esc(t)}">${esc(t)}</td>`;
   }
-  const preview = oneLine.length > 80 ? oneLine.slice(0, 80) + '\u2026' : oneLine;
+  let preview = oneLine;
+  if (oneLine.length > 160) {
+    const cut = oneLine.slice(0, 160);
+    const lastSpace = cut.lastIndexOf(' ');
+    preview = (lastSpace > 60 ? cut.slice(0, lastSpace) : cut) + '\u2026';
+  }
   return `<td class="wrap text-cell">
     <div class="text-cell-main">
       <button type="button" class="text-expand" aria-expanded="false" aria-label="Toggle full text">${chevronIcon()}</button>
@@ -2697,7 +2702,7 @@ function renderIncidents() {
         ${expandableCellHtml(i.faultReport)}
         ${expandableCellHtml(i.solution)}
         <td>${statusBadge(i.status)}</td>
-        <td class="dim wrap" style="position:relative;max-width:110px;">${esc(i.driver)}<span class="row-edit-flag">${ICONS.edit}Edit</span></td>
+        <td class="dim wrap" style="position:relative;max-width:150px;">${esc(i.driver)}<span class="row-edit-flag">${ICONS.edit}Edit</span></td>
       </tr>`;
     }
     // multiple incidents for same day — group with expand/collapse
@@ -2712,7 +2717,7 @@ function renderIncidents() {
         ${expandableCellHtml(i.faultReport)}
         ${expandableCellHtml(i.solution)}
         <td>${statusBadge(i.status)}</td>
-        <td class="dim wrap" style="position:relative;max-width:110px;">${esc(i.driver)}<span class="row-edit-flag">${ICONS.edit}Edit</span></td>
+        <td class="dim wrap" style="position:relative;max-width:150px;">${esc(i.driver)}<span class="row-edit-flag">${ICONS.edit}Edit</span></td>
       </tr>`;
     }).join('');
     const badges = rows.map(i => statusBadge(i.status)).join(' ');
@@ -2735,7 +2740,7 @@ function renderIncidents() {
     <div class="table-scroll">
       <table>
         <thead><tr>${INCIDENT_COLUMNS.map(c => {
-          const w = c.key === 'driver' ? ' style="width:110px;"' : c.key === 'solution' ? ' style="width:30%;"' : '';
+          const w = c.key === 'driver' ? ' style="width:150px;"' : c.key === 'solution' ? ' style="width:30%;"' : '';
           return `<th${w}>${esc(c.label)}</th>`;
         }).join('')}</tr></thead>
         <tbody>${bodyHtml}</tbody>
@@ -2770,7 +2775,7 @@ function renderIncidents() {
   });
 
   wireTextExpanders();
-  wireRowClicks('incidents');
+  wireRowClicks('incidents', true);
   wireIncidentsMonthControl();
 }
 
@@ -2821,7 +2826,7 @@ function renderLanggar() {
   `;
   wireSortHeaders();
   wireFilterButtons();
-  wireRowClicks('langgar');
+  wireRowClicks('langgar', true);
 }
 
 /* ============================================================
@@ -4826,9 +4831,10 @@ async function deleteReport(view, idx) {
   renderContent();
 }
 
-function wireRowClicks(view) {
+function wireRowClicks(view, requireEditFlag) {
   document.querySelectorAll('tbody tr[data-idx]').forEach(tr => {
-    tr.addEventListener('click', () => {
+    tr.addEventListener('click', e => {
+      if (requireEditFlag && tr.querySelector('.row-edit-flag') && !e.target.closest('.row-edit-flag')) return;
       const idx = Number(tr.dataset.idx);
       if (Number.isNaN(idx) || idx < 0) return;
       openModal(view, idx);
