@@ -4468,7 +4468,7 @@ function renderDailyStatus() {
     const isCurrentlyInactive = effectiveDailyValue(loco.asset, todayStr) === 'INACTIVE';
     const dayCells = Array.from({ length: nDays }, (_, i) => {
       const dateStr = `${dailyStatusMonth}-${String(i + 1).padStart(2, '0')}`;
-      const val = effectiveDailyValue(loco.asset, dateStr);
+      const val = (DATA.dailyStatus[`${loco.asset}|${dateStr}`] || '').trim();
       const isFail = /fail/i.test(val);
       const style = dailyValueStyle(val);
       const todayCls = dateStr === todayStr ? ' today-col' : '';
