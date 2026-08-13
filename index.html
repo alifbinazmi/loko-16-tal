@@ -3154,6 +3154,9 @@ function computeMkbfKm(yyyyMm) {
   if (!failures) return null;
   return Math.round(dailyStatusFleetKmForMonth(yyyyMm) / failures);
 }
+function unscheduledCountForAsset(asset, yyyyMm) {
+  return DATA.failures.filter(f => f.asset === asset && (!yyyyMm || monthKey(f.dateReceive) === yyyyMm)).length;
+}
 function dailyStatusEventCountsForMonth(yyyyMm) {
   const peByAsset = {}, unscheduledByAsset = {};
   DATA.locoPerf.forEach(l => { peByAsset[l.asset] = 0; unscheduledByAsset[l.asset] = 0; });
@@ -3318,12 +3321,12 @@ function renderReliability() {
   }).join('');
 
   locoPerfEffectiveRows = reliabilityPerfMonth === 'all'
-    ? DATA.locoPerf
+    ? DATA.locoPerf.map(l => ({ ...l, unscheduled: unscheduledCountForAsset(l.asset) }))
     : (() => {
         const counts = dailyStatusEventCountsForMonth(reliabilityPerfMonth);
         return DATA.locoPerf.map(l => ({
           asset: l.asset, class: l.class,
-          unscheduled: counts.unscheduledByAsset[l.asset] || 0,
+          unscheduled: unscheduledCountForAsset(l.asset, reliabilityPerfMonth),
           pe: counts.peByAsset[l.asset] || 0,
           mileage: computeFinalKm(l.asset, reliabilityPerfMonth),
         }));
