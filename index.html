@@ -4494,6 +4494,7 @@ function renderContent() {
 const DEPOTS = ['KLSD','Bukit Tengah','Gemas','Bukit Mertajam','Tumpat','Kuala Lipis','Batang Benar','Padang Besar'];
 const PE_DEPOTS = ['KEMPAS','GEMAS','K.LIPIS','TUMPAT','PORT KLANG','KLSD','BUKIT TENGAH','BATU GAJAH','PADANG BESAR','CWBG'];
 const FOUR_M_OPTIONS = ['', 'Material', 'Method', 'Machine', 'Manpower'];
+const DEFECT_TYPE_OPTIONS = ['', '-', 'Activated/Trigger', 'Defective/Damage', 'Disconnected', 'Fault/Malfunction', 'Leakage/Blowing', 'Over Voltage', 'Unusual Sound/Knocking', 'Weak', 'Wobbling'];
 
 function toDateInputValue(v) {
   if (!v) return '';
@@ -4509,13 +4510,17 @@ function toTimeInputValue(v) {
 function componentFormSection(n, rec) {
   const g = k => rec ? esc(rec['c' + n + k] ?? '') : '';
   const fourMVal = rec ? (rec['c' + n + '_4m'] || '') : '';
+  const defectVal = g('Defect');
+  const defectOptions = DEFECT_TYPE_OPTIONS.includes(defectVal) ? DEFECT_TYPE_OPTIONS : [defectVal, ...DEFECT_TYPE_OPTIONS];
   return `
     <div class="form-section-label">Component ${n}</div>
     <div class="field"><label>Component Type</label><input type="text" id="f_c${n}Type" value="${g('Type')}" placeholder="e.g. Traction Motor"></div>
     <div class="field"><label>Location</label><input type="text" id="f_c${n}Loc" value="${g('Loc')}" placeholder="e.g. Axle No. 1 B"></div>
     <div class="field"><label>Action</label><input type="text" id="f_c${n}Action" value="${g('Action')}" placeholder="e.g. Replace"></div>
     <div class="field"><label>Quantity</label><input type="text" id="f_c${n}Qty" value="${g('Qty')}" placeholder="e.g. 1"></div>
-    <div class="field"><label>Defect Type</label><input type="text" id="f_c${n}Defect" value="${g('Defect')}" placeholder="e.g. Defective/Damage"></div>
+    <div class="field"><label>Defect Type</label>
+      <select id="f_c${n}Defect">${defectOptions.map(o => `<option value="${esc(o)}" ${defectVal === o ? 'selected' : ''}>${o === '' ? '\u2014' : esc(o)}</option>`).join('')}</select>
+    </div>
     <div class="field"><label>4M</label>
       <select id="f_c${n}_4m">${FOUR_M_OPTIONS.map(o => `<option value="${o}" ${fourMVal === o ? 'selected' : ''}>${o || '\u2014'}</option>`).join('')}</select>
     </div>`;
