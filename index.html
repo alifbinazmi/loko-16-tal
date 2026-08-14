@@ -1208,8 +1208,12 @@ function syncFilterPanel() {
   const { view, key } = openFilterPanel;
   const btn = document.querySelector(`.th-filter-btn[data-filter-view="${view}"][data-filter-key="${key}"]`);
   if (!btn) { host.innerHTML = ''; openFilterPanel = null; return; }
+  const prevList = host.querySelector('.filter-panel-list');
+  const prevScrollTop = prevList ? prevList.scrollTop : 0;
   host.innerHTML = renderFilterPanel(view, key);
   const panel = host.querySelector('.filter-panel');
+  const list = panel.querySelector('.filter-panel-list');
+  if (list) list.scrollTop = prevScrollTop;
   const rect = btn.getBoundingClientRect();
   panel.style.left = rect.left + 'px';
   panel.style.top = (rect.bottom + 4) + 'px';
