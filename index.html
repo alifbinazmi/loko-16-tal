@@ -724,7 +724,7 @@ let currentView = 'dashboard';
 let searchTerm = '';
 let charts = {};
 let sortState = { locoPerf: { key: 'unscheduled', dir: -1 }, peSchedule: { key: 'daysDue', dir: 1 }, peHistory: { key: 'date', dir: -1 } }; // per-view: { key, dir }
-let columnFilters = { failures: {}, incidents: {}, langgar: {}, locoPerf: {}, peSchedule: {}, peHistory: {} }; // per-view: { colKey: Set(rawValueKeys) }
+let columnFilters = { failures: {}, failuresCwbg: {}, incidents: {}, langgar: {}, locoPerf: {}, peSchedule: {}, peHistory: {} }; // per-view: { colKey: Set(rawValueKeys) }
 let reliabilityClassFilter = 'all';
 let reliabilityPerfMonth = 'all';
 let locoPerfEffectiveRows = null;
@@ -986,9 +986,10 @@ function filterIcon() {
 function normValueKey(raw) {
   return (raw === null || raw === undefined) ? '' : String(raw);
 }
+const FAILURES_VIEWS = ['failures', 'failuresCwbg'];
 function filterRawValue(viewKey, row, key) {
-  if (viewKey === 'failures' && ['c1', 'c2', 'c3', 'c4'].includes(key)) return failureCellValue(row, key);
-  if (viewKey === 'failures' && key === 'downtimeCalc') return computeDowntimeMs(row);
+  if (FAILURES_VIEWS.includes(viewKey) && ['c1', 'c2', 'c3', 'c4'].includes(key)) return failureCellValue(row, key);
+  if (FAILURES_VIEWS.includes(viewKey) && key === 'downtimeCalc') return computeDowntimeMs(row);
   return row[key];
 }
 const DATE_FILTER_KEYS = new Set(['dateReceive', 'dateReleased', 'tarikh', 'lastPE', 'nextPE', 'last45', 'date']);
@@ -1008,6 +1009,7 @@ function filterDisplayLabel(key, raw) {
 }
 function sourceRowsFor(viewKey) {
   if (viewKey === 'failures') return DATA.failures;
+  if (viewKey === 'failuresCwbg') return DATA.failures.filter(f => f.parentRid);
   if (viewKey === 'incidents') return DATA.incidents;
   if (viewKey === 'langgar') return DATA.langgar;
   if (viewKey === 'locoPerf') return locoPerfEffectiveRows || DATA.locoPerf || [];
@@ -1622,6 +1624,7 @@ const NAV = [
   { id: 'availability', label: 'Availability', icon: 'gauge', subtitle: 'Fleet availability (avg locomotives operational/day) vs KPI target, by month' },
   { id: 'reliability', label: 'Reliability', icon: 'reliability', subtitle: 'MKBF reliability vs KPI target and locomotive performance ranking' },
   { id: 'failures', label: 'Unscheduled Reports (USW)', icon: 'failure', subtitle: 'Component-level unscheduled repair log &middot; Unscheduled Report Details' },
+  { id: 'failuresCwbg', label: 'USW CWBG', icon: 'failure', subtitle: 'Unscheduled reports sent to CWBG for further repair' },
   { id: 'subsystem', label: 'Sub-System Summary', icon: 'subsystem', subtitle: 'Live tally by sub-system &times; locomotive &mdash; syncs automatically with Unscheduled Reports' },
   { id: 'incidents', label: '16-TAL Incidents', icon: 'incident', subtitle: 'Operational incident log, grouped by month' },
   { id: 'langgar', label: '16-TAL Accidents', icon: 'langgar', subtitle: 'Laporan insiden operasi di Wilayah Timur 2026' },
@@ -1644,6 +1647,7 @@ const VIEW_COLORS = {
   availability: ['var(--green)', 'var(--green-soft)'],
   reliability: ['var(--indigo)', 'var(--indigo-soft)'],
   failures: ['var(--red)', 'var(--red-soft)'],
+  failuresCwbg: ['var(--red)', 'var(--red-soft)'],
   subsystem: ['var(--blue)', 'var(--blue-soft)'],
   incidents: ['var(--red)', 'var(--red-soft)'],
   langgar: ['var(--red)', 'var(--red-soft)'],
@@ -1651,7 +1655,7 @@ const VIEW_COLORS = {
 };
 
 function renderNav() {
-  const counts = { dashboard: '', failures: '', subsystem: '', incidents: '', langgar: '', availability: '', reliability: '', dailyStatus: '', masterplan: '' };
+  const counts = { dashboard: '', failures: '', failuresCwbg: '', subsystem: '', incidents: '', langgar: '', availability: '', reliability: '', dailyStatus: '', masterplan: '' };
   document.getElementById('navList').innerHTML = NAV.map(n => `
     <div class="nav-item ${n.id === currentView ? 'active' : ''}" data-view="${n.id}">
       <span class="nav-icon">${NAV_LOGOS[n.id] ? `<img src="${NAV_LOGOS[n.id]}" alt="">` : ICONS[n.icon]}</span>
@@ -1699,7 +1703,7 @@ function setView(id) {
    ============================================================ */
 function renderSortByControl() {
   const options = FAILURE_COLUMNS.filter(c => c.key !== 'remark');
-  const st = sortState.failures || { key: null, dir: 1 };
+  const st = sortState[currentView] || { key: null, dir: 1 };
   const dirClass = st.dir === -1 ? 'desc' : '';
   return `
     <div class="sortby-box">
@@ -1717,13 +1721,13 @@ function wireSortByControl() {
   if (!sel) return;
   sel.addEventListener('change', () => {
     const key = sel.value;
-    sortState.failures = key ? { key, dir: (sortState.failures && sortState.failures.dir) || 1 } : { key: null, dir: 1 };
+    sortState[currentView] = key ? { key, dir: (sortState[currentView] && sortState[currentView].dir) || 1 } : { key: null, dir: 1 };
     renderContent();
     renderTopbarActions();
   });
   if (dirBtn) dirBtn.addEventListener('click', () => {
-    if (!sortState.failures || !sortState.failures.key) return;
-    sortState.failures.dir = -sortState.failures.dir;
+    if (!sortState[currentView] || !sortState[currentView].key) return;
+    sortState[currentView].dir = -sortState[currentView].dir;
     renderContent();
     renderTopbarActions();
   });
@@ -1753,17 +1757,18 @@ function renderTopbarActions() {
   const el = document.getElementById('topbarActions');
   if (currentView === 'dashboard' || currentView === 'subsystem' || currentView === 'reliability' || currentView === 'availability' || currentView === 'dailyStatus' || currentView === 'masterplan') { el.innerHTML = ''; return; }
   const labelMap = { failures: 'Unscheduled Report', incidents: '16-TAL Incident', langgar: '16-TAL Accident' };
-  const activeFilterCount = ['failures','incidents','langgar'].includes(currentView) ? countActiveFilters(currentView) : 0;
+  const activeFilterCount = ['failures','failuresCwbg','incidents','langgar'].includes(currentView) ? countActiveFilters(currentView) : 0;
   el.innerHTML = `
-    ${currentView === 'failures' ? renderSortByControl() : ''}
+    ${currentView === 'failures' || currentView === 'failuresCwbg' ? renderSortByControl() : ''}
     ${currentView === 'langgar' ? renderLanggarMonthControl() : ''}
     ${activeFilterCount ? `<button class="btn btn-ghost" id="clearFiltersBtn" style="font-size:11.5px;padding:8px 12px;">${filterIcon()}Clear filters (${activeFilterCount})</button>` : ''}
     <div class="search-box">${ICONS.search}<input id="searchInput" placeholder="Search records..." value="${esc(searchTerm)}"/></div>
-    <button class="btn btn-success" id="newReportBtn">${ICONS.plus}New Report</button>
+    ${currentView !== 'failuresCwbg' ? `<button class="btn btn-success" id="newReportBtn">${ICONS.plus}New Report</button>` : ''}
   `;
   document.getElementById('searchInput').addEventListener('input', e => { searchTerm = e.target.value; renderContent(); });
-  document.getElementById('newReportBtn').addEventListener('click', () => openModal(currentView));
-  if (currentView === 'failures') wireSortByControl();
+  const newReportBtn = document.getElementById('newReportBtn');
+  if (newReportBtn) newReportBtn.addEventListener('click', () => openModal(currentView));
+  if (currentView === 'failures' || currentView === 'failuresCwbg') wireSortByControl();
   if (currentView === 'langgar') wireLanggarMonthControl();
   const clearBtn = document.getElementById('clearFiltersBtn');
   if (clearBtn) clearBtn.addEventListener('click', () => clearAllFilters(currentView));
@@ -1826,18 +1831,18 @@ function subsystemBucketFor(raw) {
   const r = (raw || '').trim();
   return SUBSYSTEMS.find(s => r.toLowerCase().startsWith(s.toLowerCase())) || (r === '-' || r === '' ? 'NIL' : null);
 }
-function computeSubsystemTotals() {
+function computeSubsystemTotals(rows = DATA.failures) {
   const totals = {};
   SUBSYSTEMS.forEach(s => totals[s] = 0);
-  DATA.failures.forEach(f => {
+  rows.forEach(f => {
     const match = subsystemBucketFor(f.subSystem);
     if (match) totals[match]++;
   });
   return totals;
 }
-function computeAssetTotals() {
+function computeAssetTotals(rows = DATA.failures) {
   const totals = {};
-  DATA.failures.forEach(f => {
+  rows.forEach(f => {
     const a = f.asset || 'Unassigned';
     totals[a] = (totals[a] || 0) + 1;
   });
@@ -2550,12 +2555,13 @@ const FAILURE_COLUMNS = [
   { key: 'remark', label: 'Remark' },
   { key: 'editAction', label: 'Edit Report' },
 ];
-function renderFailures() {
-  let rows = DATA.failures
+function renderFailures(viewKey = 'failures') {
+  const baseRows = viewKey === 'failuresCwbg' ? DATA.failures.filter(f => f.parentRid) : DATA.failures;
+  let rows = baseRows
     .filter(f => matchesSearch(f, ['asset','depoh','reportByOps','reportByDepot','subSystem','c1Type','c2Type','c3Type','c4Type','remark']));
-  rows = applyColumnFilters('failures', rows);
-  const st = sortState.failures;
-  rows = st && st.key ? sortRows(rows, 'failures', failureCellValue) : rows.slice().sort((a, b) => {
+  rows = applyColumnFilters(viewKey, rows);
+  const st = sortState[viewKey];
+  rows = st && st.key ? sortRows(rows, viewKey, failureCellValue) : rows.slice().sort((a, b) => {
     const ta = parseFailureDateTime(a.dateReceive, a.timeReceive);
     const tb = parseFailureDateTime(b.dateReceive, b.timeReceive);
     if (ta && tb) return tb - ta;
@@ -2564,11 +2570,11 @@ function renderFailures() {
     return DATA.failures.indexOf(b) - DATA.failures.indexOf(a);
   });
 
-  const ssTotals = computeSubsystemTotals();
+  const ssTotals = computeSubsystemTotals(baseRows);
   const topSS = Object.entries(ssTotals).sort((a, b) => b[1] - a[1])[0] || ['\u2014', 0];
-  const assetTotals = computeAssetTotals();
+  const assetTotals = computeAssetTotals(baseRows);
   const topAsset = Object.entries(assetTotals).sort((a, b) => b[1] - a[1])[0] || ['\u2014', 0];
-  const dates = DATA.failures.map(f => f.dateReceive).filter(Boolean).sort();
+  const dates = baseRows.map(f => f.dateReceive).filter(Boolean).sort();
   const lastFailureDate = dates.length ? dates[dates.length - 1] : null;
 
   const body = rows.length ? rows.map(f => `
@@ -2600,12 +2606,12 @@ function renderFailures() {
       <div class="table-scroll">
         <table>
           <thead><tr>
-            ${FAILURE_COLUMNS.map(c => c.key === 'editAction' ? `<th>${esc(c.label)}</th>` : columnHeaderHtml('failures', c.key, c.label)).join('')}
+            ${FAILURE_COLUMNS.map(c => c.key === 'editAction' ? `<th>${esc(c.label)}</th>` : columnHeaderHtml(viewKey, c.key, c.label)).join('')}
           </tr></thead>
           <tbody>${body}</tbody>
         </table>
       </div>
-      <div class="row-count">${rows.length} of ${DATA.failures.length} records shown &middot; ${st && st.key ? 'sorted by ' + esc(FAILURE_COLUMNS.find(c=>c.key===st.key).label) + (st.dir===-1?' (desc)':' (asc)') : 'newest first'}${countActiveFilters('failures') ? ' &middot; ' + countActiveFilters('failures') + ' column filter(s) active' : ''}</div>
+      <div class="row-count">${rows.length} of ${baseRows.length} records shown &middot; ${st && st.key ? 'sorted by ' + esc(FAILURE_COLUMNS.find(c=>c.key===st.key).label) + (st.dir===-1?' (desc)':' (asc)') : 'newest first'}${countActiveFilters(viewKey) ? ' &middot; ' + countActiveFilters(viewKey) + ' column filter(s) active' : ''}</div>
     </div>
   `;
   wireSortHeaders();
@@ -4494,6 +4500,7 @@ function renderContent() {
   if (currentView === 'dashboard') renderDashboard();
   else if (currentView === 'subsystem') renderSubsystem();
   else if (currentView === 'failures') renderFailures();
+  else if (currentView === 'failuresCwbg') renderFailures('failuresCwbg');
   else if (currentView === 'incidents') renderIncidents();
   else if (currentView === 'langgar') renderLanggar();
   else if (currentView === 'availability') renderAvailability();
