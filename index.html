@@ -2474,6 +2474,13 @@ function wireFailurePopups() {
     });
   });
 }
+function remarkCellHtml(f) {
+  const text = (f.remark && f.remark !== '-') ? esc(f.remark) : '';
+  const linkBtn = f.cwbgChildRid
+    ? `<button type="button" class="btn btn-ghost cwbg-link-btn" data-rid="${esc(f.cwbgChildRid)}" style="font-size:10.5px;padding:3px 8px;margin-top:4px;white-space:nowrap;">CWBG Report &#8599;</button>`
+    : '';
+  return `<td class="wrap dim">${text}${linkBtn || (text ? '' : '&mdash;')}</td>`;
+}
 function reportCellHtml(f, idx) {
   const byOps = (f.reportByOps || '').trim();
   const byDepot = (f.reportByDepot || '').trim();
@@ -2579,7 +2586,7 @@ function renderFailures() {
       <td class="dim">${esc(f.pwo)}</td>
       <td class="dim">${fmtDate(f.dateReleased)}</td>
       ${downtimeCellHtml(f)}
-      <td class="wrap dim">${esc(f.remark)}</td>
+      ${remarkCellHtml(f)}
       <td><button type="button" class="btn btn-ghost failure-edit-btn" data-idx="${DATA.failures.indexOf(f)}" style="font-size:11px;padding:6px 10px;white-space:nowrap;">${ICONS.edit}Edit Report</button></td>
     </tr>`).join('') : `<tr class="empty-row"><td colspan="${FAILURE_COLUMNS.length}">No unscheduled reports match your filters.</td></tr>`;
   document.getElementById('content').innerHTML = `
@@ -2605,6 +2612,14 @@ function renderFailures() {
   wireComponentToggles();
   wireFilterButtons();
   wireFailurePopups();
+  document.querySelectorAll('.cwbg-link-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const rid = Number(btn.dataset.rid);
+      const idx = DATA.failures.findIndex(r => r.rid === rid);
+      if (idx >= 0) openModal('failures', idx);
+    });
+  });
   document.querySelectorAll('.failure-edit-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -4694,6 +4709,7 @@ function openModal(view, editIdx = null, prefill = null) {
     <div class="modal-body">${formHtml}</div>
     <div class="modal-foot">
       ${rec ? `<button class="btn btn-ghost" id="modalDeleteBtn" style="color:var(--red);margin-right:auto;">${ICONS.trash}Delete</button>` : ''}
+      ${view === 'failures' && rec && !rec.cwbgChildRid ? `<button class="btn btn-ghost" id="modalSendCwbgBtn">${ICONS.wrench}Send to CWBG</button>` : ''}
       <button class="btn btn-ghost" id="modalCancelBtn">Cancel</button>
       <button class="btn btn-primary" id="modalSaveBtn">${ICONS.check}${rec ? 'Save Changes' : 'Save Report'}</button>
     </div>
@@ -4706,6 +4722,8 @@ function openModal(view, editIdx = null, prefill = null) {
   document.getElementById('modalSaveBtn').addEventListener('click', () => rec ? updateReport(view, editIdx) : saveNewReport(view));
   const deleteBtn = document.getElementById('modalDeleteBtn');
   if (deleteBtn) deleteBtn.addEventListener('click', () => deleteReport(view, editIdx));
+  const sendCwbgBtn = document.getElementById('modalSendCwbgBtn');
+  if (sendCwbgBtn) sendCwbgBtn.addEventListener('click', () => sendToCwbg(view, editIdx));
 
   if (!rec) {
     const todayField = document.getElementById('f_dateReceive') || document.getElementById('l_tarikh');
@@ -4739,6 +4757,7 @@ function readFailureForm() {
     rec['c' + n + '_4m'] = document.getElementById('f_c' + n + '_4m').value;
   });
   if (currentModalPrefill && currentModalPrefill.dsKey) rec.dsKey = currentModalPrefill.dsKey;
+  if (currentModalPrefill && currentModalPrefill.parentRid) rec.parentRid = currentModalPrefill.parentRid;
   return rec;
 }
 function readIncidentForm() {
@@ -4779,7 +4798,14 @@ async function saveNewReport(view) {
   if (view === 'failures') {
     const rec = readFailureForm();
     if (!rec) return;
-    DATA.failures.push(rec);
+    if (rec.parentRid) {
+      rec.rid = nextId(DATA.failures, 'rid');
+      DATA.failures.push(rec);
+      const parent = DATA.failures.find(r => r.rid === rec.parentRid);
+      if (parent) parent.cwbgChildRid = rec.rid;
+    } else {
+      DATA.failures.push(rec);
+    }
     await saveKey('failures');
     toast('Unscheduled report added');
   } else if (view === 'incidents') {
@@ -4825,11 +4851,23 @@ async function updateReport(view, idx) {
   closeModal();
   renderNav();
   renderContent();
+  return true;
+}
+
+async function sendToCwbg(view, idx) {
+  const parent = DATA[view][idx];
+  if (!parent) return;
+  if (!parent.rid) parent.rid = nextId(DATA[view], 'rid');
+  const ok = await updateReport(view, idx);
+  if (!ok) return;
+  openModal(view, null, { asset: parent.asset, depoh: parent.depoh, parentRid: parent.rid });
 }
 
 async function deleteReport(view, idx) {
   if (!confirm('Delete this record? This cannot be undone.')) return;
+  const deletedRid = view === 'failures' && DATA.failures[idx] ? DATA.failures[idx].rid : null;
   DATA[view].splice(idx, 1);
+  if (deletedRid) DATA.failures.forEach(r => { if (r.cwbgChildRid === deletedRid) delete r.cwbgChildRid; });
   await saveKey(view);
   if (view === 'peHistory') recomputePeSchedule();
   toast('Record deleted');
