@@ -912,18 +912,28 @@ function weekDateRange(weekNum) {
   return days;
 }
 function peAnnualYearWeeks() {
-  const weeks = [];
-  for (let w = 1; w <= 53; w++) {
-    const days = weekDateRange(w);
-    if (Number(days[0].slice(0, 4)) > 2026) break;
-    const startMonth = Number(days[0].slice(5, 7));
-    weeks.push({ weekNum: w, days, month: startMonth });
+  const groups = [];
+  let weekNum = 1;
+  for (let m = 1; m <= 12; m++) {
+    const daysInMonth = new Date(2026, m, 0).getDate();
+    const base = Math.floor(daysInMonth / 4), rem = daysInMonth % 4;
+    let cursor = 1;
+    const weeks = [];
+    for (let part = 0; part < 4; part++) {
+      const len = base + (part < rem ? 1 : 0);
+      const days = [];
+      for (let i = 0; i < len; i++) days.push(`2026-${String(m).padStart(2, '0')}-${String(cursor + i).padStart(2, '0')}`);
+      weeks.push({ weekNum, days });
+      cursor += len;
+      weekNum++;
+    }
+    groups.push({ month: m, weeks });
   }
-  return weeks;
+  return groups;
 }
-function peAnnualWeekLookup(weeks) {
+function peAnnualWeekLookup(monthGroups) {
   const map = {};
-  weeks.forEach(w => w.days.forEach(d => { map[d] = w.weekNum; }));
+  monthGroups.forEach(g => g.weeks.forEach(w => w.days.forEach(d => { map[d] = w.weekNum; })));
   return map;
 }
 function computeWeeklyPePlanGrid(weekNum) {
@@ -4171,9 +4181,16 @@ function renderMasterplan() {
 const PE_ANNUAL_TYPE_BG = { PE15: '#F5A623', PE30: '#C9BEA0', PE45: '#4A90D9', PE180: '#9B6FD1', PE360: '#5FBF6E' };
 const PE_ANNUAL_MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 function renderPeAnnualPlan() {
-  const weeks = peAnnualYearWeeks();
-  const weekLookup = peAnnualWeekLookup(weeks);
+  const monthGroups = peAnnualYearWeeks();
+  const weekLookup = peAnnualWeekLookup(monthGroups);
+  const totalWeeks = monthGroups.reduce((n, g) => n + g.weeks.length, 0);
   const todayStr = todayDateStr();
+
+  const weekCellsHtml = (cellFn, sepTag) => monthGroups.map((g, gi) => {
+    const cells = g.weeks.map(cellFn).join('');
+    const sep = gi < monthGroups.length - 1 ? `<${sepTag} style="width:6px;padding:0;background:var(--border-soft);border-left:1px solid var(--border);border-right:1px solid var(--border);"></${sepTag}>` : '';
+    return cells + sep;
+  }).join('');
 
   const peGroupMap = new Map();
   DATA.peSchedule.forEach(r => {
@@ -4187,7 +4204,7 @@ function renderPeAnnualPlan() {
 
   // per-locomotive week -> type, plus running per-week / per-type totals for the footer
   const weekTotals = {}; // weekNum -> { PE15: n, PE30: n, ... }
-  weeks.forEach(w => { weekTotals[w.weekNum] = { PE15: 0, PE30: 0, PE45: 0, PE180: 0, PE360: 0 }; });
+  monthGroups.forEach(g => g.weeks.forEach(w => { weekTotals[w.weekNum] = { PE15: 0, PE30: 0, PE45: 0, PE180: 0, PE360: 0 }; }));
   const locoWeekTypes = new Map(); // asset -> { weekNum: type }
 
   DATA.peSchedule.forEach(r => {
@@ -4203,13 +4220,6 @@ function renderPeAnnualPlan() {
     locoWeekTypes.set(r.asset, byWeek);
   });
 
-  const monthGroups = []; // [{ month, weeks: [...] }]
-  weeks.forEach(w => {
-    let g = monthGroups.find(x => x.month === w.month);
-    if (!g) { g = { month: w.month, weeks: [] }; monthGroups.push(g); }
-    g.weeks.push(w);
-  });
-
   const statusCellHtml = r => {
     const raw = effectiveDailyValue(r.asset, todayStr);
     const available = isAvailableStatusValue(raw, locoClassPrefix(r));
@@ -4223,8 +4233,11 @@ function renderPeAnnualPlan() {
     return `<td style="background:${bg};color:#0B1220;font-weight:700;font-size:10.5px;">${esc(type)}D</td>`;
   };
 
-  const monthHeaderHtml = monthGroups.map(g => `<th colspan="${g.weeks.length}">${PE_ANNUAL_MONTH_NAMES[g.month - 1]}</th>`).join('');
-  const weekHeaderHtml = weeks.map(w => `<th>WEEK-${w.weekNum}</th>`).join('');
+  const monthHeaderHtml = monthGroups.map((g, gi) => {
+    const sep = gi < monthGroups.length - 1 ? `<th style="width:6px;padding:0;background:var(--border-soft);border-left:1px solid var(--border);border-right:1px solid var(--border);"></th>` : '';
+    return `<th colspan="4">${PE_ANNUAL_MONTH_NAMES[g.month - 1]}</th>${sep}`;
+  }).join('');
+  const weekHeaderHtml = weekCellsHtml(w => `<th>WEEK-${w.weekNum}</th>`, 'th');
 
   const bodyHtml = peOrderedClasses.map(cls => {
     const group = peGroupMap.get(cls);
@@ -4232,28 +4245,31 @@ function renderPeAnnualPlan() {
       <tr>
         <td>${esc(r.asset)}</td>
         ${statusCellHtml(r)}
-        ${weeks.map(w => peCellHtml(r.asset, w.weekNum)).join('')}
+        ${weekCellsHtml(w => peCellHtml(r.asset, w.weekNum), 'td')}
       </tr>`).join('');
-    return `<tr class="pe-class-divider"><td colspan="${weeks.length + 2}">${esc(cls)} <span class="dim">(${group.length})</span></td></tr>${rowsHtml}`;
+    return `<tr class="pe-class-divider"><td colspan="${totalWeeks + 2 + monthGroups.length - 1}">${esc(cls)} <span class="dim">(${group.length})</span></td></tr>${rowsHtml}`;
   }).join('');
 
   const PE_TYPES = ['PE15', 'PE30', 'PE45', 'PE180', 'PE360'];
   const typeRowsHtml = PE_TYPES.map(type => `
     <tr>
       <td colspan="2">${type}D</td>
-      ${weeks.map(w => `<td>${weekTotals[w.weekNum][type] || ''}</td>`).join('')}
+      ${weekCellsHtml(w => `<td>${weekTotals[w.weekNum][type] || ''}</td>`, 'td')}
     </tr>`).join('');
   const weekPlanTotal = w => PE_TYPES.reduce((sum, t) => sum + (weekTotals[w.weekNum][t] || 0), 0);
   const pePlanRowHtml = `
     <tr class="total-row">
       <td colspan="2">PE PLAN</td>
-      ${weeks.map(w => `<td>${weekPlanTotal(w)}</td>`).join('')}
+      ${weekCellsHtml(w => `<td>${weekPlanTotal(w)}</td>`, 'td')}
     </tr>`;
-  const grandTotal = weeks.reduce((sum, w) => sum + weekPlanTotal(w), 0);
+  const grandTotal = monthGroups.reduce((sum, g) => sum + g.weeks.reduce((s, w) => s + weekPlanTotal(w), 0), 0);
   const monthTotalRowHtml = `
     <tr class="total-row">
       <td colspan="2">TOTAL PE PLAN</td>
-      ${monthGroups.map(g => `<td colspan="${g.weeks.length}">${g.weeks.reduce((sum, w) => sum + weekPlanTotal(w), 0)}</td>`).join('')}
+      ${monthGroups.map((g, gi) => {
+        const sep = gi < monthGroups.length - 1 ? `<td style="width:6px;padding:0;background:var(--border-soft);border-left:1px solid var(--border);border-right:1px solid var(--border);"></td>` : '';
+        return `<td colspan="4">${g.weeks.reduce((sum, w) => sum + weekPlanTotal(w), 0)}</td>${sep}`;
+      }).join('')}
     </tr>`;
 
   document.getElementById('content').innerHTML = `
@@ -4266,11 +4282,11 @@ function renderPeAnnualPlan() {
           </thead>
           <tbody>${bodyHtml}</tbody>
           <tfoot>${typeRowsHtml}${pePlanRowHtml}${monthTotalRowHtml}
-            <tr class="total-row"><td colspan="2">TOTAL PE PLAN (YEAR)</td><td colspan="${weeks.length}">${grandTotal}</td></tr>
+            <tr class="total-row"><td colspan="2">TOTAL PE PLAN (YEAR)</td><td colspan="${totalWeeks + monthGroups.length - 1}">${grandTotal}</td></tr>
           </tfoot>
         </table>
       </div>
-      <div class="row-count">${DATA.peSchedule.length} locomotives &middot; ${weeks.length} weeks &middot; live-computed from each locomotive's PE cycle (15-day for classes 23/24/25, 30-day for 19 Class) &middot; read-only reference view</div>
+      <div class="row-count">${DATA.peSchedule.length} locomotives &middot; ${totalWeeks} weeks (4 per month) &middot; live-computed from each locomotive's PE cycle (15-day for classes 23/24/25, 30-day for 19 Class) &middot; read-only reference view</div>
     </div>
   `;
 }
