@@ -2526,11 +2526,6 @@ function wireTextExpanders() {
     });
   });
 }
-function repairLocationBadgeHtml(loc) {
-  if (loc === 'CWBG') return '<span class="badge badge-hold">CWBG</span>';
-  if (loc === 'Depot') return '<span class="badge badge-other">Depot</span>';
-  return '<span class="dim">&mdash;</span>';
-}
 const FAILURE_COLUMNS = [
   { key: 'asset', label: 'Asset' },
   { key: 'dateReceive', label: 'Date Rcvd' },
@@ -2542,7 +2537,6 @@ const FAILURE_COLUMNS = [
   { key: 'c3', label: 'Component 3' },
   { key: 'c4', label: 'Component 4' },
   { key: 'materialUsed', label: 'Action Taken' },
-  { key: 'repairLocation', label: 'Repair Location' },
   { key: 'pwo', label: 'PWO' },
   { key: 'dateReleased', label: 'Date Released' },
   { key: 'downtimeCalc', label: 'Downtime' },
@@ -2582,7 +2576,6 @@ function renderFailures() {
       ${componentCellHtml(f, 3)}
       ${componentCellHtml(f, 4)}
       ${actionTakenCellHtml(f, DATA.failures.indexOf(f))}
-      <td>${repairLocationBadgeHtml(f.repairLocation)}</td>
       <td class="dim">${esc(f.pwo)}</td>
       <td class="dim">${fmtDate(f.dateReleased)}</td>
       ${downtimeCellHtml(f)}
@@ -4502,7 +4495,6 @@ const DEPOTS = ['KLSD','Bukit Tengah','Gemas','Bukit Mertajam','Tumpat','Kuala L
 const PE_DEPOTS = ['KEMPAS','GEMAS','K.LIPIS','TUMPAT','PORT KLANG','KLSD','BUKIT TENGAH','BATU GAJAH','PADANG BESAR','CWBG'];
 const FOUR_M_OPTIONS = ['', 'Material', 'Method', 'Machine', 'Manpower'];
 const DEFECT_TYPE_OPTIONS = ['', '-', 'Activated/Trigger', 'Defective/Damage', 'Disconnected', 'Fault/Malfunction', 'Leakage/Blowing', 'Over Voltage', 'Unusual Sound/Knocking', 'Weak', 'Wobbling'];
-const REPAIR_LOCATION_OPTIONS = ['', 'Depot', 'CWBG'];
 
 function toDateInputValue(v) {
   if (!v) return '';
@@ -4625,11 +4617,6 @@ function openModal(view, editIdx = null, prefill = null) {
         ${componentFormSection(4, rec)}
 
         <div class="form-section-label">Close-out</div>
-        <div class="field"><label>Repair Location</label>
-          <select id="f_repairLocation">${REPAIR_LOCATION_OPTIONS.map(o => `<option value="${o}" ${gv('repairLocation') === o ? 'selected' : ''}>${o || '—'}</option>`).join('')}</select>
-        </div>
-        <div class="field"><label>Date Sent to CWBG</label><input type="date" id="f_dateSentCwbg" value="${rec ? toDateInputValue(rec.dateSentCwbg) : ''}"></div>
-        <div class="field"><label>Date Return from CWBG</label><input type="date" id="f_dateReturnCwbg" value="${rec ? toDateInputValue(rec.dateReturnCwbg) : ''}"></div>
         <div class="field full"><label>Action Taken</label><textarea id="f_materialUsed" placeholder="Describe the action(s) taken to resolve this report" style="min-height:140px;">${gv('materialUsed')}</textarea></div>
         <div class="field"><label>Date Released</label><input type="date" id="f_dateReleased" value="${rec ? toDateInputValue(rec.dateReleased) : ''}"></div>
         <div class="field"><label>Time Released</label><input type="time" id="f_timeReleased" value="${rec ? toTimeInputValue(rec.timeReleased) : ''}"></div>
@@ -4741,9 +4728,6 @@ function readFailureForm() {
     materialUsed: document.getElementById('f_materialUsed').value, dateReleased: document.getElementById('f_dateReleased').value,
     timeReleased: document.getElementById('f_timeReleased').value, downtime: document.getElementById('f_downtime').value,
     pwo: document.getElementById('f_pwo').value,
-    repairLocation: document.getElementById('f_repairLocation').value,
-    dateSentCwbg: document.getElementById('f_dateSentCwbg').value,
-    dateReturnCwbg: document.getElementById('f_dateReturnCwbg').value,
     remark: document.getElementById('f_remark').value || '-',
   };
   [1, 2, 3, 4].forEach(n => {
