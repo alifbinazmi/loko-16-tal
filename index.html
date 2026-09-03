@@ -2537,7 +2537,7 @@ const FAILURE_COLUMNS = [
   { key: 'c3', label: 'Component 3' },
   { key: 'c4', label: 'Component 4' },
   { key: 'materialUsed', label: 'Action Taken' },
-  { key: 'pwo', label: 'PWO' },
+  { key: 'pwo', label: 'CWO' },
   { key: 'dateReleased', label: 'Date Released' },
   { key: 'downtimeCalc', label: 'Downtime' },
   { key: 'remark', label: 'Remark' },
@@ -4621,7 +4621,7 @@ function openModal(view, editIdx = null, prefill = null) {
         <div class="field"><label>Date Released</label><input type="date" id="f_dateReleased" value="${rec ? toDateInputValue(rec.dateReleased) : ''}"></div>
         <div class="field"><label>Time Released</label><input type="time" id="f_timeReleased" value="${rec ? toTimeInputValue(rec.timeReleased) : ''}"></div>
         <div class="field"><label>Downtime</label><input type="text" id="f_downtime" value="${gv('downtime')}" placeholder="e.g. 05:00"></div>
-        <div class="field"><label>PWO</label><input type="text" id="f_pwo" value="${gv('pwo')}" placeholder="e.g. PWO201954"></div>
+        <div class="field"><label>CWO</label><input type="text" id="f_pwo" value="${gv('pwo')}" placeholder="e.g. CWO201954"></div>
         <div class="field full"><label>Remark</label><textarea id="f_remark" placeholder="-">${gv('remark')}</textarea></div>
       </div>
       <datalist id="dl_depot">${DEPOTS.map(d => `<option value="${esc(d)}">`).join('')}</datalist>
