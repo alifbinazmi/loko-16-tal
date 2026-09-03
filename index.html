@@ -4066,25 +4066,6 @@ function renderMasterplan() {
   const achievedPct = Math.round((PE_PLAN_SUMMARY.actual / PE_PLAN_SUMMARY.plan) * 1000) / 10;
 
   const typeColors = { PE15: null, PE45: '#A85D00', PE180: '#2F7EE0', PE360: '#B0202F' };
-  const typeBreakdownHtml = ['PE15', 'PE45', 'PE180', 'PE360'].map(type => {
-    const matches = DATA.peSchedule.filter(r => r.upcomingType === type)
-      .slice().sort((a, b) => (a.upcomingDate || '').localeCompare(b.upcomingDate || ''));
-    const color = typeColors[type] || 'var(--text)';
-    const rowsHtml = matches.length ? matches.map(r => `
-      <tr><td class="dim">${esc(r.asset)}</td><td class="dim">${fmtDate(r.upcomingDate)}</td></tr>`).join('')
-      : `<tr class="empty-row"><td colspan="2" style="padding:16px;">None currently due</td></tr>`;
-    return `
-      <div class="panel" style="flex:1;min-width:200px;">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-          <span style="width:8px;height:8px;border-radius:2px;background:${color === null ? 'var(--text-faint)' : color};"></span>
-          <span style="font-weight:700;font-size:12.5px;">${type}</span>
-          <span class="dim" style="font-size:11px;margin-left:auto;">${matches.length} loco${matches.length === 1 ? '' : 's'}</span>
-        </div>
-        <div class="table-scroll" style="max-height:280px;">
-          <table style="width:100%;"><thead><tr><th>Asset</th><th>Next Due</th></tr></thead><tbody>${rowsHtml}</tbody></table>
-        </div>
-      </div>`;
-  }).join('');
 
   let histRows = sourceRowsFor('peHistory').slice();
   histRows = applyColumnFilters('peHistory', histRows);
@@ -4127,10 +4108,6 @@ function renderMasterplan() {
       </div>
     </div>
 
-    <div class="chart-grid" style="grid-template-columns:1fr;">
-      <div class="chart-panel"><h3>PE Status/Breakdown</h3><div class="chart-wrap"><canvas id="chartPeStatus"></canvas></div></div>
-    </div>
-
     <div class="panel" style="margin-top:14px;">
       <div class="table-scroll">
         <table>
@@ -4142,9 +4119,6 @@ function renderMasterplan() {
       </div>
       <div class="row-count">${rows.length} of ${DATA.peSchedule.length} locomotives shown &middot; ${st && st.key ? 'sorted by ' + esc(PE_COLUMNS.find(c => c.key === st.key).label) + (st.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('peSchedule') ? ' &middot; ' + countActiveFilters('peSchedule') + ' column filter(s) active' : ''} &middot; Source: MASTERPLAN_16-TAL_LOCOMOTIVE_FOR_YEAR_2025.xlsx</div>
     </div>
-
-    <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:20px 0 10px;">Which locomotives are due for each PE type next</div>
-    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;">${typeBreakdownHtml}</div>
 
     <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:20px 0 10px;">Weekly PE Schedule Plan (Sunday&ndash;Friday, Week 1 = 1 Jan 2026)</div>
     ${renderWeeklyPePlanHtml()}
@@ -4165,8 +4139,6 @@ function renderMasterplan() {
       <div class="row-count">${histRows.length} of ${DATA.peHistory.length} completed PE records shown &middot; ${hst && hst.key ? 'sorted by ' + esc(PE_HISTORY_COLUMNS.find(c => c.key === hst.key).label) + (hst.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('peHistory') ? ' &middot; ' + countActiveFilters('peHistory') + ' column filter(s) active' : ''} &middot; click a row to edit, or filter by Asset to see one locomotive's full history &middot; Source: MASTERPLAN_16-TAL_LOCOMOTIVE_FOR_YEAR_2025.xlsx (weekly ACTUAL log)</div>
     </div>
   `;
-
-  drawDoughnutChart('chartPeStatus', ['Overdue', 'OK', 'No Record'], [totalOverdue, totalOK, totalNoRecord], ['#E5484D', '#22C55E', '#F5A623']);
 
   const addPeBtn = document.getElementById('addPeRecordBtn');
   if (addPeBtn) addPeBtn.addEventListener('click', () => openModal('peHistory'));
