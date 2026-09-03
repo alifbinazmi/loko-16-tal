@@ -4186,9 +4186,10 @@ function renderPeAnnualPlan() {
   const totalWeeks = monthGroups.reduce((n, g) => n + g.weeks.length, 0);
   const todayStr = todayDateStr();
 
+  const sepCellHtml = tag => `<${tag} style="width:6px;padding:0;background:var(--border-soft);border-left:1px solid var(--border);border-right:1px solid var(--border);"></${tag}>`;
   const weekCellsHtml = (cellFn, sepTag) => monthGroups.map((g, gi) => {
     const cells = g.weeks.map(cellFn).join('');
-    const sep = gi < monthGroups.length - 1 ? `<${sepTag} style="width:6px;padding:0;background:var(--border-soft);border-left:1px solid var(--border);border-right:1px solid var(--border);"></${sepTag}>` : '';
+    const sep = gi < monthGroups.length - 1 ? sepCellHtml(sepTag) : '';
     return cells + sep;
   }).join('');
 
@@ -4234,40 +4235,43 @@ function renderPeAnnualPlan() {
   };
 
   const monthHeaderHtml = monthGroups.map((g, gi) => {
-    const sep = gi < monthGroups.length - 1 ? `<th style="width:6px;padding:0;background:var(--border-soft);border-left:1px solid var(--border);border-right:1px solid var(--border);"></th>` : '';
+    const sep = gi < monthGroups.length - 1 ? sepCellHtml('th') : '';
     return `<th colspan="4">${PE_ANNUAL_MONTH_NAMES[g.month - 1]}</th>${sep}`;
   }).join('');
   const weekHeaderHtml = weekCellsHtml(w => `<th>WEEK-${w.weekNum}</th>`, 'th');
+  const leadColspan = 4; // Asset, separator, Status, separator
 
   const bodyHtml = peOrderedClasses.map(cls => {
     const group = peGroupMap.get(cls);
     const rowsHtml = group.map(r => `
       <tr>
         <td>${esc(r.asset)}</td>
+        ${sepCellHtml('td')}
         ${statusCellHtml(r)}
+        ${sepCellHtml('td')}
         ${weekCellsHtml(w => peCellHtml(r.asset, w.weekNum), 'td')}
       </tr>`).join('');
-    return `<tr class="pe-class-divider"><td colspan="${totalWeeks + 2 + monthGroups.length - 1}">${esc(cls)} <span class="dim">(${group.length})</span></td></tr>${rowsHtml}`;
+    return `<tr class="pe-class-divider"><td colspan="${totalWeeks + leadColspan + monthGroups.length - 1}">${esc(cls)} <span class="dim">(${group.length})</span></td></tr>${rowsHtml}`;
   }).join('');
 
   const PE_TYPES = ['PE15', 'PE30', 'PE45', 'PE180', 'PE360'];
   const typeRowsHtml = PE_TYPES.map(type => `
     <tr>
-      <td colspan="2">${type}D</td>
+      <td colspan="${leadColspan}">${type}D</td>
       ${weekCellsHtml(w => `<td>${weekTotals[w.weekNum][type] || ''}</td>`, 'td')}
     </tr>`).join('');
   const weekPlanTotal = w => PE_TYPES.reduce((sum, t) => sum + (weekTotals[w.weekNum][t] || 0), 0);
   const pePlanRowHtml = `
     <tr class="total-row">
-      <td colspan="2">PE PLAN</td>
+      <td colspan="${leadColspan}">PE PLAN</td>
       ${weekCellsHtml(w => `<td>${weekPlanTotal(w)}</td>`, 'td')}
     </tr>`;
   const grandTotal = monthGroups.reduce((sum, g) => sum + g.weeks.reduce((s, w) => s + weekPlanTotal(w), 0), 0);
   const monthTotalRowHtml = `
     <tr class="total-row">
-      <td colspan="2">TOTAL PE PLAN</td>
+      <td colspan="${leadColspan}">TOTAL PE PLAN</td>
       ${monthGroups.map((g, gi) => {
-        const sep = gi < monthGroups.length - 1 ? `<td style="width:6px;padding:0;background:var(--border-soft);border-left:1px solid var(--border);border-right:1px solid var(--border);"></td>` : '';
+        const sep = gi < monthGroups.length - 1 ? sepCellHtml('td') : '';
         return `<td colspan="4">${g.weeks.reduce((sum, w) => sum + weekPlanTotal(w), 0)}</td>${sep}`;
       }).join('')}
     </tr>`;
@@ -4277,12 +4281,12 @@ function renderPeAnnualPlan() {
       <div class="matrix-scroll">
         <table class="matrix">
           <thead>
-            <tr><th colspan="2"></th>${monthHeaderHtml}</tr>
-            <tr><th>Asset</th><th>Status</th>${weekHeaderHtml}</tr>
+            <tr><th colspan="${leadColspan}"></th>${monthHeaderHtml}</tr>
+            <tr><th>Asset</th>${sepCellHtml('th')}<th>Status</th>${sepCellHtml('th')}${weekHeaderHtml}</tr>
           </thead>
           <tbody>${bodyHtml}</tbody>
           <tfoot>${typeRowsHtml}${pePlanRowHtml}${monthTotalRowHtml}
-            <tr class="total-row"><td colspan="2">TOTAL PE PLAN (YEAR)</td><td colspan="${totalWeeks + monthGroups.length - 1}">${grandTotal}</td></tr>
+            <tr class="total-row"><td colspan="${leadColspan}">TOTAL PE PLAN (YEAR)</td><td colspan="${totalWeeks + monthGroups.length - 1}">${grandTotal}</td></tr>
           </tfoot>
         </table>
       </div>
