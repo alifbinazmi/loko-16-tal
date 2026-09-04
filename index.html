@@ -3710,7 +3710,7 @@ async function applyDailyCellValue(inputEl, value, moveDown) {
   if (moveDown) moveToNextDailyRow(inputEl);
 }
 
-const PE_TRIGGER_CODES = ['PE15', 'PE45', 'PE45S', 'PE180', 'PE360'];
+const PE_TRIGGER_CODES = ['PE15', 'PE30', 'PE45', 'PE45S', 'PE180', 'PE360'];
 async function saveDailyCellValue(inp) {
   const asset = inp.dataset.asset;
   const date = inp.dataset.date;
