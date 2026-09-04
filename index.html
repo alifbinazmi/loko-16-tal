@@ -4224,6 +4224,25 @@ function renderPeAnnualPlan2026() {
   const peOrderedClasses = [];
   PE_2026_REAL.forEach(r => { if (!peOrderedClasses.includes(r.class)) peOrderedClasses.push(r.class); });
 
+  // locomotives that are currently inactive and therefore absent from the 2026
+  // spreadsheet (no PE work planned for them) — still shown, with blank PE weeks
+  // and a live Status cell that reads INACTIVE
+  const peRealAssetSet = new Set(PE_2026_REAL.map(r => r.asset));
+  DATA.peSchedule
+    .filter(r => !peRealAssetSet.has(r.asset))
+    .filter(r => {
+      const raw = effectiveDailyValue(r.asset, todayStr);
+      const available = isAvailableStatusValue(raw, locoClassPrefix(r));
+      const label = available ? 'Active' : String(raw || 'OH').toUpperCase();
+      return label === 'INACTIVE';
+    })
+    .forEach(r => {
+      const cls = r.class || '—';
+      if (!peGroupMap.has(cls)) { peGroupMap.set(cls, []); peOrderedClasses.push(cls); }
+      peGroupMap.get(cls).push({ class: cls, asset: r.asset, weeks: {} });
+    });
+  peGroupMap.forEach(group => group.sort((a, b) => a.asset - b.asset));
+
   const weekTotals = {};
   monthGroups.forEach(g => g.weeks.forEach(w => { weekTotals[w.weekNum] = { PE15: 0, PE30: 0, PE45: 0, PE180: 0, PE360: 0 }; }));
   PE_2026_REAL.forEach(r => {
