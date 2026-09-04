@@ -4147,12 +4147,22 @@ function renderPeAnnualPlan2026() {
     });
   peGroupMap.forEach(group => group.sort((a, b) => a.asset - b.asset));
 
-  const weekTotals = {};
-  monthGroups.forEach(g => g.weeks.forEach(w => { weekTotals[w.weekNum] = { PE15: 0, PE30: 0, PE45: 0, PE180: 0, PE360: 0 }; }));
+  // per-row held-for-maintenance weeks (shared by both the Plan and Actual
+  // sections below) and actual-completion weeks, sourced from PE Completion
+  // History rather than the plan
+  const peHistoryByAsset = new Map();
+  DATA.peHistory.forEach(h => {
+    if (!peHistoryByAsset.has(h.asset)) peHistoryByAsset.set(h.asset, []);
+    peHistoryByAsset.get(h.asset).push(h);
+  });
   peGroupMap.forEach(group => group.forEach(r => {
-    Object.entries(r.weeks).forEach(([wn, type]) => {
-      weekTotals[wn][type] = (weekTotals[wn][type] || 0) + 1;
+    r.heldWeeks = peAnnualHeldWeeks(r.asset, locoClassPrefix(r), weekLookup, todayStr);
+    const actualWeeks = {};
+    (peHistoryByAsset.get(r.asset) || []).forEach(h => {
+      const wn = weekLookup[h.date];
+      if (wn && !actualWeeks[wn]) actualWeeks[wn] = h.type;
     });
+    r.actualWeeks = actualWeeks;
   }));
 
   const peScheduleByAsset = new Map(DATA.peSchedule.map(r => [r.asset, r]));
@@ -4185,51 +4195,59 @@ function renderPeAnnualPlan2026() {
   const leadColspan = 4;
 
   const PE_ANNUAL_CLASS_COLORS = { '19 Class': ['#F2C438', '#3A2E00'], '23 Class': ['var(--blue)', '#FFFFFF'], '24 Class': ['var(--red)', '#FFFFFF'], '25 Class': ['#C4C5CA', '#2A2A2E'] };
-  const bodyHtml = peOrderedClasses.map(cls => {
-    const group = peGroupMap.get(cls);
-    const rowsHtml = group.map(r => {
-      const heldWeeks = peAnnualHeldWeeks(r.asset, locoClassPrefix(r), weekLookup, todayStr);
-      return `
+  const PE_TYPES = ['PE15', 'PE30', 'PE45', 'PE180', 'PE360'];
+
+  const buildWallChartSection = (title, sourceKey, footerLabel, rowCountText) => {
+    const bodyHtml = peOrderedClasses.map(cls => {
+      const group = peGroupMap.get(cls);
+      const rowsHtml = group.map(r => `
       <tr>
         <td>${esc(r.asset)}</td>
         ${sepCellHtml('td')}
         ${statusCellHtml(r.asset)}
         ${sepCellHtml('td')}
-        ${weekCellsHtml(w => peCellHtml(r.weeks, w.weekNum, heldWeeks), 'td')}
-      </tr>`;
+        ${weekCellsHtml(w => peCellHtml(r[sourceKey], w.weekNum, r.heldWeeks), 'td')}
+      </tr>`).join('');
+      const [dividerBg, dividerColor] = PE_ANNUAL_CLASS_COLORS[cls] || [];
+      return `<tr class="pe-class-divider"><td colspan="${totalWeeks + leadColspan + monthGroups.length - 1}"${dividerBg ? ` style="background:${dividerBg};color:${dividerColor};"` : ''}>${esc(cls)} <span class="dim">(${group.length})</span></td></tr>${rowsHtml}`;
     }).join('');
-    const [dividerBg, dividerColor] = PE_ANNUAL_CLASS_COLORS[cls] || [];
-    return `<tr class="pe-class-divider"><td colspan="${totalWeeks + leadColspan + monthGroups.length - 1}"${dividerBg ? ` style="background:${dividerBg};color:${dividerColor};"` : ''}>${esc(cls)} <span class="dim">(${group.length})</span></td></tr>${rowsHtml}`;
-  }).join('');
 
-  const PE_TYPES = ['PE15', 'PE30', 'PE45', 'PE180', 'PE360'];
-  const typeRowsHtml = PE_TYPES.map((type, ti) => {
-    const bg = PE_ANNUAL_TYPE_BG[type];
-    const cellStyle = `background:${bg};color:#0B1220;font-weight:700;`;
-    const topBorder = ti === 0 ? 'border-top:2px solid var(--border);' : '';
-    return `
+    const sectionWeekTotals = {};
+    monthGroups.forEach(g => g.weeks.forEach(w => { sectionWeekTotals[w.weekNum] = { PE15: 0, PE30: 0, PE45: 0, PE180: 0, PE360: 0 }; }));
+    peGroupMap.forEach(group => group.forEach(r => {
+      Object.entries(r[sourceKey]).forEach(([wn, type]) => {
+        sectionWeekTotals[wn][type] = (sectionWeekTotals[wn][type] || 0) + 1;
+      });
+    }));
+
+    const typeRowsHtml = PE_TYPES.map((type, ti) => {
+      const bg = PE_ANNUAL_TYPE_BG[type];
+      const cellStyle = `background:${bg};color:#0B1220;font-weight:700;`;
+      const topBorder = ti === 0 ? 'border-top:2px solid var(--border);' : '';
+      return `
     <tr>
       <td colspan="${leadColspan}" style="${cellStyle}${topBorder}">${type}D</td>
-      ${weekCellsHtml(w => `<td style="${cellStyle}${topBorder}">${weekTotals[w.weekNum][type] || ''}</td>`, 'td')}
+      ${weekCellsHtml(w => `<td style="${cellStyle}${topBorder}">${sectionWeekTotals[w.weekNum][type] || ''}</td>`, 'td')}
     </tr>`;
-  }).join('');
-  const weekPlanTotal = w => PE_TYPES.reduce((sum, t) => sum + (weekTotals[w.weekNum][t] || 0), 0);
-  const pePlanRowHtml = `
+    }).join('');
+    const weekPlanTotal = w => PE_TYPES.reduce((sum, t) => sum + (sectionWeekTotals[w.weekNum][t] || 0), 0);
+    const pePlanRowHtml = `
     <tr class="total-row">
-      <td colspan="${leadColspan}">PE PLAN</td>
+      <td colspan="${leadColspan}">${footerLabel}</td>
       ${weekCellsHtml(w => `<td>${weekPlanTotal(w)}</td>`, 'td')}
     </tr>`;
-  const grandTotal = monthGroups.reduce((sum, g) => sum + g.weeks.reduce((s, w) => s + weekPlanTotal(w), 0), 0);
-  const monthTotalRowHtml = `
+    const grandTotal = monthGroups.reduce((sum, g) => sum + g.weeks.reduce((s, w) => s + weekPlanTotal(w), 0), 0);
+    const monthTotalRowHtml = `
     <tr class="total-row">
-      <td colspan="${leadColspan}">TOTAL PE PLAN</td>
+      <td colspan="${leadColspan}">TOTAL ${footerLabel}</td>
       ${monthGroups.map((g, gi) => {
         const sep = gi < monthGroups.length - 1 ? sepCellHtml('td') : '';
         return `<td colspan="4">${g.weeks.reduce((sum, w) => sum + weekPlanTotal(w), 0)}</td>${sep}`;
       }).join('')}
     </tr>`;
 
-  document.getElementById('content').innerHTML = `
+    return `
+    <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:20px 0 10px;">${esc(title)}</div>
     <div class="panel">
       <div class="matrix-scroll">
         <table class="matrix pe-excel">
@@ -4239,13 +4257,20 @@ function renderPeAnnualPlan2026() {
           </thead>
           <tbody>${bodyHtml}</tbody>
           <tfoot>${typeRowsHtml}${pePlanRowHtml}${monthTotalRowHtml}
-            <tr class="total-row"><td colspan="${leadColspan}">TOTAL PE PLAN (YEAR)</td><td colspan="${totalWeeks + monthGroups.length - 1}">${grandTotal}</td></tr>
+            <tr class="total-row"><td colspan="${leadColspan}">TOTAL ${footerLabel} (YEAR)</td><td colspan="${totalWeeks + monthGroups.length - 1}">${grandTotal}</td></tr>
           </tfoot>
         </table>
       </div>
-      <div class="row-count">${PE_2026_REAL.length} locomotives &middot; ${totalWeeks} weeks (4 per month) &middot; source: official 2026 Masterplan spreadsheet &middot; read-only reference view</div>
-    </div>
-  `;
+      <div class="row-count">${rowCountText}</div>
+    </div>`;
+  };
+
+  const planHtml = buildWallChartSection('Annual PE Plan', 'weeks', 'PE PLAN',
+    `${PE_2026_REAL.length} locomotives &middot; ${totalWeeks} weeks (4 per month) &middot; source: official 2026 Masterplan spreadsheet &middot; read-only reference view`);
+  const actualHtml = buildWallChartSection('Actual PE Completion (from PE Completion History)', 'actualWeeks', 'PE ACTUAL',
+    `${DATA.peHistory.length} completed PE record(s) &middot; source: PE Completion History (per locomotive, from the weekly Masterplan log) &middot; read-only reference view`);
+
+  document.getElementById('content').innerHTML = planHtml + actualHtml;
 }
 
 /* ---------- Daily Fleet Deployment Summary ---------- */
