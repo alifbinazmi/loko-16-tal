@@ -4328,11 +4328,16 @@ function renderPeAnnualPlan2026() {
   }).join('');
 
   const PE_TYPES = ['PE15', 'PE30', 'PE45', 'PE180', 'PE360'];
-  const typeRowsHtml = PE_TYPES.map(type => `
+  const typeRowsHtml = PE_TYPES.map((type, ti) => {
+    const bg = PE_ANNUAL_TYPE_BG[type];
+    const cellStyle = `background:${bg};color:#0B1220;font-weight:700;`;
+    const topBorder = ti === 0 ? 'border-top:2px solid var(--border);' : '';
+    return `
     <tr>
-      <td colspan="${leadColspan}">${type}D</td>
-      ${weekCellsHtml(w => `<td>${weekTotals[w.weekNum][type] || ''}</td>`, 'td')}
-    </tr>`).join('');
+      <td colspan="${leadColspan}" style="${cellStyle}${topBorder}">${type}D</td>
+      ${weekCellsHtml(w => `<td style="${cellStyle}${topBorder}">${weekTotals[w.weekNum][type] || ''}</td>`, 'td')}
+    </tr>`;
+  }).join('');
   const weekPlanTotal = w => PE_TYPES.reduce((sum, t) => sum + (weekTotals[w.weekNum][t] || 0), 0);
   const pePlanRowHtml = `
     <tr class="total-row">
