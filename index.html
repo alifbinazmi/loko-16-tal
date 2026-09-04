@@ -4190,15 +4190,15 @@ function peAnnualHeldWeeks(asset, classPrefix, weekLookup, todayStr) {
     const label = String(raw || 'OH').toUpperCase();
     return label.includes('REPAIR') || label === 'FAILED';
   };
-  if (!isDown(effectiveDailyValue(asset, todayStr))) return new Set();
   const weeks = new Set();
-  let d = new Date(todayStr + 'T00:00:00');
   const floor = new Date('2026-01-01T00:00:00');
+  let d = new Date(todayStr + 'T00:00:00');
   while (d >= floor) {
     const ds = localDateStr(d);
-    if (!isDown(effectiveDailyValue(asset, ds))) break;
-    const wn = weekLookup[ds];
-    if (wn) weeks.add(wn);
+    if (isDown(effectiveDailyValue(asset, ds))) {
+      const wn = weekLookup[ds];
+      if (wn) weeks.add(wn);
+    }
     d.setDate(d.getDate() - 1);
   }
   return weeks;
