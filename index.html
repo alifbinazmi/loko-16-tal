@@ -4181,6 +4181,9 @@ function renderPeAnnualPlan2026() {
   const peCellHtml = (weeks, weekNum, held) => {
     const type = weeks[weekNum];
     const isHeld = held.has(weekNum);
+    if (!type && isHeld) {
+      return `<td style="background:repeating-linear-gradient(45deg, var(--panel-3), var(--panel-3) 4px, transparent 4px, transparent 8px);"></td>`;
+    }
     const bg = type ? (PE_ANNUAL_TYPE_BG[type] || 'var(--panel-3)') : '';
     const blurStyle = isHeld ? 'filter:blur(2.5px);opacity:0.6;' : '';
     const style = `${bg ? `background:${bg};` : ''}${type ? 'color:#0B1220;font-weight:700;font-size:10.5px;' : ''}${blurStyle}`;
