@@ -1686,7 +1686,7 @@ const VIEW_COLORS = {
 };
 
 function renderNav() {
-  const counts = { dashboard: '', failures: '', failuresCwbg: '', subsystem: '', incidents: '', langgar: '', availability: '', reliability: '', dailyStatus: '', masterplan: '' };
+  const counts = { dashboard: '', failures: '', failuresCwbg: '', subsystem: '', incidents: '', langgar: '', availability: '', reliability: '', dailyStatus: '', masterplan: '', peAnnualPlan2026: '' };
   document.getElementById('navList').innerHTML = NAV.map(n => `
     <div class="nav-item ${n.id === currentView ? 'active' : ''}" data-view="${n.id}">
       <span class="nav-icon">${NAV_LOGOS[n.id] ? `<img src="${NAV_LOGOS[n.id]}" alt="">` : ICONS[n.icon]}</span>
