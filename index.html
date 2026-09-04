@@ -4256,6 +4256,7 @@ function renderPeAnnualPlan() {
   const weekHeaderHtml = weekCellsHtml(w => `<th>WEEK-${w.weekNum}</th>`, 'th');
   const leadColspan = 4; // Asset, separator, Status, separator
 
+  const PE_ANNUAL_CLASS_COLORS = { '19 Class': ['#F2C438', '#3A2E00'], '23 Class': ['var(--blue)', '#FFFFFF'], '24 Class': ['var(--red)', '#FFFFFF'], '25 Class': ['#8A8A8A', '#FFFFFF'] };
   const bodyHtml = peOrderedClasses.map(cls => {
     const group = peGroupMap.get(cls);
     const rowsHtml = group.map(r => `
@@ -4266,7 +4267,8 @@ function renderPeAnnualPlan() {
         ${sepCellHtml('td')}
         ${weekCellsHtml(w => peCellHtml(r.asset, w.weekNum), 'td')}
       </tr>`).join('');
-    return `<tr class="pe-class-divider"><td colspan="${totalWeeks + leadColspan + monthGroups.length - 1}">${esc(cls)} <span class="dim">(${group.length})</span></td></tr>${rowsHtml}`;
+    const [dividerBg, dividerColor] = PE_ANNUAL_CLASS_COLORS[cls] || [];
+    return `<tr class="pe-class-divider"><td colspan="${totalWeeks + leadColspan + monthGroups.length - 1}"${dividerBg ? ` style="background:${dividerBg};color:${dividerColor};"` : ''}>${esc(cls)} <span class="dim">(${group.length})</span></td></tr>${rowsHtml}`;
   }).join('');
 
   const PE_TYPES = ['PE15', 'PE30', 'PE45', 'PE180', 'PE360'];
