@@ -4208,8 +4208,16 @@ function renderPeAnnualPlan() {
   monthGroups.forEach(g => g.weeks.forEach(w => { weekTotals[w.weekNum] = { PE15: 0, PE30: 0, PE45: 0, PE180: 0, PE360: 0 }; }));
   const locoWeekTypes = new Map(); // asset -> { weekNum: type }
 
+  // per the user's reference plan, these locomotives' PE cycle starts at week 1
+  // (Jan 1, 2026) with PE15 — display-only for this tab, doesn't touch the real
+  // lastPE/nextCycleNumber used by the Reliability/Masterplan tabs
+  const PE_ANNUAL_WEEK1_START_ASSETS = new Set([23101, 23111, 24102, 24115, 24121, 25101, 25103, 25105, 25111, 25204]);
+
   DATA.peSchedule.forEach(r => {
-    const cycles = computeUpcomingPeCycles(r.lastPE || r.nextPE, 30, r.nextCycleNumber, r.class);
+    const startFromWeek1 = PE_ANNUAL_WEEK1_START_ASSETS.has(r.asset);
+    const refDate = startFromWeek1 ? '2025-12-17' : (r.lastPE || r.nextPE);
+    const startCycle = startFromWeek1 ? 1 : r.nextCycleNumber;
+    const cycles = computeUpcomingPeCycles(refDate, 30, startCycle, r.class);
     const byWeek = {};
     cycles.forEach(c => {
       const wn = weekLookup[c.date];
