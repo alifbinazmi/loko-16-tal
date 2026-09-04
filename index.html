@@ -4234,7 +4234,7 @@ function renderPeAnnualPlan() {
   const statusCellHtml = r => {
     const raw = effectiveDailyValue(r.asset, todayStr);
     const available = isAvailableStatusValue(raw, locoClassPrefix(r));
-    const label = available ? 'AVL' : String(raw || 'OH').toUpperCase();
+    const label = available ? 'Active' : String(raw || 'OH').toUpperCase();
     return `<td style="font-weight:700;color:${available ? 'var(--green)' : 'var(--red)'};">${esc(label)}</td>`;
   };
   const peCellHtml = (asset, weekNum) => {
