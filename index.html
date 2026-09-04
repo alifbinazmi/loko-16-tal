@@ -4256,7 +4256,7 @@ function renderPeAnnualPlan() {
   const weekHeaderHtml = weekCellsHtml(w => `<th>WEEK-${w.weekNum}</th>`, 'th');
   const leadColspan = 4; // Asset, separator, Status, separator
 
-  const PE_ANNUAL_CLASS_COLORS = { '19 Class': ['#F2C438', '#3A2E00'], '23 Class': ['var(--blue)', '#FFFFFF'], '24 Class': ['var(--red)', '#FFFFFF'], '25 Class': ['#8A8A8A', '#FFFFFF'] };
+  const PE_ANNUAL_CLASS_COLORS = { '19 Class': ['#F2C438', '#3A2E00'], '23 Class': ['var(--blue)', '#FFFFFF'], '24 Class': ['var(--red)', '#FFFFFF'], '25 Class': ['#C4C5CA', '#2A2A2E'] };
   const bodyHtml = peOrderedClasses.map(cls => {
     const group = peGroupMap.get(cls);
     const rowsHtml = group.map(r => `
