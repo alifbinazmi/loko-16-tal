@@ -394,6 +394,8 @@
   table.matrix td.sev-high{background:var(--red-soft);color:var(--red);font-weight:800;}
   table.matrix tr.total-row td{background:var(--panel-3);color:var(--text);font-weight:700;border-top:1px solid var(--border);}
   table.matrix td.total-col{color:var(--text);font-weight:700;background:var(--panel-2);}
+  table.pe-excel th, table.pe-excel td{border:1px solid var(--border);padding:3px 5px;}
+  table.pe-excel thead th{padding:6px 5px;}
 
   /* ---------- Daily Status editable grid ---------- */
   table.daily-table{border-collapse:collapse;}
@@ -4287,7 +4289,7 @@ function renderPeAnnualPlan() {
   document.getElementById('content').innerHTML = `
     <div class="panel">
       <div class="matrix-scroll">
-        <table class="matrix">
+        <table class="matrix pe-excel">
           <thead>
             <tr><th colspan="${leadColspan}"></th>${monthHeaderHtml}</tr>
             <tr><th>Asset</th>${sepCellHtml('th')}<th>Status</th>${sepCellHtml('th')}${weekHeaderHtml}</tr>
