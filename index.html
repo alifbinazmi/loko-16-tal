@@ -4270,7 +4270,7 @@ function renderPeAnnualPlan2026() {
   const actualHtml = buildWallChartSection('Actual PE Completion (from PE Completion History)', 'actualWeeks', 'PE ACTUAL',
     `${DATA.peHistory.length} completed PE record(s) &middot; source: PE Completion History (per locomotive, from the weekly Masterplan log) &middot; read-only reference view`);
 
-  document.getElementById('content').innerHTML = planHtml + actualHtml;
+  document.getElementById('content').innerHTML = actualHtml + planHtml;
 }
 
 /* ---------- Daily Fleet Deployment Summary ---------- */
