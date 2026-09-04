@@ -896,23 +896,6 @@ function recomputePeSchedule() {
 }
 recomputePeSchedule();
 
-/* ---------- Weekly PE Schedule Plan: Sun-Fri weeks, Week 1 = Jan 1 2026.
-   Jan 1 2026 is actually a Thursday on the real calendar, so "Sunday" here
-   is a positional label (day 1 of each 6-day week) rather than the true
-   weekday \u2014 matching the literal "Jan 1 2026 = week one, Sun-Fri" spec. ---------- */
-const PE_PLAN_WEEK1_START = '2026-01-01';
-const PE_PLAN_DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-function weekDateRange(weekNum) {
-  const start = new Date(PE_PLAN_WEEK1_START + 'T00:00:00');
-  start.setDate(start.getDate() + (weekNum - 1) * 7);
-  const days = [];
-  for (let i = 0; i < 6; i++) {
-    const d = new Date(start);
-    d.setDate(d.getDate() + i);
-    days.push(localDateStr(d));
-  }
-  return days;
-}
 function peAnnualYearWeeks() {
   const groups = [];
   let weekNum = 1;
@@ -937,35 +920,6 @@ function peAnnualWeekLookup(monthGroups) {
   const map = {};
   monthGroups.forEach(g => g.weeks.forEach(w => w.days.forEach(d => { map[d] = w.weekNum; })));
   return map;
-}
-function computeWeeklyPePlanGrid(weekNum) {
-  const days = weekDateRange(weekNum);
-  const endD = new Date(days[5] + 'T00:00:00');
-  const grid = DATA.peSchedule.map(r => {
-    const referenceDate = r.lastPE || r.nextPE;
-    const cells = [null, null, null, null, null, null];
-    if (referenceDate) {
-      const completedCount = DATA.peHistory.filter(h => h.asset === r.asset).length;
-      const refD = new Date(referenceDate + 'T00:00:00');
-      const stepsNeeded = Math.max(1, Math.ceil((endD - refD) / (15 * 86400000)) + 2);
-      const cycles = computeUpcomingPeCycles(referenceDate, stepsNeeded, completedCount + 1, r.class);
-      cycles.forEach(c => {
-        const idx = days.indexOf(c.date);
-        if (idx >= 0) cells[idx] = c.type;
-      });
-    }
-    return { asset: r.asset, class: r.class, cells };
-  });
-  return { days, grid };
-}
-function defaultPeWeekNum() {
-  const today = new Date();
-  const start = new Date(PE_PLAN_WEEK1_START + 'T00:00:00');
-  return Math.max(1, Math.floor((today - start) / (7 * 86400000)) + 1);
-}
-let peWeekNum = defaultPeWeekNum();
-function peWeeklyStatusKey(asset, weekNum) {
-  return `${asset}|W${weekNum}`;
 }
 
 /* ---------- generic sorting ---------- */
@@ -3920,80 +3874,6 @@ function computeFinalKm(asset, yyyyMm) {
 /* ============================================================
    MASTERPLAN (PE SCHEDULE) TAB
    ============================================================ */
-function renderWeeklyPePlanHtml() {
-  const { days, grid } = computeWeeklyPePlanGrid(peWeekNum);
-  const dueCount = grid.filter(g => g.cells.some(c => c)).length;
-  const rowsHtml = grid.map(g => {
-    const cellsHtml = g.cells.map(type => {
-      if (!type) return '<td class="dim">&mdash;</td>';
-      const color = peTypeColor(type);
-      return `<td${color ? ` style="color:${color};font-weight:700;"` : ''}>${type}</td>`;
-    }).join('');
-    const key = peWeeklyStatusKey(g.asset, peWeekNum);
-    const entry = DATA.peWeeklyStatus[key] || {};
-    const status = entry.status || '';
-    const reason = entry.reason || '';
-    const statusColor = status === 'Done' ? 'var(--green)' : status === 'Not Done' ? 'var(--red)' : 'var(--text)';
-    return `<tr><td class="dim">${esc(g.class)}</td><td class="num">${esc(g.asset)}</td>${cellsHtml}
-      <td class="day-cell">
-        <select class="pe-status-input" data-asset="${g.asset}" style="color:${statusColor};font-weight:${status ? '700' : '400'};width:100%;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:3px;padding:5px 4px;font-size:11px;">
-          <option value=""${status === '' ? ' selected' : ''}>&mdash;</option>
-          <option value="Done"${status === 'Done' ? ' selected' : ''}>Done</option>
-          <option value="Not Done"${status === 'Not Done' ? ' selected' : ''}>Not Done</option>
-        </select>
-      </td>
-      <td class="day-cell"><input type="text" class="pe-reason-input" data-asset="${g.asset}" value="${esc(reason)}" placeholder="reason if not done" style="width:100%;min-width:120px;box-sizing:border-box;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:3px;padding:5px 6px;font-size:11px;color:var(--text);"></td>
-    </tr>`;
-  }).join('');
-  const headerCellsHtml = days.map((d, i) => `<th>${PE_PLAN_DAY_LABELS[i]}<br><span class="dim" style="font-weight:400;text-transform:none;font-size:9.5px;">${fmtDate(d)}</span></th>`).join('');
-  return `
-    <div class="panel" style="margin-bottom:14px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <button class="btn btn-ghost" id="peWeekPrev">&lsaquo; Prev</button>
-          <div style="font-weight:700;font-size:14px;min-width:190px;text-align:center;">Week ${peWeekNum} &middot; ${fmtDate(days[0])} &ndash; ${fmtDate(days[5])}</div>
-          <button class="btn btn-ghost" id="peWeekNext">Next &rsaquo;</button>
-          <button class="btn btn-ghost" id="peWeekToday" style="font-size:11px;">Jump to current week</button>
-        </div>
-        <div class="dim" style="font-size:11px;">${dueCount} of ${grid.length} locomotives due this week</div>
-      </div>
-    </div>
-    <div class="panel" style="margin-bottom:14px;">
-      <div class="table-scroll">
-        <table class="daily-table" style="min-width:0;">
-          <thead><tr><th>Class</th><th>Asset</th>${headerCellsHtml}<th>Status</th><th>Reason (if not done)</th></tr></thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>
-      </div>
-      <div class="row-count">Projected from each locomotive's real PE history using the 15/45/180/360-day cycle. "Sunday" here is day 1 of the week (positional), since 1 Jan 2026 falls on a Thursday on the real calendar. Mark Status/Reason per locomotive for this week &mdash; it saves automatically.</div>
-    </div>`;
-}
-function wireWeeklyPeStatusInputs() {
-  document.querySelectorAll('.pe-status-input, .pe-reason-input').forEach(el => {
-    el.addEventListener('change', async () => {
-      const asset = el.dataset.asset;
-      const key = peWeeklyStatusKey(asset, peWeekNum);
-      const row = el.closest('tr');
-      const statusEl = row.querySelector('.pe-status-input');
-      const reasonEl = row.querySelector('.pe-reason-input');
-      const status = statusEl.value;
-      const reason = reasonEl.value.trim();
-      if (!status && !reason) delete DATA.peWeeklyStatus[key];
-      else DATA.peWeeklyStatus[key] = { status, reason };
-      await saveKey('peWeeklyStatus');
-      statusEl.style.color = status === 'Done' ? 'var(--green)' : status === 'Not Done' ? 'var(--red)' : 'var(--text)';
-      statusEl.style.fontWeight = status ? '700' : '400';
-    });
-  });
-}
-function wireWeeklyPePlanNav() {
-  const prev = document.getElementById('peWeekPrev');
-  const next = document.getElementById('peWeekNext');
-  const today = document.getElementById('peWeekToday');
-  if (prev) prev.addEventListener('click', () => { peWeekNum = Math.max(1, peWeekNum - 1); renderMasterplan(); syncFilterPanel(); });
-  if (next) next.addEventListener('click', () => { peWeekNum = peWeekNum + 1; renderMasterplan(); syncFilterPanel(); });
-  if (today) today.addEventListener('click', () => { peWeekNum = defaultPeWeekNum(); renderMasterplan(); syncFilterPanel(); });
-}
 const PE_HISTORY_COLUMNS = [
   { key: 'asset', label: 'Asset' },
   { key: 'type', label: 'PE Type' },
@@ -4149,9 +4029,6 @@ function renderMasterplan() {
       <div class="row-count">${rows.length} of ${DATA.peSchedule.length} locomotives shown &middot; ${st && st.key ? 'sorted by ' + esc(PE_COLUMNS.find(c => c.key === st.key).label) + (st.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('peSchedule') ? ' &middot; ' + countActiveFilters('peSchedule') + ' column filter(s) active' : ''} &middot; Source: MASTERPLAN_16-TAL_LOCOMOTIVE_FOR_YEAR_2025.xlsx</div>
     </div>
 
-    <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:20px 0 10px;">Weekly PE Schedule Plan (Sunday&ndash;Friday, Week 1 = 1 Jan 2026)</div>
-    ${renderWeeklyPePlanHtml()}
-
     <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px;flex-wrap:wrap;gap:8px;" id="peHistorySection">
       <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">PE Completion History (per locomotive, from the weekly Masterplan log)</div>
       <button class="btn btn-primary" id="addPeRecordBtn" style="font-size:11.5px;padding:7px 12px;">${ICONS.plus}Add PE Record</button>
@@ -4172,8 +4049,6 @@ function renderMasterplan() {
   const addPeBtn = document.getElementById('addPeRecordBtn');
   if (addPeBtn) addPeBtn.addEventListener('click', () => openModal('peHistory'));
   wireRowClicks('peHistory');
-  wireWeeklyPePlanNav();
-  wireWeeklyPeStatusInputs();
   wireSortHeaders();
   wireFilterButtons();
   wireComponentToggles();
