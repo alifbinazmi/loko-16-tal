@@ -3717,8 +3717,11 @@ async function saveDailyCellValue(inp) {
     hideDailyDropdown();
     openModal('peHistory', null, { asset: Number(asset), date, type: newPeCode });
   } else if (newIsRepair) {
-    hideDailyDropdown();
-    openModal('failures', null, { asset: Number(asset), dateReceive: date, dsKey: key });
+    const prevDayVal = DATA.dailyStatus[`${asset}|${shiftDateStr(date, -1)}`];
+    if (!isRepairOrFailed(prevDayVal)) {
+      hideDailyDropdown();
+      openModal('failures', null, { asset: Number(asset), dateReceive: date, dsKey: key });
+    }
   }
 }
 
