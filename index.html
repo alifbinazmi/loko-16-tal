@@ -3701,8 +3701,9 @@ async function saveDailyCellValue(inp) {
     }
   }
 
-  const oldIsRepair = (oldVal || '').toUpperCase().includes('REPAIR');
-  const newIsRepair = val.toUpperCase().includes('REPAIR');
+  const isRepairOrFailed = v => { const u = (v || '').toUpperCase(); return u.includes('REPAIR') || u === 'FAILED'; };
+  const oldIsRepair = isRepairOrFailed(oldVal);
+  const newIsRepair = isRepairOrFailed(val);
   if (oldIsRepair && (oldVal || '').trim().toUpperCase() !== val.toUpperCase()) {
     const before = DATA.failures.length;
     DATA.failures = DATA.failures.filter(r => r.dsKey !== key);
