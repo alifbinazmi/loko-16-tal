@@ -2580,7 +2580,7 @@ function renderFailures(viewKey = 'failures') {
       ${componentCellHtml(f, 4)}
       ${actionTakenCellHtml(f, DATA.failures.indexOf(f))}
       <td class="dim">${esc(f.pwo)}</td>
-      <td class="dim">${fmtDate(f.dateReleased)}</td>
+      <td class="dim">${f.dateReleased ? fmtDate(f.dateReleased) : '<span class="badge badge-hold">Not Closed</span>'}</td>
       ${downtimeCellHtml(f)}
       ${remarkCellHtml(f)}
       <td><button type="button" class="btn btn-ghost failure-edit-btn" data-idx="${DATA.failures.indexOf(f)}" style="font-size:11px;padding:6px 10px;white-space:nowrap;">${ICONS.edit}Edit Report</button></td>
