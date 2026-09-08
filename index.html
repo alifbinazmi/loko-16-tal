@@ -2547,7 +2547,7 @@ const FAILURE_COLUMNS = [
   { key: 'editAction', label: 'Edit Report' },
 ];
 function renderFailures(viewKey = 'failures') {
-  const baseRows = viewKey === 'failuresCwbg' ? DATA.failures.filter(f => f.parentRid) : DATA.failures;
+  const baseRows = viewKey === 'failuresCwbg' ? DATA.failures.filter(f => f.parentRid) : DATA.failures.filter(f => !f.parentRid);
   let rows = baseRows
     .filter(f => matchesSearch(f, ['asset','depoh','reportByOps','reportByDepot','subSystem','c1Type','c2Type','c3Type','c4Type','remark']));
   rows = applyColumnFilters(viewKey, rows);
