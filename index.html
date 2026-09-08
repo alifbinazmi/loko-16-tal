@@ -1839,6 +1839,14 @@ function computeAssetTotals(rows = DATA.failures) {
   });
   return totals;
 }
+function computeDepotTotals(rows = DATA.failures) {
+  const totals = {};
+  rows.forEach(f => {
+    const d = f.depoh || 'Unassigned';
+    totals[d] = (totals[d] || 0) + 1;
+  });
+  return totals;
+}
 function buildOrderedKpiCards() {
   const totalFailures = countableFailures().length;
   const totalIncidents = DATA.incidents.filter(i => i.asset).length;
@@ -2567,6 +2575,8 @@ function renderFailures(viewKey = 'failures') {
   const topSS = Object.entries(ssTotals).sort((a, b) => b[1] - a[1])[0] || ['\u2014', 0];
   const assetTotals = computeAssetTotals(statsRows);
   const topAsset = Object.entries(assetTotals).sort((a, b) => b[1] - a[1])[0] || ['\u2014', 0];
+  const depotTotals = computeDepotTotals(statsRows);
+  const topDepot = Object.entries(depotTotals).sort((a, b) => b[1] - a[1])[0] || ['\u2014', 0];
   const dates = statsRows.map(f => f.dateReceive).filter(Boolean).sort();
   const lastFailureDate = dates.length ? dates[dates.length - 1] : null;
 
@@ -2593,7 +2603,7 @@ function renderFailures(viewKey = 'failures') {
       <div class="stat-card"><div class="lbl">Top failing sub-system</div><div class="val">${esc(topSS[0])} <span class="n">(${topSS[1]})</span></div></div>
       <div class="stat-card"><div class="lbl">Top failing locomotive</div><div class="val">Asset <span class="n">${esc(topAsset[0])}</span> (${topAsset[1]})</div></div>
       <div class="stat-card"><div class="lbl">Most recent failure</div><div class="val">${fmtDate(lastFailureDate)}</div></div>
-      <div class="stat-card"><div class="lbl">Fleet size tracked</div><div class="val"><span class="n">${Object.keys(assetTotals).length}</span> locomotives</div></div>
+      <div class="stat-card"><div class="lbl">Top depot by failures</div><div class="val">${esc(topDepot[0])} <span class="n">(${topDepot[1]})</span></div></div>
     </div>
     <div class="panel">
       <div class="table-scroll">
