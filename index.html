@@ -4829,6 +4829,7 @@ function openModal(view, editIdx = null, prefill = null) {
     <div class="modal-foot">
       ${rec ? `<button class="btn btn-ghost" id="modalDeleteBtn" style="color:var(--red);margin-right:auto;">${ICONS.trash}Delete</button>` : ''}
       ${view === 'failures' && rec && !rec.cwbgChildRid ? `<button class="btn btn-ghost" id="modalSendCwbgBtn">${ICONS.wrench}Send to CWBG</button>` : ''}
+      ${view === 'failures' && rec && rec.cwbgChildRid ? `<button class="btn btn-ghost" id="modalUndoCwbgBtn" style="color:var(--red);">${ICONS.wrench}Undo Send to CWBG</button>` : ''}
       <button class="btn btn-ghost" id="modalCancelBtn">Cancel</button>
       <button class="btn btn-primary" id="modalSaveBtn">${ICONS.check}${rec ? 'Save Changes' : 'Save Report'}</button>
     </div>
@@ -4843,6 +4844,8 @@ function openModal(view, editIdx = null, prefill = null) {
   if (deleteBtn) deleteBtn.addEventListener('click', () => deleteReport(view, editIdx));
   const sendCwbgBtn = document.getElementById('modalSendCwbgBtn');
   if (sendCwbgBtn) sendCwbgBtn.addEventListener('click', () => sendToCwbg(view, editIdx));
+  const undoCwbgBtn = document.getElementById('modalUndoCwbgBtn');
+  if (undoCwbgBtn) undoCwbgBtn.addEventListener('click', () => undoSendToCwbg(view, editIdx));
 
   if (!rec) {
     const todayField = document.getElementById('f_dateReceive') || document.getElementById('l_tarikh');
@@ -4980,6 +4983,20 @@ async function sendToCwbg(view, idx) {
   const ok = await updateReport(view, idx);
   if (!ok) return;
   openModal(view, null, { asset: parent.asset, depoh: parent.depoh, parentRid: parent.rid });
+}
+
+async function undoSendToCwbg(view, idx) {
+  const parent = DATA[view][idx];
+  if (!parent || !parent.cwbgChildRid) return;
+  if (!confirm('Undo Send to CWBG? The linked CWBG record will be deleted. This cannot be undone.')) return;
+  const childIdx = DATA.failures.findIndex(r => r.rid === parent.cwbgChildRid);
+  if (childIdx > -1) DATA.failures.splice(childIdx, 1);
+  delete parent.cwbgChildRid;
+  await saveKey('failures');
+  toast('Removed from CWBG');
+  closeModal();
+  renderNav();
+  renderContent();
 }
 
 async function deleteReport(view, idx) {
