@@ -2594,6 +2594,7 @@ const FAILURE_COLUMNS = [
   { key: 'remark', label: 'Remark' },
   { key: 'editAction', label: 'Edit Report' },
 ];
+let failuresDepotSelectedMonth = { failures: null, failuresCwbg: null };
 function renderFailures(viewKey = 'failures') {
   const baseRows = viewKey === 'failuresCwbg' ? DATA.failures.filter(f => f.parentRid) : DATA.failures.filter(f => !f.parentRid);
   let rows = baseRows
@@ -2614,7 +2615,10 @@ function renderFailures(viewKey = 'failures') {
   const topSS = Object.entries(ssTotals).sort((a, b) => b[1] - a[1])[0] || ['\u2014', 0];
   const assetTotals = computeAssetTotals(statsRows);
   const topAsset = Object.entries(assetTotals).sort((a, b) => b[1] - a[1])[0] || ['\u2014', 0];
-  const depotTotals = computeDepotTotals(statsRows);
+  const depotMonthsAvailable = [...new Set(statsRows.map(f => monthKey(f.dateReceive)).filter(Boolean))].sort();
+  const depotSelMonth = failuresDepotSelectedMonth[viewKey] || null;
+  const depotScopedRows = depotSelMonth ? statsRows.filter(f => monthKey(f.dateReceive) === depotSelMonth) : statsRows;
+  const depotTotals = computeDepotTotals(depotScopedRows);
   const topDepot = Object.entries(depotTotals).sort((a, b) => b[1] - a[1])[0] || ['\u2014', 0];
 
   const body = rows.length ? rows.map(f => `
@@ -2639,7 +2643,15 @@ function renderFailures(viewKey = 'failures') {
     <div class="stat-grid">
       <div class="stat-card"><div class="lbl">Top failing sub-system</div><div class="val">${esc(topSS[0])} <span class="n">(${topSS[1]})</span></div></div>
       <div class="stat-card"><div class="lbl">Top failing locomotive</div><div class="val">Asset <span class="n">${esc(topAsset[0])}</span> (${topAsset[1]})</div></div>
-      <div class="stat-card"><div class="lbl">Top depot by failures</div><div class="val">${esc(topDepot[0])} <span class="n">(${topDepot[1]})</span></div></div>
+      <div class="stat-card">
+        <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top depot by failures</span>
+          <select id="failuresDepotMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 6px;font-size:10.5px;color:var(--text);max-width:100px;text-transform:none;font-weight:400;letter-spacing:normal;">
+            <option value="">All months</option>
+            ${depotMonthsAvailable.map(m => `<option value="${m}" ${depotSelMonth === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="val">${esc(topDepot[0])} <span class="n">(${topDepot[1]})</span></div>
+      </div>
     </div>
     <div class="panel">
       <div class="table-scroll">
@@ -2657,6 +2669,11 @@ function renderFailures(viewKey = 'failures') {
   wireComponentToggles();
   wireFilterButtons();
   wireFailurePopups();
+  const depotMonthSelectEl = document.getElementById('failuresDepotMonthSelect');
+  if (depotMonthSelectEl) depotMonthSelectEl.addEventListener('change', e => {
+    failuresDepotSelectedMonth[viewKey] = e.target.value || null;
+    renderFailures(viewKey);
+  });
   document.querySelectorAll('.cwbg-link-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
