@@ -3985,6 +3985,20 @@ function formatDaysDue(days) {
   const rounded = Math.round(Math.abs(days));
   return days < 0 ? `${rounded}d overdue` : `${rounded}d left`;
 }
+let peDepotSelectedMonth = null; // null = all months
+function peHistoryMonthsAvailable() {
+  return [...new Set(DATA.peHistory.map(h => monthKey(h.date)).filter(Boolean))].sort();
+}
+function computePeDepotTotals(rows = DATA.peHistory) {
+  const totals = {};
+  rows.forEach(h => { if (h.depot) totals[h.depot] = (totals[h.depot] || 0) + 1; });
+  return totals;
+}
+function topDepotForPe(monthFilter) {
+  const rows = monthFilter ? DATA.peHistory.filter(h => monthKey(h.date) === monthFilter) : DATA.peHistory;
+  const top = Object.entries(computePeDepotTotals(rows)).sort((a, b) => b[1] - a[1])[0];
+  return top ? { depot: top[0], count: top[1] } : null;
+}
 function renderMasterplan() {
   let rows = sourceRowsFor('peSchedule').slice();
   rows = applyColumnFilters('peSchedule', rows);
@@ -4023,9 +4037,9 @@ function renderMasterplan() {
 
   const totalOverdue = DATA.peSchedule.filter(r => r.status === 'OVERDUE').length;
   const totalOK = DATA.peSchedule.filter(r => r.status === 'OK').length;
-  const totalNoRecord = DATA.peSchedule.filter(r => r.status === 'NO RECORD').length;
   const totalActiveFleet = DATA.peSchedule.filter(r => r.status !== 'INACTIVE').length;
   const achievedPct = Math.round((PE_PLAN_SUMMARY.actual / PE_PLAN_SUMMARY.plan) * 1000) / 10;
+  const topDepotPe = topDepotForPe(peDepotSelectedMonth);
 
   const typeColors = { PE15: null, PE45: '#A85D00', PE180: '#2F7EE0', PE360: '#B0202F' };
 
@@ -4063,9 +4077,14 @@ function renderMasterplan() {
         <div class="kpi-corner">${ICONS.masterplan}</div>
       </div>
       <div class="kpi" style="--accent:var(--amber)">
-        <div class="kpi-label">No PE Record</div>
-        <div class="kpi-value">${totalNoRecord}<small>locomotives</small></div>
-        <div class="kpi-foot">Never logged a Periodic Examination</div>
+        <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top Depot by PE</span>
+          <select id="peDepotMonthSelect" onclick="event.stopPropagation()" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text);max-width:110px;">
+            <option value="">All months</option>
+            ${peHistoryMonthsAvailable().map(m => `<option value="${m}" ${peDepotSelectedMonth === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="kpi-value">${topDepotPe ? esc(topDepotPe.depot) : '—'}<small>${topDepotPe ? topDepotPe.count + ' PE' : ''}</small></div>
+        <div class="kpi-foot">${peDepotSelectedMonth ? esc(monthLabel(peDepotSelectedMonth)) : 'All months'} &middot; from PE History</div>
         <div class="kpi-corner">${ICONS.masterplan}</div>
       </div>
     </div>
@@ -4101,6 +4120,11 @@ function renderMasterplan() {
 
   const addPeBtn = document.getElementById('addPeRecordBtn');
   if (addPeBtn) addPeBtn.addEventListener('click', () => openModal('peHistory'));
+  const peDepotMonthSelectEl = document.getElementById('peDepotMonthSelect');
+  if (peDepotMonthSelectEl) peDepotMonthSelectEl.addEventListener('change', e => {
+    peDepotSelectedMonth = e.target.value || null;
+    renderMasterplan();
+  });
   wireRowClicks('peHistory');
   wireSortHeaders();
   wireFilterButtons();
