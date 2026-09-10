@@ -2333,6 +2333,8 @@ function renderSubsystem() {
   const rowTotal = s => assets.reduce((sum, a) => sum + grid[s][a], 0);
   const colTotal = a => SUBSYSTEMS.reduce((sum, s) => sum + grid[s][a], 0);
   const grandTotal = SUBSYSTEMS.reduce((sum, s) => sum + rowTotal(s), 0);
+  const top3Subsystems = SUBSYSTEMS.map(s => [s, rowTotal(s)]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const top3Assets = assets.map(a => [a, colTotal(a)]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3);
 
   const severityClass = v => v > 10 ? 'sev-high' : v > 5 ? 'sev-mid' : v === 0 ? 'zero' : '';
   const headerCells = assets.map(a => `<th>${esc(a)}</th>`).join('');
@@ -2346,6 +2348,22 @@ function renderSubsystem() {
   const totalRow = `<tr class="total-row"><td>Total Failure by Loco</td>${assets.map(a => `<td class="${severityClass(colTotal(a))} asset-total-cell" data-asset="${esc(a)}" style="cursor:pointer;" title="View asset ${esc(a)} in Unscheduled Reports">${colTotal(a)}</td>`).join('')}<td class="total-col ${severityClass(grandTotal)}">${grandTotal}</td></tr>`;
 
   document.getElementById('content').innerHTML = `
+    <div class="stat-grid" style="grid-template-columns:repeat(2,1fr);">
+      <div class="stat-card">
+        <div class="lbl">Top Failing Sub-System</div>
+        <div class="val">${top3Subsystems[0] ? esc(top3Subsystems[0][0]) : '—'} <span class="n">(${top3Subsystems[0] ? top3Subsystems[0][1] : 0})</span></div>
+        <div style="margin-top:8px;font-size:11.5px;color:var(--text-dim);line-height:1.8;">
+          ${top3Subsystems.map((e, i) => `<div>#${i + 1} ${esc(e[0])} <span style="font-family:var(--mono);color:var(--indigo);">(${e[1]})</span></div>`).join('') || '<div class="dim">No data</div>'}
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="lbl">Top Failing Locomotive</div>
+        <div class="val">${top3Assets[0] ? 'Asset ' + esc(top3Assets[0][0]) : '—'} <span class="n">(${top3Assets[0] ? top3Assets[0][1] : 0})</span></div>
+        <div style="margin-top:8px;font-size:11.5px;color:var(--text-dim);line-height:1.8;">
+          ${top3Assets.map((e, i) => `<div>#${i + 1} Asset ${esc(e[0])} <span style="font-family:var(--mono);color:var(--indigo);">(${e[1]})</span></div>`).join('') || '<div class="dim">No data</div>'}
+        </div>
+      </div>
+    </div>
     <div class="panel">
       <div class="sortby-box" style="margin-bottom:12px;width:fit-content;">
         ${ICONS.calendar}
