@@ -2510,6 +2510,9 @@ function showRecordTextPopup(idx, anchorEl, textFn) {
 function showActionTakenPopup(idx, anchorEl) {
   showRecordTextPopup(idx, anchorEl, rec => (rec.materialUsed || '').trim());
 }
+function showCwbgFindingsPopup(idx, anchorEl) {
+  showRecordTextPopup(idx, anchorEl, rec => (rec.cwbgFindings || '').trim());
+}
 function showReportPopup(idx, anchorEl) {
   showRecordTextPopup(idx, anchorEl, rec => {
     const byOps = (rec.reportByOps || '').trim();
@@ -2535,6 +2538,12 @@ function wireFailurePopups() {
       showReportPopup(Number(cell.dataset.reportIdx), cell);
     });
   });
+  document.querySelectorAll('.cwbg-findings-cell[data-cwbg-findings-idx]').forEach(cell => {
+    cell.addEventListener('click', e => {
+      e.stopPropagation();
+      showCwbgFindingsPopup(Number(cell.dataset.cwbgFindingsIdx), cell);
+    });
+  });
 }
 function remarkCellHtml(f) {
   const text = (f.remark && f.remark !== '-') ? esc(f.remark) : '';
@@ -2552,6 +2561,15 @@ function reportCellHtml(f, idx) {
   const short = preview.length > 70 ? preview.slice(0, 70).trim() + '\u2026' : preview;
   return `<td class="wrap report-cell" data-report-idx="${idx}" style="cursor:pointer;">
     <span class="dim">${esc(short)}</span>
+  </td>`;
+}
+function cwbgFindingsCellHtml(f, idx) {
+  const text = (f.cwbgFindings || '').trim();
+  if (!text || text === '-') return '<td class="dim">&mdash;</td>';
+  const short = text.replace(/\s+/g, ' ').trim();
+  const preview = short.length > 70 ? short.slice(0, 70).trim() + '…' : short;
+  return `<td class="wrap cwbg-findings-cell" data-cwbg-findings-idx="${idx}" style="cursor:pointer;">
+    <span class="dim">${esc(preview)}</span>
   </td>`;
 }
 function wireComponentToggles() {
@@ -2659,7 +2677,7 @@ function renderFailures(viewKey = 'failures') {
       <td class="dim">${fmtDate(f.dateReleased)}</td>
       ${downtimeCellHtml(f)}
       ${remarkCellHtml(f)}
-      ${viewKey === 'failuresCwbg' ? `<td class="wrap dim">${f.cwbgFindings ? esc(f.cwbgFindings) : '&mdash;'}</td>` : ''}
+      ${viewKey === 'failuresCwbg' ? cwbgFindingsCellHtml(f, DATA.failures.indexOf(f)) : ''}
       <td><button type="button" class="btn btn-ghost failure-edit-btn" data-idx="${DATA.failures.indexOf(f)}" style="font-size:11px;padding:6px 10px;white-space:nowrap;">${ICONS.edit}Edit Report</button></td>
     </tr>`).join('') : `<tr class="empty-row"><td colspan="${columns.length}">No unscheduled reports match your filters.</td></tr>`;
   document.getElementById('content').innerHTML = `
@@ -5149,7 +5167,7 @@ document.getElementById('actionPopupEditBtn').addEventListener('click', () => {
 document.addEventListener('click', e => {
   const popup = document.getElementById('actionTakenPopup');
   if (popup.hidden) return;
-  if (popup.contains(e.target) || e.target.closest('.action-taken-cell') || e.target.closest('.report-cell')) return;
+  if (popup.contains(e.target) || e.target.closest('.action-taken-cell') || e.target.closest('.report-cell') || e.target.closest('.cwbg-findings-cell')) return;
   hideActionTakenPopup();
 });
 document.addEventListener('keydown', e => {
