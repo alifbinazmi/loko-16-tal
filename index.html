@@ -2616,7 +2616,7 @@ let failuresDepotSelectedMonth = { failures: null, failuresCwbg: null };
 function renderFailures(viewKey = 'failures') {
   const baseRows = viewKey === 'failuresCwbg' ? DATA.failures.filter(f => f.parentRid) : DATA.failures.filter(f => !f.parentRid);
   let rows = baseRows
-    .filter(f => matchesSearch(f, ['asset','depoh','reportByOps','reportByDepot','subSystem','c1Type','c2Type','c3Type','c4Type','remark']));
+    .filter(f => matchesSearch(f, ['asset','depoh','reportByOps','reportByDepot','subSystem','c1Type','c2Type','c3Type','c4Type','remark','cwbgFindings']));
   rows = applyColumnFilters(viewKey, rows);
   const st = sortState[viewKey];
   rows = st && st.key ? sortRows(rows, viewKey, failureCellValue) : rows.slice().sort((a, b) => {
@@ -2638,6 +2638,10 @@ function renderFailures(viewKey = 'failures') {
   const depotScopedRows = depotSelMonth ? statsRows.filter(f => monthKey(f.dateReceive) === depotSelMonth) : statsRows;
   const depotTotals = computeDepotTotals(depotScopedRows);
   const topDepot = Object.entries(depotTotals).sort((a, b) => b[1] - a[1])[0] || ['\u2014', 0];
+  const CWBG_FINDINGS_COLUMN = { key: 'cwbgFindings', label: 'CWBG Findings' };
+  const columns = viewKey === 'failuresCwbg'
+    ? [...FAILURE_COLUMNS.slice(0, -1), CWBG_FINDINGS_COLUMN, FAILURE_COLUMNS[FAILURE_COLUMNS.length - 1]]
+    : FAILURE_COLUMNS;
 
   const body = rows.length ? rows.map(f => `
     <tr data-idx="${DATA.failures.indexOf(f)}">
@@ -2655,8 +2659,9 @@ function renderFailures(viewKey = 'failures') {
       <td class="dim">${fmtDate(f.dateReleased)}</td>
       ${downtimeCellHtml(f)}
       ${remarkCellHtml(f)}
+      ${viewKey === 'failuresCwbg' ? `<td class="wrap dim">${f.cwbgFindings ? esc(f.cwbgFindings) : '&mdash;'}</td>` : ''}
       <td><button type="button" class="btn btn-ghost failure-edit-btn" data-idx="${DATA.failures.indexOf(f)}" style="font-size:11px;padding:6px 10px;white-space:nowrap;">${ICONS.edit}Edit Report</button></td>
-    </tr>`).join('') : `<tr class="empty-row"><td colspan="${FAILURE_COLUMNS.length}">No unscheduled reports match your filters.</td></tr>`;
+    </tr>`).join('') : `<tr class="empty-row"><td colspan="${columns.length}">No unscheduled reports match your filters.</td></tr>`;
   document.getElementById('content').innerHTML = `
     <div class="stat-grid">
       <div class="stat-card"><div class="lbl">Top failing sub-system</div><div class="val">${esc(topSS[0])} <span class="n">(${topSS[1]})</span></div></div>
@@ -2675,12 +2680,12 @@ function renderFailures(viewKey = 'failures') {
       <div class="table-scroll">
         <table>
           <thead><tr>
-            ${FAILURE_COLUMNS.map(c => c.key === 'editAction' ? `<th>${esc(c.label)}</th>` : columnHeaderHtml(viewKey, c.key, c.label)).join('')}
+            ${columns.map(c => c.key === 'editAction' ? `<th>${esc(c.label)}</th>` : columnHeaderHtml(viewKey, c.key, c.label)).join('')}
           </tr></thead>
           <tbody>${body}</tbody>
         </table>
       </div>
-      <div class="row-count">${rows.length} of ${baseRows.length} records shown &middot; ${st && st.key ? 'sorted by ' + esc(FAILURE_COLUMNS.find(c=>c.key===st.key).label) + (st.dir===-1?' (desc)':' (asc)') : 'newest first'}${countActiveFilters(viewKey) ? ' &middot; ' + countActiveFilters(viewKey) + ' column filter(s) active' : ''}</div>
+      <div class="row-count">${rows.length} of ${baseRows.length} records shown &middot; ${st && st.key ? 'sorted by ' + esc(columns.find(c=>c.key===st.key).label) + (st.dir===-1?' (desc)':' (asc)') : 'newest first'}${countActiveFilters(viewKey) ? ' &middot; ' + countActiveFilters(viewKey) + ' column filter(s) active' : ''}</div>
     </div>
   `;
   wireSortHeaders();
@@ -4867,6 +4872,7 @@ function openModal(view, editIdx = null, prefill = null) {
         <div class="field"><label>Downtime</label><input type="text" id="f_downtime" value="${gv('downtime')}" placeholder="e.g. 05:00"></div>
         <div class="field"><label>CWO</label><input type="text" id="f_pwo" value="${gv('pwo')}" placeholder="e.g. CWO201954"></div>
         <div class="field full"><label>Remark</label><textarea id="f_remark" placeholder="-">${gv('remark')}</textarea></div>
+        ${((rec && rec.parentRid) || (prefill && prefill.parentRid)) ? `<div class="field full"><label>CWBG Findings</label><textarea id="f_cwbgFindings" placeholder="Workshop's inspection/diagnosis finding">${gv('cwbgFindings')}</textarea></div>` : ''}
       </div>
     `;
   } else if (view === 'incidents') {
@@ -4978,6 +4984,7 @@ function readFailureForm() {
     timeReleased: document.getElementById('f_timeReleased').value, downtime: document.getElementById('f_downtime').value,
     pwo: document.getElementById('f_pwo').value,
     remark: document.getElementById('f_remark').value || '-',
+    cwbgFindings: document.getElementById('f_cwbgFindings') ? document.getElementById('f_cwbgFindings').value : '',
   };
   [1, 2, 3, 4].forEach(n => {
     rec['c' + n + 'Type'] = document.getElementById('f_c' + n + 'Type').value;
