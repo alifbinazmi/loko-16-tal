@@ -2640,7 +2640,7 @@ function renderFailures(viewKey = 'failures') {
   const topDepot = Object.entries(depotTotals).sort((a, b) => b[1] - a[1])[0] || ['\u2014', 0];
   const CWBG_FINDINGS_COLUMN = { key: 'cwbgFindings', label: 'CWBG Findings' };
   const columns = viewKey === 'failuresCwbg'
-    ? [...FAILURE_COLUMNS.slice(0, -1), CWBG_FINDINGS_COLUMN, FAILURE_COLUMNS[FAILURE_COLUMNS.length - 1]]
+    ? [...FAILURE_COLUMNS.slice(0, -1).filter(c => c.key !== 'pwo'), CWBG_FINDINGS_COLUMN, FAILURE_COLUMNS[FAILURE_COLUMNS.length - 1]]
     : FAILURE_COLUMNS;
 
   const body = rows.length ? rows.map(f => `
@@ -2655,7 +2655,7 @@ function renderFailures(viewKey = 'failures') {
       ${componentCellHtml(f, 3)}
       ${componentCellHtml(f, 4)}
       ${actionTakenCellHtml(f, DATA.failures.indexOf(f))}
-      <td class="dim">${esc(f.pwo)}</td>
+      ${viewKey === 'failuresCwbg' ? '' : `<td class="dim">${esc(f.pwo)}</td>`}
       <td class="dim">${fmtDate(f.dateReleased)}</td>
       ${downtimeCellHtml(f)}
       ${remarkCellHtml(f)}
