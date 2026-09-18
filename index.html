@@ -544,6 +544,8 @@
   }
   .toast.show{transform:translateY(0);opacity:1;}
   .toast svg{width:14px;height:14px;color:var(--green);flex-shrink:0;}
+  .toast.toast-error{border-color:var(--red);}
+  .toast.toast-error svg{color:var(--red);}
 
   @media (max-width:980px){
     .kpi-grid,.stat-grid{grid-template-columns:repeat(2,1fr);}
@@ -1299,6 +1301,19 @@ async function loadData() {
   }
   if (normalizeFailureDepots()) await saveKey('failures');
   if (normalizePeHistoryDepots()) await saveKey('peHistory');
+  if (backfillFailureRids()) await saveKey('failures');
+}
+/* Every failures record needs a stable rid so a save can re-locate it in a
+   freshly-fetched copy of the list (see fetchFreshKey) instead of relying on
+   its array index, which shifts as other people add/remove records. Only
+   CWBG child records used to get one (to let the parent store
+   cwbgChildRid); this backfills everyone else once. */
+function backfillFailureRids() {
+  let changed = false;
+  DATA.failures.forEach(f => {
+    if (f.rid == null) { f.rid = nextId(DATA.failures, 'rid'); changed = true; }
+  });
+  return changed;
 }
 /* Old free-typed depot values (mixed case, abbreviations like DBT/DBG/DPK)
    are merged onto the fixed DEPOT_OPTIONS spelling so the now-locked-down
@@ -1388,10 +1403,25 @@ async function saveKey(key) {
     if (error) throw error;
   } catch(e) {
     console.error('storage save failed', e);
+    toast('Save failed — check your connection and try again', true);
   } finally {
     pendingSaveCount = Math.max(0, pendingSaveCount - 1);
     updateSaveIndicator();
   }
+}
+/* Re-fetches the current server copy of a key, for mutations that need to
+   apply a single change on top of the latest data rather than blindly
+   overwriting with a possibly-stale local copy (see fetchFreshKey callers).
+   Returns null if the fetch fails, so callers can fall back to the local copy. */
+async function fetchFreshKey(key) {
+  try {
+    const { data, error } = await _db.from('dashboard_store').select('value').eq('key', key).maybeSingle();
+    if (error) throw error;
+    if (data && data.value) return JSON.parse(data.value);
+  } catch (e) {
+    console.error('fetch latest ' + key + ' failed, using local copy', e);
+  }
+  return null;
 }
 
 /* ---------- helpers ---------- */
@@ -1627,12 +1657,13 @@ function statusBadge(status) {
 function nextId(arr, key) {
   return arr.reduce((m, r) => Math.max(m, Number(r[key]) || 0), 0) + 1;
 }
-function toast(msg) {
+function toast(msg, isError) {
   const t = document.getElementById('toast');
-  t.innerHTML = ICONS.check + '<span>' + esc(msg) + '</span>';
+  t.classList.toggle('toast-error', !!isError);
+  t.innerHTML = (isError ? ICONS.incident : ICONS.check) + '<span>' + esc(msg) + '</span>';
   t.classList.add('show');
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => t.classList.remove('show'), 2600);
+  toast._t = setTimeout(() => t.classList.remove('show'), isError ? 5000 : 2600);
 }
 function matchesSearch(record, fields) {
   if (!searchTerm) return true;
@@ -5054,13 +5085,13 @@ async function saveNewReport(view) {
   if (view === 'failures') {
     const rec = readFailureForm();
     if (!rec) return;
+    const fresh = await fetchFreshKey('failures');
+    if (fresh) DATA.failures = fresh;
+    rec.rid = nextId(DATA.failures, 'rid');
+    DATA.failures.push(rec);
     if (rec.parentRid) {
-      rec.rid = nextId(DATA.failures, 'rid');
-      DATA.failures.push(rec);
       const parent = DATA.failures.find(r => r.rid === rec.parentRid);
       if (parent) parent.cwbgChildRid = rec.rid;
-    } else {
-      DATA.failures.push(rec);
     }
     await saveKey('failures');
     toast('Unscheduled report added');
@@ -5100,7 +5131,16 @@ async function updateReport(view, idx) {
   else if (view === 'langgar') rec = readLanggarForm();
   else if (view === 'peHistory') rec = readPeHistoryForm();
   if (!rec) return;
-  Object.assign(existing, rec);
+  let target = existing;
+  if (view === 'failures' && existing.rid != null) {
+    const fresh = await fetchFreshKey('failures');
+    if (fresh) {
+      DATA.failures = fresh;
+      target = DATA.failures.find(r => r.rid === existing.rid);
+      if (!target) { target = existing; DATA.failures.push(target); }
+    }
+  }
+  Object.assign(target, rec);
   await saveKey(view);
   if (view === 'peHistory') recomputePeSchedule();
   toast('Record updated');
@@ -5113,7 +5153,7 @@ async function updateReport(view, idx) {
 async function sendToCwbg(view, idx) {
   const parent = DATA[view][idx];
   if (!parent) return;
-  if (!parent.rid) parent.rid = nextId(DATA[view], 'rid');
+  if (!parent.rid) { parent.rid = nextId(DATA[view], 'rid'); await saveKey(view); }
   const ok = await updateReport(view, idx);
   if (!ok) return;
   openModal(view, null, { asset: parent.asset, depoh: parent.depoh, parentRid: parent.rid });
