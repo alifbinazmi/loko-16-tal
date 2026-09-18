@@ -656,6 +656,7 @@
       <span class="sync-checkbox saved" id="sidebarSaveCheckbox" title="All changes saved">&#10003;</span>
       <span id="sidebarSaveLabel">SAVED TO CLOUD</span>
     </div>
+    <button type="button" class="btn btn-ghost" id="saveNowBtn" style="width:100%;justify-content:center;margin-top:8px;font-size:11px;" title="Force-save everything to the cloud right now">Save Now</button>
     <div class="sidebar-stats" id="sidebarStats"></div>
     <button type="button" class="btn btn-ghost" id="logoutBtn" style="width:100%;justify-content:center;margin-top:10px;font-size:11px;">Log out</button>
   </div>
@@ -1276,8 +1277,9 @@ function getSeed() {
   if (!_seedCache) _seedCache = JSON.parse(document.getElementById('seed-data-json').textContent);
   return _seedCache;
 }
+const DATA_KEYS = ['failures', 'incidents', 'langgar', 'dailyStatus', 'additionalKm', 'dailyAvailability', 'peHistory', 'peWeeklyStatus', 'dsLabelOverrides', 'dsMaintenanceNotes', 'availabilityTargetOverrides', 'inactiveRanges'];
 async function loadData() {
-  const keys = ['failures', 'incidents', 'langgar', 'dailyStatus', 'additionalKm', 'dailyAvailability', 'peHistory', 'peWeeklyStatus', 'dsLabelOverrides', 'dsMaintenanceNotes', 'availabilityTargetOverrides', 'inactiveRanges'];
+  const keys = DATA_KEYS;
   try {
     const { data, error } = await _db.from('dashboard_store').select('key,value').in('key', keys);
     if (error) throw error;
@@ -1398,16 +1400,27 @@ function updateSaveIndicator() {
 async function saveKey(key) {
   pendingSaveCount++;
   updateSaveIndicator();
+  let ok = true;
   try {
     const { error } = await _db.from('dashboard_store').upsert({ key, value: JSON.stringify(DATA[key]) });
     if (error) throw error;
   } catch(e) {
     console.error('storage save failed', e);
     toast('Save failed — check your connection and try again', true);
+    ok = false;
   } finally {
     pendingSaveCount = Math.max(0, pendingSaveCount - 1);
     updateSaveIndicator();
   }
+  return ok;
+}
+async function saveAllNow() {
+  const btn = document.getElementById('saveNowBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  const results = await Promise.all(DATA_KEYS.map(k => saveKey(k)));
+  const allOk = results.every(Boolean);
+  if (btn) { btn.disabled = false; btn.textContent = 'Save Now'; }
+  toast(allOk ? 'All changes saved to the cloud' : 'Some changes failed to save — try again', !allOk);
 }
 /* Re-fetches the current server copy of a key, for mutations that need to
    apply a single change on top of the latest data rather than blindly
@@ -5266,6 +5279,7 @@ async function handleLoginSubmit(e) {
     localStorage.removeItem('loko_authed');
     location.reload();
   });
+  document.getElementById('saveNowBtn').addEventListener('click', saveAllNow);
   if (localStorage.getItem('loko_authed') === '1') { hideLoginScreen(); startApp(); } else { showLoginScreen(); }
 })();
 
