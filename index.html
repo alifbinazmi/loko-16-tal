@@ -457,7 +457,7 @@
   td.asset-flag-cell{cursor:pointer;}
   td.asset-flag-cell:hover{outline:1px solid var(--border-soft);outline-offset:-1px;}
   .asset-flag-btn{border:none;border-radius:4px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;}
-  .asset-flag-btn.notfit{background:#C2410C;color:#FFFFFF;}
+  .asset-flag-btn.notfit{background:var(--red-soft);color:var(--red);}
   .asset-flag-btn.note{background:#FEF3C7;color:#7C5800;}
   .asset-flag-btn.clear{background:transparent;color:var(--text-dim);border:1px solid var(--border-soft);}
   #assetFlagPopup textarea{width:100%;box-sizing:border-box;min-height:56px;resize:vertical;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:5px;color:var(--text);font-family:var(--sans);font-size:12px;padding:6px 8px;margin:8px 0;}
@@ -4756,8 +4756,8 @@ function kmReferenceTablePanelHtml() {
 function assetFlagCellHtml(loco, isCurrentlyInactive) {
   const flag = DATA.assetFlags[loco.asset];
   let style = '';
-  if (isCurrentlyInactive) style = 'background-color:var(--red-soft);color:var(--red);font-weight:700;';
-  else if (flag && flag.flag === 'notfit') style = 'background-color:#C2410C;color:#FFFFFF;font-weight:700;';
+  if (isCurrentlyInactive) style = 'background-color:#8B0000;color:#FFFFFF;font-weight:700;';
+  else if (flag && flag.flag === 'notfit') style = 'background-color:var(--red-soft);color:var(--red);font-weight:700;';
   else if (flag && flag.flag === 'note') style = 'background-color:#FEF3C7;color:#7C5800;font-weight:700;';
   const title = flag && flag.note ? esc(flag.note) : '';
   return `<td class="asset-flag-cell" id="assetCell-${loco.asset}" data-asset="${loco.asset}"${style ? ` style="${style}"` : ''}${title ? ` title="${title}"` : ''}>${esc(loco.asset)}</td>`;
