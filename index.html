@@ -2484,6 +2484,7 @@ function failureCellValue(f, key) {
   if (key === 'c4') return [f.c4Type, f.c4Action].filter(Boolean).join(' \u2014 ');
   if (key === 'downtimeCalc') return computeDowntimeMs(f);
   if (key === 'dateReceive') return monthKey(f.dateReceive) || f.dateReceive || '';
+  if (key === 'peInterval') return (peIntervalForFailure(f).last || {}).date || '';
   return f[key];
 }
 function chevronIcon() {
@@ -2616,6 +2617,35 @@ function cwbgFindingsCellHtml(f, idx) {
     <span class="dim">${esc(preview)}</span>
   </td>`;
 }
+/* Which completed PE the asset last attended before this failure, and which PE (completed, or
+   still due) comes next — lets USW show the PE window each failure fell inside. */
+function peIntervalForFailure(f) {
+  if (!f.asset || !f.dateReceive) return { last: null, next: null };
+  const history = DATA.peHistory.filter(h => h.asset === f.asset && h.date).sort((a, b) => a.date < b.date ? -1 : 1);
+  let last = null, next = null;
+  for (const h of history) {
+    if (h.date <= f.dateReceive) last = h;
+    else if (!next) next = h;
+  }
+  return { last, next };
+}
+function peIntervalCellHtml(f) {
+  const { last, next } = peIntervalForFailure(f);
+  if (!last && !next) return '<td class="dim">&mdash;</td>';
+  const lastLabel = last ? `${esc(last.type)} &middot; ${fmtDate(last.date)}` : '&mdash;';
+  let nextLabel;
+  if (next) {
+    nextLabel = `${esc(next.type)} &middot; ${fmtDate(next.date)}`;
+  } else if (last) {
+    const loco = DATA.locoPerf.find(l => l.asset === f.asset);
+    const intervalDays = String(loco ? loco.class : '').startsWith('19') ? 30 : 15;
+    const due = peDueStatusFromLastDate(last.date, intervalDays);
+    nextLabel = due.next ? `Due ${fmtDate(due.next)}` : '&mdash;';
+  } else {
+    nextLabel = '&mdash;';
+  }
+  return `<td class="dim" style="white-space:nowrap;">${lastLabel} &rarr; ${nextLabel}</td>`;
+}
 function wireComponentToggles() {
   document.querySelectorAll('.comp-expand').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -2660,6 +2690,7 @@ function wireTextExpanders() {
 const FAILURE_COLUMNS = [
   { key: 'asset', label: 'Asset' },
   { key: 'dateReceive', label: 'Date Rcvd' },
+  { key: 'peInterval', label: 'PE Interval' },
   { key: 'depoh', label: 'Depoh' },
   { key: 'reportByOps', label: 'Report' },
   { key: 'subSystem', label: 'Sub-System' },
@@ -2702,13 +2733,14 @@ function renderFailures(viewKey = 'failures') {
   const topDepot = Object.entries(depotTotals).sort((a, b) => b[1] - a[1])[0] || ['\u2014', 0];
   const CWBG_FINDINGS_COLUMN = { key: 'cwbgFindings', label: 'CWBG Findings' };
   const columns = viewKey === 'failuresCwbg'
-    ? [...FAILURE_COLUMNS.slice(0, -1).filter(c => c.key !== 'pwo'), CWBG_FINDINGS_COLUMN, FAILURE_COLUMNS[FAILURE_COLUMNS.length - 1]]
+    ? [...FAILURE_COLUMNS.slice(0, -1).filter(c => c.key !== 'pwo' && c.key !== 'peInterval'), CWBG_FINDINGS_COLUMN, FAILURE_COLUMNS[FAILURE_COLUMNS.length - 1]]
     : FAILURE_COLUMNS;
 
   const body = rows.length ? rows.map(f => `
     <tr data-idx="${DATA.failures.indexOf(f)}">
       <td class="num">${f.cwbgChildRid ? '<span class="cwbg-sent-bar"></span>' : (f.dateReleased ? '' : '<span class="open-report-bar"></span>')}${esc(f.asset)}</td>
       <td class="dim">${fmtDate(f.dateReceive)}</td>
+      ${viewKey === 'failuresCwbg' ? '' : peIntervalCellHtml(f)}
       <td>${esc(f.depoh)}</td>
       ${reportCellHtml(f, DATA.failures.indexOf(f))}
       <td><span class="badge badge-other">${esc(f.subSystem)}</span></td>
@@ -2742,7 +2774,7 @@ function renderFailures(viewKey = 'failures') {
       <div class="table-scroll">
         <table>
           <thead><tr>
-            ${columns.map(c => c.key === 'editAction' ? `<th>${esc(c.label)}</th>` : columnHeaderHtml(viewKey, c.key, c.label)).join('')}
+            ${columns.map(c => c.key === 'editAction' ? `<th>${esc(c.label)}</th>` : columnHeaderHtml(viewKey, c.key, c.label, c.key === 'peInterval' ? { noFilter: true } : undefined)).join('')}
           </tr></thead>
           <tbody>${body}</tbody>
         </table>
