@@ -727,7 +727,7 @@ const SUBSYSTEMS = [
 ];
 
 /* ---------- state ---------- */
-let DATA = { failures: [], incidents: [], langgar: [], locoPerf: [], dailyStatus: {}, additionalKm: {}, dailyAvailability: {}, peSchedule: [], peHistory: [], peWeeklyStatus: {}, dsLabelOverrides: {}, dsMaintenanceNotes: {}, availabilityTargetOverrides: {}, inactiveRanges: {} };
+let DATA = { failures: [], incidents: [], langgar: [], locoPerf: [], dailyStatus: {}, additionalKm: {}, dailyAvailability: {}, peSchedule: [], peHistory: [], peWeeklyStatus: {}, dsLabelOverrides: {}, dsMaintenanceNotes: {}, availabilityTargetOverrides: {}, inactiveRanges: {}, lokoStatus: {} };
 let currentView = 'dashboard';
 let searchTerm = '';
 let charts = {};
@@ -1277,7 +1277,7 @@ function getSeed() {
   if (!_seedCache) _seedCache = JSON.parse(document.getElementById('seed-data-json').textContent);
   return _seedCache;
 }
-const DATA_KEYS = ['failures', 'incidents', 'langgar', 'dailyStatus', 'additionalKm', 'dailyAvailability', 'peHistory', 'peWeeklyStatus', 'dsLabelOverrides', 'dsMaintenanceNotes', 'availabilityTargetOverrides', 'inactiveRanges'];
+const DATA_KEYS = ['failures', 'incidents', 'langgar', 'dailyStatus', 'additionalKm', 'dailyAvailability', 'peHistory', 'peWeeklyStatus', 'dsLabelOverrides', 'dsMaintenanceNotes', 'availabilityTargetOverrides', 'inactiveRanges', 'lokoStatus'];
 async function loadData() {
   const keys = DATA_KEYS;
   try {
@@ -4657,6 +4657,37 @@ function refreshDeploymentSummary() {
   wireDeploymentSummaryInputs();
   wireDeploymentDateControl();
 }
+/* Loko Status: one free-text status per asset that simply persists until edited again —
+   unlike the daily grid above it, it has no date dimension and never resets. */
+function lokoStatusPanelHtml() {
+  const sortedLocos = DATA.locoPerf.slice().sort((a, b) => a.asset - b.asset);
+  const bodyRows = sortedLocos.map(loco => `
+    <tr>
+      <td class="num">${esc(loco.asset)}</td>
+      <td class="dim">${esc(loco.class)}</td>
+      <td><input type="text" class="dsdep-label-input loko-status-input" data-asset="${esc(loco.asset)}" value="${esc(DATA.lokoStatus[loco.asset] || '')}" placeholder="e.g. Active"></td>
+    </tr>`).join('');
+  return `
+    <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;">Loko Status</div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Asset</th><th>Class</th><th>Status</th></tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>
+    <div class="row-count">Type a status for any locomotive — it stays as-is until you change it again, with no daily reset.</div>`;
+}
+async function saveLokoStatusValue(inp) {
+  const asset = Number(inp.dataset.asset);
+  const val = inp.value.trim();
+  if (val) DATA.lokoStatus[asset] = val; else delete DATA.lokoStatus[asset];
+  await saveKey('lokoStatus');
+}
+function wireLokoStatusInputs() {
+  document.querySelectorAll('.loko-status-input').forEach(inp => {
+    inp.addEventListener('change', () => saveLokoStatusValue(inp));
+  });
+}
 async function saveDeploymentLabelOverride(inp) {
   const asset = inp.dataset.asset;
   const key = `${asset}|${inp.dataset.date}`;
@@ -4793,6 +4824,7 @@ function renderDailyStatus() {
       <div class="row-count">Click any cell to choose from previously used codes (e.g. "KVDT", "yad prai", "26", "27") or type a new one &mdash; type "Failed" to flag a failure. Total KM is calculated per locomotive from that month's duty codes using the fixed distance-per-code table (26/27 = 723.1km, KVDT/B.Utara/B.Selatan/B.Timur = 150km, etc.) &mdash; codes not in that table contribute 0km. Additional KM is a manual entry for any distance the formula doesn't capture; Total Final KM = Total KM + Additional KM. Leave a cell blank for a normal/unassigned day. Source: Reliability_Loco_16-TAL_3.xlsx</div>
     </div>
     <div class="panel" id="dsDeploymentPanel" style="margin-top:14px;">${deploymentSummaryPanelHtml()}</div>
+    <div class="panel" id="dsLokoStatusPanel" style="margin-top:14px;">${lokoStatusPanelHtml()}</div>
     <div class="panel" id="dsMonthlyTotals" style="margin-top:14px;">
       <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;">Fleet Total Final KM by Month</div>
       <div style="display:flex;flex-wrap:wrap;gap:10px;">${monthlyTotalsHtml}</div>
@@ -4805,6 +4837,7 @@ function renderDailyStatus() {
   wireDailyStatusMonthChips();
   wireDeploymentSummaryInputs();
   wireDeploymentDateControl();
+  wireLokoStatusInputs();
   requestAnimationFrame(() => {
     const todayCell = document.querySelector('table.daily-table th.today-col');
     if (todayCell) todayCell.scrollIntoView({ block: 'nearest', inline: 'center' });
