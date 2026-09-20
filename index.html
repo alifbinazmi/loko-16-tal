@@ -4660,18 +4660,27 @@ function refreshDeploymentSummary() {
 /* Loko Status: one free-text status per asset that simply persists until edited again —
    unlike the daily grid above it, it has no date dimension and never resets. */
 function lokoStatusPanelHtml() {
-  const sortedLocos = DATA.locoPerf.slice().sort((a, b) => a.asset - b.asset);
-  const bodyRows = sortedLocos.map(loco => `
-    <tr>
-      <td class="num">${esc(loco.asset)}</td>
-      <td class="dim">${esc(loco.class)}</td>
-      <td><input type="text" class="dsdep-label-input loko-status-input" data-asset="${esc(loco.asset)}" value="${esc(DATA.lokoStatus[loco.asset] || '')}" placeholder="e.g. Active"></td>
-    </tr>`).join('');
+  const classesInOrder = [];
+  DATA.locoPerf.forEach(l => { if (!classesInOrder.includes(l.class)) classesInOrder.push(l.class); });
+  const buckets = {};
+  classesInOrder.forEach(c => { buckets[c] = DATA.locoPerf.filter(l => l.class === c).sort((a, b) => a.asset - b.asset); });
+  const maxRows = Math.max(1, ...classesInOrder.map(c => buckets[c].length));
+  const headRow1 = classesInOrder.map((c, gi) => `<th colspan="2"${gi > 0 ? ' class="grp-divider"' : ''}>${esc(c)}</th>`).join('');
+  const headRow2 = classesInOrder.map((_, gi) => `<th${gi > 0 ? ' class="grp-divider"' : ''}>Asset No</th><th>Status</th>`).join('');
+  const bodyRows = Array.from({ length: maxRows }, (_, i) => {
+    const cells = classesInOrder.map((c, gi) => {
+      const loco = buckets[c][i];
+      const divCls = gi > 0 ? ' class="grp-divider"' : '';
+      if (!loco) return `<td${divCls}></td><td></td>`;
+      return `<td class="num"${divCls}>${esc(loco.asset)}</td><td><input type="text" class="dsdep-label-input loko-status-input" data-asset="${esc(loco.asset)}" value="${esc(DATA.lokoStatus[loco.asset] || '')}" placeholder="e.g. Active"></td>`;
+    }).join('');
+    return `<tr>${cells}</tr>`;
+  }).join('');
   return `
     <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;">Loko Status</div>
     <div class="table-scroll">
-      <table>
-        <thead><tr><th>Asset</th><th>Class</th><th>Status</th></tr></thead>
+      <table class="deployment-summary-table">
+        <thead><tr>${headRow1}</tr><tr>${headRow2}</tr></thead>
         <tbody>${bodyRows}</tbody>
       </table>
     </div>
