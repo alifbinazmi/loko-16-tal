@@ -454,6 +454,7 @@
   }
   .dsdep-label-input:hover{border-color:var(--border-soft);background:var(--panel-2);}
   .dsdep-label-input:focus{outline:none;border-color:var(--amber);background:var(--panel-2);}
+  .loko-status-input.has-value{border-color:var(--amber);color:var(--amber);font-weight:600;background:rgba(168,93,0,.08);}
   .km-ref-grid{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;}
   .km-ref-group{flex:1 1 190px;min-width:170px;max-width:230px;}
   table.km-ref-table{width:100%;border-collapse:collapse;font-size:10.5px;}
@@ -4672,7 +4673,8 @@ function lokoStatusPanelHtml() {
       const loco = buckets[c][i];
       const divCls = gi > 0 ? ' class="grp-divider"' : '';
       if (!loco) return `<td${divCls}></td><td></td>`;
-      return `<td class="num"${divCls}>${esc(loco.asset)}</td><td><input type="text" class="dsdep-label-input loko-status-input" data-asset="${esc(loco.asset)}" value="${esc(DATA.lokoStatus[loco.asset] || '')}" placeholder="e.g. Active"></td>`;
+      const val = DATA.lokoStatus[loco.asset] || '';
+      return `<td class="num"${divCls}>${esc(loco.asset)}</td><td><input type="text" class="dsdep-label-input loko-status-input${val ? ' has-value' : ''}" data-asset="${esc(loco.asset)}" value="${esc(val)}" placeholder="e.g. Active"></td>`;
     }).join('');
     return `<tr>${cells}</tr>`;
   }).join('');
@@ -4684,12 +4686,13 @@ function lokoStatusPanelHtml() {
         <tbody>${bodyRows}</tbody>
       </table>
     </div>
-    <div class="row-count">Type a status for any locomotive — it stays as-is until you change it again, with no daily reset.</div>`;
+    <div class="row-count">Type a status for any locomotive — it stays as-is until you change it again, with no daily reset. Highlighted (amber) rows have a recorded restriction but remain available for operation.</div>`;
 }
 async function saveLokoStatusValue(inp) {
   const asset = Number(inp.dataset.asset);
   const val = inp.value.trim();
   if (val) DATA.lokoStatus[asset] = val; else delete DATA.lokoStatus[asset];
+  inp.classList.toggle('has-value', !!val);
   await saveKey('lokoStatus');
 }
 function wireLokoStatusInputs() {
