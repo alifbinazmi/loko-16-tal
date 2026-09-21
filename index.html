@@ -460,6 +460,7 @@
   .asset-flag-btn.notfit{background:var(--red-soft);color:var(--red);}
   .asset-flag-btn.note{background:#FEF3C7;color:#7C5800;}
   .asset-flag-btn.clear{background:transparent;color:var(--text-dim);border:1px solid var(--border-soft);}
+  .asset-flag-btn.selected{outline:2px solid var(--text);outline-offset:1px;}
   #assetFlagPopup textarea{width:100%;box-sizing:border-box;min-height:56px;resize:vertical;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:5px;color:var(--text);font-family:var(--sans);font-size:12px;padding:6px 8px;margin:8px 0;}
   .km-ref-grid{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;}
   .km-ref-group{flex:1 1 190px;min-width:170px;max-width:230px;}
@@ -657,11 +658,14 @@
     <span id="assetFlagPopupTitle"></span>
     <button type="button" class="btn btn-ghost" id="assetFlagPopupCloseBtn" style="padding:2px 8px;">&times;</button>
   </div>
+  <div class="action-popup-actions" style="justify-content:flex-start;">
+    <button type="button" class="asset-flag-btn notfit" id="assetFlagNotFitBtn" data-choice="notfit">Not Fit</button>
+    <button type="button" class="asset-flag-btn note" id="assetFlagNoteBtn" data-choice="note">Notes Only</button>
+    <button type="button" class="asset-flag-btn clear" id="assetFlagClearBtn" data-choice="">None</button>
+  </div>
   <textarea id="assetFlagPopupNote" placeholder="Optional note"></textarea>
   <div class="action-popup-actions">
-    <button type="button" class="asset-flag-btn notfit" id="assetFlagNotFitBtn">Not Fit</button>
-    <button type="button" class="asset-flag-btn note" id="assetFlagNoteBtn">Notes Only</button>
-    <button type="button" class="asset-flag-btn clear" id="assetFlagClearBtn">Clear</button>
+    <button type="button" class="btn btn-primary" id="assetFlagSaveBtn">Save</button>
   </div>
 </div>
 
@@ -4753,20 +4757,35 @@ function kmReferenceTablePanelHtml() {
 }
 /* Asset flag: a persistent (non-date) Not Fit / Notes marker on the asset number itself,
    click-to-edit right on the daily grid. Inactive styling always wins since it's a stronger state. */
-function assetFlagCellHtml(loco, isCurrentlyInactive) {
-  const flag = DATA.assetFlags[loco.asset];
+function assetFlagStyleFor(asset, isCurrentlyInactive) {
+  const flag = DATA.assetFlags[asset];
   let style = '';
   if (isCurrentlyInactive) style = 'background-color:#8B0000;color:#FFFFFF;font-weight:700;';
   else if (flag && flag.flag === 'notfit') style = 'background-color:var(--red-soft);color:var(--red);font-weight:700;';
   else if (flag && flag.flag === 'note') style = 'background-color:#FEF3C7;color:#7C5800;font-weight:700;';
-  const title = flag && flag.note ? esc(flag.note) : '';
-  return `<td class="asset-flag-cell" id="assetCell-${loco.asset}" data-asset="${loco.asset}"${style ? ` style="${style}"` : ''}${title ? ` title="${title}"` : ''}>${esc(loco.asset)}</td>`;
+  return { style, note: (flag && flag.note) || '' };
+}
+function assetFlagCellHtml(loco, isCurrentlyInactive) {
+  const { style, note } = assetFlagStyleFor(loco.asset, isCurrentlyInactive);
+  return `<td class="asset-flag-cell" id="assetCell-${loco.asset}" data-asset="${loco.asset}"${style ? ` style="${style}"` : ''}${note ? ` title="${esc(note)}"` : ''}>${esc(loco.asset)}</td>`;
+}
+let assetFlagPending = null;
+function updateAssetFlagChoiceButtons() {
+  document.querySelectorAll('#assetFlagPopup .asset-flag-btn').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.choice === (assetFlagPending || ''));
+  });
+}
+function selectAssetFlagChoice(choice) {
+  assetFlagPending = choice || null;
+  updateAssetFlagChoiceButtons();
 }
 function showAssetFlagPopup(asset, anchorEl) {
   const popup = document.getElementById('assetFlagPopup');
   popup.dataset.asset = asset;
+  assetFlagPending = (DATA.assetFlags[asset] && DATA.assetFlags[asset].flag) || null;
   document.getElementById('assetFlagPopupTitle').textContent = `Asset ${asset}`;
   document.getElementById('assetFlagPopupNote').value = (DATA.assetFlags[asset] && DATA.assetFlags[asset].note) || '';
+  updateAssetFlagChoiceButtons();
   popup.hidden = false;
   const rect = anchorEl.getBoundingClientRect();
   const popupRect = popup.getBoundingClientRect();
@@ -4781,19 +4800,19 @@ function hideAssetFlagPopup() {
   const popup = document.getElementById('assetFlagPopup');
   if (popup) popup.hidden = true;
 }
-async function saveAssetFlag(flagValue) {
+async function saveAssetFlag() {
   const popup = document.getElementById('assetFlagPopup');
   const asset = Number(popup.dataset.asset);
   const note = document.getElementById('assetFlagPopupNote').value.trim();
-  if (flagValue) DATA.assetFlags[asset] = { flag: flagValue, note };
+  if (assetFlagPending) DATA.assetFlags[asset] = { flag: assetFlagPending, note };
   else delete DATA.assetFlags[asset];
   await saveKey('assetFlags');
   const cell = document.getElementById(`assetCell-${asset}`);
   if (cell) {
-    const loco = DATA.locoPerf.find(l => l.asset === asset);
     const isCurrentlyInactive = effectiveDailyValue(asset, todayDateStr()) === 'INACTIVE';
-    cell.outerHTML = assetFlagCellHtml(loco, isCurrentlyInactive);
-    wireAssetFlagCells();
+    const { style, note: cellNote } = assetFlagStyleFor(asset, isCurrentlyInactive);
+    cell.setAttribute('style', style);
+    if (cellNote) cell.title = cellNote; else cell.removeAttribute('title');
   }
   hideAssetFlagPopup();
 }
@@ -5328,9 +5347,10 @@ document.addEventListener('click', e => {
   hideActionTakenPopup();
 });
 document.getElementById('assetFlagPopupCloseBtn').addEventListener('click', hideAssetFlagPopup);
-document.getElementById('assetFlagNotFitBtn').addEventListener('click', () => saveAssetFlag('notfit'));
-document.getElementById('assetFlagNoteBtn').addEventListener('click', () => saveAssetFlag('note'));
-document.getElementById('assetFlagClearBtn').addEventListener('click', () => saveAssetFlag(null));
+document.getElementById('assetFlagNotFitBtn').addEventListener('click', () => selectAssetFlagChoice('notfit'));
+document.getElementById('assetFlagNoteBtn').addEventListener('click', () => selectAssetFlagChoice('note'));
+document.getElementById('assetFlagClearBtn').addEventListener('click', () => selectAssetFlagChoice(null));
+document.getElementById('assetFlagSaveBtn').addEventListener('click', () => saveAssetFlag());
 document.addEventListener('click', e => {
   const popup = document.getElementById('assetFlagPopup');
   if (popup.hidden) return;
