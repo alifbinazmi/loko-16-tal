@@ -461,6 +461,8 @@
   .asset-flag-btn.note{background:#FEF3C7;color:#7C5800;}
   .asset-flag-btn.clear{background:transparent;color:var(--text-dim);border:1px solid var(--border-soft);}
   .asset-flag-btn.selected{outline:2px solid var(--text);outline-offset:1px;}
+  .asset-flag-overhaul-row{display:flex;gap:10px;margin-bottom:10px;}
+  .asset-flag-overhaul-row .field{flex:1;}
   #assetFlagPopup textarea{width:100%;box-sizing:border-box;min-height:56px;resize:vertical;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:5px;color:var(--text);font-family:var(--sans);font-size:12px;padding:6px 8px;margin:8px 0;}
   .km-ref-grid{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;}
   .km-ref-group{flex:1 1 190px;min-width:170px;max-width:230px;}
@@ -604,7 +606,7 @@
   }
   .action-popup-meta { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; }
   .action-popup-body { font-size: 12.5px; line-height: 1.5; color: var(--text); white-space: pre-wrap; max-height: 260px; overflow-y: auto; margin-bottom: 12px; }
-  .action-popup-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .action-popup-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
   .daily-dropdown {
     position: fixed; z-index: 6000; min-width: 190px; max-width: 320px; max-height: 260px;
     overflow-y: auto; background: var(--panel); border: 1px solid var(--border-soft); border-radius: 8px;
@@ -658,13 +660,15 @@
     <span id="assetFlagPopupTitle"></span>
     <button type="button" class="btn btn-ghost" id="assetFlagPopupCloseBtn" style="padding:2px 8px;">&times;</button>
   </div>
-  <div class="action-popup-actions" style="justify-content:flex-start;">
-    <button type="button" class="asset-flag-btn notfit" id="assetFlagNotFitBtn" data-choice="notfit">Not Fit</button>
-    <button type="button" class="asset-flag-btn note" id="assetFlagNoteBtn" data-choice="note">Notes Only</button>
-    <button type="button" class="asset-flag-btn clear" id="assetFlagClearBtn" data-choice="">None</button>
+  <div class="asset-flag-overhaul-row">
+    <div class="field"><label>Last Overhaul Year</label><input type="text" id="assetFlagLastOverhaul" placeholder="e.g. 2023"></div>
+    <div class="field"><label>Next Overhaul Year</label><input type="text" id="assetFlagNextOverhaul" placeholder="e.g. 2026"></div>
   </div>
   <textarea id="assetFlagPopupNote" placeholder="Optional note"></textarea>
   <div class="action-popup-actions">
+    <button type="button" class="asset-flag-btn notfit" id="assetFlagNotFitBtn" data-choice="notfit">Not Fit</button>
+    <button type="button" class="asset-flag-btn note" id="assetFlagNoteBtn" data-choice="note">Notes Only</button>
+    <button type="button" class="asset-flag-btn clear" id="assetFlagClearBtn" data-choice="">None</button>
     <button type="button" class="btn btn-primary" id="assetFlagSaveBtn">Save</button>
   </div>
 </div>
@@ -4763,7 +4767,11 @@ function assetFlagStyleFor(asset, isCurrentlyInactive) {
   if (isCurrentlyInactive) style = 'background-color:#8B0000;color:#FFFFFF;font-weight:700;';
   else if (flag && flag.flag === 'notfit') style = 'background-color:var(--red-soft);color:var(--red);font-weight:700;';
   else if (flag && flag.flag === 'note') style = 'background-color:#FEF3C7;color:#7C5800;font-weight:700;';
-  return { style, note: (flag && flag.note) || '' };
+  const titleParts = [];
+  if (flag && flag.note) titleParts.push(flag.note);
+  if (flag && flag.lastOverhaul) titleParts.push(`Last OH ${flag.lastOverhaul}`);
+  if (flag && flag.nextOverhaul) titleParts.push(`Next OH ${flag.nextOverhaul}`);
+  return { style, note: titleParts.join(' — ') };
 }
 function assetFlagCellHtml(loco, isCurrentlyInactive) {
   const { style, note } = assetFlagStyleFor(loco.asset, isCurrentlyInactive);
@@ -4785,6 +4793,8 @@ function showAssetFlagPopup(asset, anchorEl) {
   assetFlagPending = (DATA.assetFlags[asset] && DATA.assetFlags[asset].flag) || null;
   document.getElementById('assetFlagPopupTitle').textContent = `Asset ${asset}`;
   document.getElementById('assetFlagPopupNote').value = (DATA.assetFlags[asset] && DATA.assetFlags[asset].note) || '';
+  document.getElementById('assetFlagLastOverhaul').value = (DATA.assetFlags[asset] && DATA.assetFlags[asset].lastOverhaul) || '';
+  document.getElementById('assetFlagNextOverhaul').value = (DATA.assetFlags[asset] && DATA.assetFlags[asset].nextOverhaul) || '';
   updateAssetFlagChoiceButtons();
   popup.hidden = false;
   const rect = anchorEl.getBoundingClientRect();
@@ -4804,8 +4814,13 @@ async function saveAssetFlag() {
   const popup = document.getElementById('assetFlagPopup');
   const asset = Number(popup.dataset.asset);
   const note = document.getElementById('assetFlagPopupNote').value.trim();
-  if (assetFlagPending) DATA.assetFlags[asset] = { flag: assetFlagPending, note };
-  else delete DATA.assetFlags[asset];
+  const lastOverhaul = document.getElementById('assetFlagLastOverhaul').value.trim();
+  const nextOverhaul = document.getElementById('assetFlagNextOverhaul').value.trim();
+  if (assetFlagPending || note || lastOverhaul || nextOverhaul) {
+    DATA.assetFlags[asset] = { flag: assetFlagPending || null, note, lastOverhaul, nextOverhaul };
+  } else {
+    delete DATA.assetFlags[asset];
+  }
   await saveKey('assetFlags');
   const cell = document.getElementById(`assetCell-${asset}`);
   if (cell) {
