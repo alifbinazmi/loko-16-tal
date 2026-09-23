@@ -622,7 +622,7 @@
   .daily-dropdown-empty { padding: 7px 10px; font-size: 11px; color: var(--text-dim); }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script>
   const _db = supabase.createClient(
     'https://lvmfbjjncpqmqnqwqrtx.supabase.co',
@@ -2091,18 +2091,14 @@ function renderDashboard() {
   document.getElementById('content').innerHTML = `
     ${renderDashboardKpiGridsHtml()}
 
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+      <button type="button" class="btn btn-ghost" id="dashExportBtn">${ICONS.download || ''}Export Dashboard to Excel</button>
+    </div>
     <div class="chart-grid">
       <div class="chart-panel"><h3>Fleet Availability by Month</h3><div class="chart-wrap"><canvas id="chartDashAvailability"></canvas></div></div>
       <div class="chart-panel"><h3>Reliability (MKBF) by Month</h3><div class="chart-wrap"><canvas id="chartDashReliability"></canvas></div></div>
       <div class="chart-panel"><h3>PE Completions by Month</h3><div class="chart-wrap"><canvas id="chartDashPe"></canvas></div></div>
-      <div class="chart-panel"><h3>Monthly Unscheduled Trend <span class="chart-hint">click a bar to drill in</span></h3><div class="chart-wrap"><canvas id="chartMonthly"></canvas></div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
-          <select id="dashExportMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:5px 8px;font-size:11px;color:var(--text);">
-            <option value="">All months</option>
-          </select>
-          <button type="button" class="btn btn-ghost" id="dashExportBtn" style="font-size:11px;">Export to Excel</button>
-        </div>
-      </div>
+      <div class="chart-panel"><h3>Monthly Unscheduled Trend <span class="chart-hint">click a bar to drill in</span></h3><div class="chart-wrap"><canvas id="chartMonthly"></canvas></div></div>
       <div class="chart-panel"><h3>Monthly 16-TAL Incidents <span class="chart-hint">click a bar to drill in</span></h3><div class="chart-wrap"><canvas id="chartMonthlyIncidents"></canvas></div></div>
       <div class="chart-panel"><h3>Total Running (km) by Month</h3><div class="chart-wrap"><canvas id="chartDashRunning"></canvas></div></div>
       <div class="chart-panel"><h3>Failures by Sub-System <span class="chart-hint">click a bar to drill in</span></h3><div class="chart-wrap"><canvas id="chartSubsystem"></canvas></div></div>
@@ -2111,41 +2107,44 @@ function renderDashboard() {
   `;
   wireKpiCards();
   drawDashboardCharts(ssTotals, assetTotals);
-  wireDashExport();
+  const exportBtn = document.getElementById('dashExportBtn');
+  if (exportBtn) exportBtn.addEventListener('click', exportDashboardToExcel);
 }
 
 function destroyCharts() { /* canvas charts are redrawn fresh each time; nothing to tear down */ }
 
-/* ---------- Dashboard: Export failures trend + records to Excel ---------- */
-let dashExportMonth = null;
-function wireDashExport() {
-  const sel = document.getElementById('dashExportMonthSelect');
-  if (!sel) return;
-  const months = [...new Set(countableFailures().map(f => monthKey(f.dateReceive)).filter(Boolean))].sort();
-  sel.innerHTML = '<option value="">All months</option>' + months.map(m => `<option value="${m}"${m === dashExportMonth ? ' selected' : ''}>${esc(monthLabel(m))}</option>`).join('');
-  sel.addEventListener('change', () => { dashExportMonth = sel.value || null; });
-  const btn = document.getElementById('dashExportBtn');
-  if (btn) btn.addEventListener('click', exportFailuresToExcel);
+/* ---------- Dashboard: Export every chart (image + data table) to Excel ---------- */
+let _dashboardChartData = {}; // populated by drawDashboardCharts(): { canvasId: { title, labels, values } }
+async function downloadWorkbook(wb, filename) {
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
-function exportFailuresToExcel() {
-  const rows = countableFailures().filter(f => !dashExportMonth || monthKey(f.dateReceive) === dashExportMonth);
-  const monthCounts = {};
-  rows.forEach(f => { const k = monthKey(f.dateReceive); if (k) monthCounts[k] = (monthCounts[k] || 0) + 1; });
-  const monthKeys = Object.keys(monthCounts).sort();
-  const trendAoa = [['Month', 'Failures'], ...monthKeys.map(k => [monthLabel(k), monthCounts[k]])];
-  const recordsAoa = [
-    ['Asset', 'Date Received', 'Depoh', 'Report', 'Sub-System', 'Component 1', 'Component 2', 'Component 3', 'Component 4', 'Action Taken', 'CWO', 'Date Released', 'Downtime', 'Remark'],
-    ...rows.map(f => [
-      f.asset || '', f.dateReceive || '', f.depoh || '', f.reportByOps || f.reportByDepot || '', f.subSystem || '',
-      f.c1Type || '', f.c2Type || '', f.c3Type || '', f.c4Type || '', f.materialUsed || '', f.pwo || '', f.dateReleased || '',
-      formatDowntime(computeDowntimeMs(f)) || '', f.remark || '',
-    ]),
-  ];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(trendAoa), 'Monthly Trend');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(recordsAoa), 'Failure Records');
-  const scopeLabel = dashExportMonth ? monthLabel(dashExportMonth).replace(/\s+/g, '') : 'AllMonths';
-  XLSX.writeFile(wb, `Failures_${scopeLabel}.xlsx`);
+function excelSafeSheetName(name) {
+  return name.replace(/[\\/*?:[\]]/g, ' ').slice(0, 31);
+}
+async function exportDashboardToExcel() {
+  const wb = new ExcelJS.Workbook();
+  Object.entries(_dashboardChartData).forEach(([canvasId, chart]) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !chart.labels.length) return;
+    const ws = wb.addWorksheet(excelSafeSheetName(chart.title));
+    const imgId = wb.addImage({ base64: canvas.toDataURL('image/png'), extension: 'png' });
+    ws.addImage(imgId, { tl: { col: 0, row: 0 }, ext: { width: 640, height: 340 } });
+    const tableStartRow = 20;
+    ws.getRow(tableStartRow).values = [chart.labelHeader || 'Label', chart.valueHeader || 'Value'];
+    ws.getRow(tableStartRow).font = { bold: true };
+    chart.labels.forEach((label, i) => {
+      ws.getRow(tableStartRow + 1 + i).values = [label, chart.values[i]];
+    });
+    ws.getColumn(1).width = 24;
+    ws.getColumn(2).width = 14;
+  });
+  await downloadWorkbook(wb, 'Dashboard_Export.xlsx');
 }
 
 /* ---------- tiny dependency-free canvas chart toolkit ---------- */
@@ -2371,11 +2370,14 @@ function roundRectFull(ctx, x, y, w, h, r) {
 }
 
 function drawDashboardCharts(ssTotals, assetTotals) {
+  _dashboardChartData = {};
+
   const ssEntries = Object.entries(ssTotals).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   drawBarChart('chartSubsystem', ssEntries.map(e => e[0]), ssEntries.map(e => e[1]), '#A85D00', {
     rotate: true,
     onClick: (idx) => goToSubsystem(ssEntries[idx][0]),
   });
+  _dashboardChartData.chartSubsystem = { title: 'Failures by Sub-System', labelHeader: 'Sub-System', valueHeader: 'Failures', labels: ssEntries.map(e => e[0]), values: ssEntries.map(e => e[1]) };
 
   const monthCounts = {};
   countableFailures().forEach(f => { const k = monthKey(f.dateReceive); if (k) monthCounts[k] = (monthCounts[k] || 0) + 1; });
@@ -2384,6 +2386,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
     rotate: false,
     onClick: (idx) => drillFailuresByMonth(monthKeys[idx]),
   });
+  _dashboardChartData.chartMonthly = { title: 'Monthly Unscheduled Trend', labelHeader: 'Month', valueHeader: 'Failures', labels: monthKeys.map(monthLabel), values: monthKeys.map(k => monthCounts[k]) };
 
   const incMonthCounts = {};
   DATA.incidents.forEach(i => { if (i.month && i.asset) incMonthCounts[i.month] = (incMonthCounts[i.month] || 0) + 1; });
@@ -2392,31 +2395,37 @@ function drawDashboardCharts(ssTotals, assetTotals) {
     rotate: false,
     onClick: (idx) => drillIncidentsByMonth(incMonths[idx]),
   });
+  _dashboardChartData.chartMonthlyIncidents = { title: 'Monthly 16-TAL Incidents', labelHeader: 'Month', valueHeader: 'Incidents', labels: incMonths.map(incidentMonthShortLabel), values: incMonths.map(m => incMonthCounts[m]) };
 
   const assetEntries = Object.entries(assetTotals).sort((a, b) => b[1] - a[1]).slice(0, 12);
   drawBarChart('chartAsset', assetEntries.map(e => e[0]), assetEntries.map(e => e[1]), '#159253', { rotate: false });
+  _dashboardChartData.chartAsset = { title: 'Failures by Locomotive (top 12)', labelHeader: 'Asset', valueHeader: 'Failures', labels: assetEntries.map(e => e[0]), values: assetEntries.map(e => e[1]) };
 
   const availMonths = availabilityTrackedMonths();
   const availData = availMonths.map(m => ({ month: m, value: computeDailyAvailabilityAverage(m), target: availabilityTargetForMonth(m) }));
   drawBarChart('chartDashAvailability', availData.map(a => monthLabel(a.month)), availData.map(a => a.value),
     availData.map(a => a.value >= a.target ? '#159253' : '#B0202F'),
     { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability') });
+  _dashboardChartData.chartDashAvailability = { title: 'Fleet Availability by Month', labelHeader: 'Month', valueHeader: 'Availability %', labels: availData.map(a => monthLabel(a.month)), values: availData.map(a => a.value) };
 
   const relMonths = reliabilityTrackedMonths();
   const mkbfData = relMonths.map(m => computeMkbfKm(m) || 0);
   drawBarChart('chartDashReliability', relMonths.map(monthLabel), mkbfData,
     mkbfData.map(v => v >= MKBF_TARGET_KM ? '#159253' : '#B0202F'),
     { rotate: false, targetLine: MKBF_TARGET_KM, onClick: () => setView('reliability') });
+  _dashboardChartData.chartDashReliability = { title: 'Reliability (MKBF) by Month', labelHeader: 'Month', valueHeader: 'MKBF (km)', labels: relMonths.map(monthLabel), values: mkbfData };
 
   const peMonthCounts = {};
   DATA.peHistory.forEach(h => { if (h.date) { const k = monthKey(h.date); if (k) peMonthCounts[k] = (peMonthCounts[k] || 0) + 1; } });
   const peMonthKeys = Object.keys(peMonthCounts).sort();
   drawBarChart('chartDashPe', peMonthKeys.map(monthLabel), peMonthKeys.map(k => peMonthCounts[k]), '#A85D00',
     { rotate: false, onClick: () => setView('masterplan') });
+  _dashboardChartData.chartDashPe = { title: 'PE Completions by Month', labelHeader: 'Month', valueHeader: 'PE Completions', labels: peMonthKeys.map(monthLabel), values: peMonthKeys.map(k => peMonthCounts[k]) };
 
   const runningData = relMonths.map(m => dailyStatusFleetKmForMonth(m));
   drawBarChart('chartDashRunning', relMonths.map(monthLabel), runningData, '#2F7EE0',
     { rotate: false, onClick: () => setView('dailyStatus') });
+  _dashboardChartData.chartDashRunning = { title: 'Total Running (km) by Month', labelHeader: 'Month', valueHeader: 'Running (km)', labels: relMonths.map(monthLabel), values: runningData };
 }
 let _dashboardResizeTimer = null;
 window.addEventListener('resize', () => {
