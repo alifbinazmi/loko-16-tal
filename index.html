@@ -622,6 +622,7 @@
   .daily-dropdown-empty { padding: 7px 10px; font-size: 11px; color: var(--text-dim); }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
   const _db = supabase.createClient(
     'https://lvmfbjjncpqmqnqwqrtx.supabase.co',
@@ -2094,7 +2095,14 @@ function renderDashboard() {
       <div class="chart-panel"><h3>Fleet Availability by Month</h3><div class="chart-wrap"><canvas id="chartDashAvailability"></canvas></div></div>
       <div class="chart-panel"><h3>Reliability (MKBF) by Month</h3><div class="chart-wrap"><canvas id="chartDashReliability"></canvas></div></div>
       <div class="chart-panel"><h3>PE Completions by Month</h3><div class="chart-wrap"><canvas id="chartDashPe"></canvas></div></div>
-      <div class="chart-panel"><h3>Monthly Unscheduled Trend <span class="chart-hint">click a bar to drill in</span></h3><div class="chart-wrap"><canvas id="chartMonthly"></canvas></div></div>
+      <div class="chart-panel"><h3>Monthly Unscheduled Trend <span class="chart-hint">click a bar to drill in</span></h3><div class="chart-wrap"><canvas id="chartMonthly"></canvas></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <select id="dashExportMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:5px 8px;font-size:11px;color:var(--text);">
+            <option value="">All months</option>
+          </select>
+          <button type="button" class="btn btn-ghost" id="dashExportBtn" style="font-size:11px;">Export to Excel</button>
+        </div>
+      </div>
       <div class="chart-panel"><h3>Monthly 16-TAL Incidents <span class="chart-hint">click a bar to drill in</span></h3><div class="chart-wrap"><canvas id="chartMonthlyIncidents"></canvas></div></div>
       <div class="chart-panel"><h3>Total Running (km) by Month</h3><div class="chart-wrap"><canvas id="chartDashRunning"></canvas></div></div>
       <div class="chart-panel"><h3>Failures by Sub-System <span class="chart-hint">click a bar to drill in</span></h3><div class="chart-wrap"><canvas id="chartSubsystem"></canvas></div></div>
@@ -2103,10 +2111,42 @@ function renderDashboard() {
   `;
   wireKpiCards();
   drawDashboardCharts(ssTotals, assetTotals);
-
+  wireDashExport();
 }
 
 function destroyCharts() { /* canvas charts are redrawn fresh each time; nothing to tear down */ }
+
+/* ---------- Dashboard: Export failures trend + records to Excel ---------- */
+let dashExportMonth = null;
+function wireDashExport() {
+  const sel = document.getElementById('dashExportMonthSelect');
+  if (!sel) return;
+  const months = [...new Set(countableFailures().map(f => monthKey(f.dateReceive)).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">All months</option>' + months.map(m => `<option value="${m}"${m === dashExportMonth ? ' selected' : ''}>${esc(monthLabel(m))}</option>`).join('');
+  sel.addEventListener('change', () => { dashExportMonth = sel.value || null; });
+  const btn = document.getElementById('dashExportBtn');
+  if (btn) btn.addEventListener('click', exportFailuresToExcel);
+}
+function exportFailuresToExcel() {
+  const rows = countableFailures().filter(f => !dashExportMonth || monthKey(f.dateReceive) === dashExportMonth);
+  const monthCounts = {};
+  rows.forEach(f => { const k = monthKey(f.dateReceive); if (k) monthCounts[k] = (monthCounts[k] || 0) + 1; });
+  const monthKeys = Object.keys(monthCounts).sort();
+  const trendAoa = [['Month', 'Failures'], ...monthKeys.map(k => [monthLabel(k), monthCounts[k]])];
+  const recordsAoa = [
+    ['Asset', 'Date Received', 'Depoh', 'Report', 'Sub-System', 'Component 1', 'Component 2', 'Component 3', 'Component 4', 'Action Taken', 'CWO', 'Date Released', 'Downtime', 'Remark'],
+    ...rows.map(f => [
+      f.asset || '', f.dateReceive || '', f.depoh || '', f.reportByOps || f.reportByDepot || '', f.subSystem || '',
+      f.c1Type || '', f.c2Type || '', f.c3Type || '', f.c4Type || '', f.materialUsed || '', f.pwo || '', f.dateReleased || '',
+      formatDowntime(computeDowntimeMs(f)) || '', f.remark || '',
+    ]),
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(trendAoa), 'Monthly Trend');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(recordsAoa), 'Failure Records');
+  const scopeLabel = dashExportMonth ? monthLabel(dashExportMonth).replace(/\s+/g, '') : 'AllMonths';
+  XLSX.writeFile(wb, `Failures_${scopeLabel}.xlsx`);
+}
 
 /* ---------- tiny dependency-free canvas chart toolkit ---------- */
 function setupCanvas(canvas) {
