@@ -1864,6 +1864,7 @@ function renderTopbarActions() {
     ${currentView === 'langgar' ? renderLanggarMonthControl() : ''}
     ${activeFilterCount ? `<button class="btn btn-ghost" id="clearFiltersBtn" style="font-size:11.5px;padding:8px 12px;">${filterIcon()}Clear filters (${activeFilterCount})</button>` : ''}
     <div class="search-box">${ICONS.search}<input id="searchInput" placeholder="Search records..." value="${esc(searchTerm)}"/></div>
+    ${currentView === 'failures' ? `<button class="btn btn-ghost" id="uswExportBtn">Export to Excel</button>` : ''}
     ${currentView !== 'failuresCwbg' ? `<button class="btn btn-success" id="newReportBtn">${ICONS.plus}New Report</button>` : ''}
   `;
   document.getElementById('searchInput').addEventListener('input', e => { searchTerm = e.target.value; renderContent(); });
@@ -1873,6 +1874,8 @@ function renderTopbarActions() {
   if (currentView === 'langgar') wireLanggarMonthControl();
   const clearBtn = document.getElementById('clearFiltersBtn');
   if (clearBtn) clearBtn.addEventListener('click', () => clearAllFilters(currentView));
+  const uswExportBtn = document.getElementById('uswExportBtn');
+  if (uswExportBtn) uswExportBtn.addEventListener('click', exportUswToExcel);
 }
 
 function latestAvailabilityInfo() {
@@ -2145,6 +2148,27 @@ async function exportDashboardToExcel() {
     ws.getColumn(2).width = 14;
   });
   await downloadWorkbook(wb, 'Dashboard_Export.xlsx');
+}
+function plainTextFromHtml(html) {
+  return html.replace(/<[^>]+>/g, ' ').replace(/&rarr;/g, '→').replace(/&middot;/g, '·').replace(/&mdash;/g, '-').replace(/\s+/g, ' ').trim();
+}
+async function exportUswToExcel() {
+  const { rows } = filteredFailureRows('failures');
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Unscheduled Reports');
+  const headers = ['Asset', 'Date Received', 'PE Interval', 'Depoh', 'Report', 'Sub-System', 'Component 1', 'Component 2', 'Component 3', 'Component 4', 'Action Taken', 'CWO', 'Date Released', 'Downtime', 'Remark'];
+  ws.addRow(headers).font = { bold: true };
+  rows.forEach(f => {
+    ws.addRow([
+      f.asset || '', f.dateReceive || '', plainTextFromHtml(peIntervalCellHtml(f)), f.depoh || '',
+      f.reportByOps || f.reportByDepot || '', f.subSystem || '',
+      f.c1Type || '', f.c2Type || '', f.c3Type || '', f.c4Type || '',
+      f.materialUsed || '', f.pwo || '', f.dateReleased || '',
+      formatDowntime(computeDowntimeMs(f)) || '', f.remark || '',
+    ]);
+  });
+  ws.columns.forEach((col, i) => { col.width = i === 0 ? 10 : (headers[i] === 'Remark' || headers[i] === 'Report' ? 28 : 16); });
+  await downloadWorkbook(wb, 'USW_Unscheduled_Reports.xlsx');
 }
 
 /* ---------- tiny dependency-free canvas chart toolkit ---------- */
@@ -2782,7 +2806,7 @@ const FAILURE_COLUMNS = [
   { key: 'editAction', label: 'Edit Report' },
 ];
 let failuresDepotSelectedMonth = { failures: null, failuresCwbg: null };
-function renderFailures(viewKey = 'failures') {
+function filteredFailureRows(viewKey) {
   const baseRows = viewKey === 'failuresCwbg' ? DATA.failures.filter(f => f.parentRid) : DATA.failures.filter(f => !f.parentRid);
   let rows = baseRows
     .filter(f => matchesSearch(f, ['asset','depoh','reportByOps','reportByDepot','subSystem','c1Type','c2Type','c3Type','c4Type','remark','cwbgFindings']));
@@ -2796,6 +2820,10 @@ function renderFailures(viewKey = 'failures') {
     if (tb) return 1;
     return DATA.failures.indexOf(b) - DATA.failures.indexOf(a);
   });
+  return { baseRows, rows };
+}
+function renderFailures(viewKey = 'failures') {
+  const { baseRows, rows } = filteredFailureRows(viewKey);
 
   const statsRows = viewKey === 'failuresCwbg' ? baseRows : countableFailures(baseRows);
   const ssTotals = computeSubsystemTotals(statsRows);
