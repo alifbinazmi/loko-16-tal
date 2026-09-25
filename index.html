@@ -1863,6 +1863,7 @@ function renderTopbarActions() {
     ${currentView === 'langgar' ? renderLanggarMonthControl() : ''}
     ${activeFilterCount ? `<button class="btn btn-ghost" id="clearFiltersBtn" style="font-size:11.5px;padding:8px 12px;">${filterIcon()}Clear filters (${activeFilterCount})</button>` : ''}
     <div class="search-box">${ICONS.search}<input id="searchInput" placeholder="Search records..." value="${esc(searchTerm)}"/></div>
+    ${currentView === 'failures' ? `<button class="btn btn-ghost" id="uswExportBtn">Export to Excel</button>` : ''}
     ${currentView !== 'failuresCwbg' ? `<button class="btn btn-success" id="newReportBtn">${ICONS.plus}New Report</button>` : ''}
   `;
   document.getElementById('searchInput').addEventListener('input', e => { searchTerm = e.target.value; renderContent(); });
@@ -1872,6 +1873,8 @@ function renderTopbarActions() {
   if (currentView === 'langgar') wireLanggarMonthControl();
   const clearBtn = document.getElementById('clearFiltersBtn');
   if (clearBtn) clearBtn.addEventListener('click', () => clearAllFilters(currentView));
+  const uswExportBtn = document.getElementById('uswExportBtn');
+  if (uswExportBtn) uswExportBtn.addEventListener('click', exportUswToExcel);
 }
 
 function latestAvailabilityInfo() {
@@ -2672,6 +2675,63 @@ function peIntervalCellHtml(f) {
   const dueType = due.next ? peTypeForCycle(completedBeforeFailure + 1, loco ? loco.class : null) : null;
   const nextLabel = due.next ? `${esc(dueType)} &middot; ${shortDate(due.next)}` : '&mdash;';
   return `<td class="dim"><div style="white-space:nowrap;">${lastLabel}</div><div style="white-space:nowrap;">&rarr; ${nextLabel}</div></td>`;
+}
+
+/* ---------- USW: Export to Excel (ExcelJS lazy-loaded on first click, never at page load) ---------- */
+let _excelJsLoadPromise = null;
+function loadExcelJsLib() {
+  if (window.ExcelJS) return Promise.resolve();
+  if (!_excelJsLoadPromise) {
+    _excelJsLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+      script.onload = () => resolve();
+      script.onerror = () => { _excelJsLoadPromise = null; reject(new Error('Failed to load ExcelJS')); };
+      document.body.appendChild(script);
+    });
+  }
+  return _excelJsLoadPromise;
+}
+async function downloadWorkbook(wb, filename) {
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function plainTextFromHtml(html) {
+  return html.replace(/<[^>]+>/g, ' ').replace(/&rarr;/g, '→').replace(/&middot;/g, '·').replace(/&mdash;/g, '-').replace(/\s+/g, ' ').trim();
+}
+async function exportUswToExcel() {
+  const btn = document.getElementById('uswExportBtn');
+  const originalLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparing export…'; }
+  try {
+    await loadExcelJsLib();
+    const rows = DATA.failures.filter(f => !f.parentRid);
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Unscheduled Reports');
+    const headers = ['Asset', 'Date Received', 'PE Interval', 'Depoh', 'Report', 'Sub-System', 'Component 1', 'Component 2', 'Component 3', 'Component 4', 'Action Taken', 'CWO', 'Date Released', 'Downtime', 'Remark'];
+    ws.addRow(headers).font = { bold: true };
+    rows.forEach(f => {
+      ws.addRow([
+        f.asset || '', f.dateReceive || '', plainTextFromHtml(peIntervalCellHtml(f)), f.depoh || '',
+        f.reportByOps || f.reportByDepot || '', f.subSystem || '',
+        f.c1Type || '', f.c2Type || '', f.c3Type || '', f.c4Type || '',
+        f.materialUsed || '', f.pwo || '', f.dateReleased || '',
+        formatDowntime(computeDowntimeMs(f)) || '', f.remark || '',
+      ]);
+    });
+    ws.columns.forEach((col, i) => { col.width = i === 0 ? 10 : (headers[i] === 'Remark' || headers[i] === 'Report' ? 28 : 16); });
+    await downloadWorkbook(wb, 'USW_Unscheduled_Reports.xlsx');
+  } catch (e) {
+    console.error('USW export failed', e);
+    toast('Export failed — check your connection and try again', true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+  }
 }
 function wireComponentToggles() {
   document.querySelectorAll('.comp-expand').forEach(btn => {
