@@ -2621,6 +2621,12 @@ function wireFailurePopups() {
       showCwbgFindingsPopup(Number(cell.dataset.cwbgFindingsIdx), cell);
     });
   });
+  document.querySelectorAll('.pe-interval-cell[data-pe-interval-idx]').forEach(cell => {
+    cell.addEventListener('click', e => {
+      e.stopPropagation();
+      showPeIntervalPopup(Number(cell.dataset.peIntervalIdx), cell);
+    });
+  });
 }
 function remarkCellHtml(f) {
   const text = (f.remark && f.remark !== '-') ? esc(f.remark) : '';
@@ -2660,21 +2666,29 @@ function peIntervalForFailure(f) {
   }
   return { last, completedBeforeFailure };
 }
-function peIntervalCellHtml(f) {
+function peIntervalDetail(f) {
   const { last, completedBeforeFailure } = peIntervalForFailure(f);
-  if (!last) return '<td class="dim">&mdash;</td>';
-  const shortDate = s => {
-    const d = new Date(s);
-    if (isNaN(d)) return esc(s);
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
-  };
-  const lastLabel = `${esc(last.type)} &middot; ${shortDate(last.date)}`;
+  if (!last) return null;
   const loco = DATA.locoPerf.find(l => l.asset === f.asset);
   const intervalDays = String(loco ? loco.class : '').startsWith('19') ? 30 : 15;
   const due = peDueStatusFromLastDate(last.date, intervalDays);
-  const dueType = due.next ? peTypeForCycle(completedBeforeFailure + 1, loco ? loco.class : null) : null;
-  const nextLabel = due.next ? `${esc(dueType)} &middot; ${shortDate(due.next)}` : '&mdash;';
-  return `<td class="dim"><div style="white-space:nowrap;">${lastLabel}</div><div style="white-space:nowrap;">&rarr; ${nextLabel}</div></td>`;
+  const nextType = due.next ? peTypeForCycle(completedBeforeFailure + 1, loco ? loco.class : null) : null;
+  return { lastType: last.type, lastDate: last.date, nextType, nextDate: due.next };
+}
+function peIntervalCellHtml(f, idx) {
+  const d = peIntervalDetail(f);
+  if (!d) return '<td class="dim">&mdash;</td>';
+  const nextPart = d.nextType ? esc(d.nextType) : '&mdash;';
+  return `<td class="dim pe-interval-cell" data-pe-interval-idx="${idx}" style="cursor:pointer;white-space:nowrap;">${esc(d.lastType)} &rarr; ${nextPart}</td>`;
+}
+function showPeIntervalPopup(idx, anchorEl) {
+  showRecordTextPopup(idx, anchorEl, rec => {
+    const d = peIntervalDetail(rec);
+    if (!d) return 'No PE history recorded for this asset before this failure.';
+    const lastLine = `Last PE completed: ${d.lastType} (${fmtDate(d.lastDate)})`;
+    const nextLine = d.nextType ? `Next PE due: ${d.nextType} (${fmtDate(d.nextDate)})` : 'Next PE due: —';
+    return `${lastLine}\n${nextLine}`;
+  });
 }
 
 /* ---------- USW: Export to Excel (ExcelJS lazy-loaded on first click, never at page load) ---------- */
@@ -2701,9 +2715,6 @@ async function downloadWorkbook(wb, filename) {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
-function plainTextFromHtml(html) {
-  return html.replace(/<[^>]+>/g, ' ').replace(/&rarr;/g, '→').replace(/&middot;/g, '·').replace(/&mdash;/g, '-').replace(/\s+/g, ' ').trim();
-}
 async function exportUswToExcel() {
   const btn = document.getElementById('uswExportBtn');
   const originalLabel = btn ? btn.textContent : '';
@@ -2716,8 +2727,10 @@ async function exportUswToExcel() {
     const headers = ['Asset', 'Date Received', 'PE Interval', 'Depoh', 'Report', 'Sub-System', 'Component 1', 'Component 2', 'Component 3', 'Component 4', 'Action Taken', 'CWO', 'Date Released', 'Downtime', 'Remark'];
     ws.addRow(headers).font = { bold: true };
     rows.forEach(f => {
+      const d = peIntervalDetail(f);
+      const peIntervalText = d ? `${d.lastType} (${fmtDate(d.lastDate)}) → ${d.nextType ? `${d.nextType} (${fmtDate(d.nextDate)})` : '—'}` : '—';
       ws.addRow([
-        f.asset || '', f.dateReceive || '', plainTextFromHtml(peIntervalCellHtml(f)), f.depoh || '',
+        f.asset || '', f.dateReceive || '', peIntervalText, f.depoh || '',
         f.reportByOps || f.reportByDepot || '', f.subSystem || '',
         f.c1Type || '', f.c2Type || '', f.c3Type || '', f.c4Type || '',
         f.materialUsed || '', f.pwo || '', f.dateReleased || '',
@@ -2827,7 +2840,7 @@ function renderFailures(viewKey = 'failures') {
     <tr data-idx="${DATA.failures.indexOf(f)}">
       <td class="num">${f.cwbgChildRid ? '<span class="cwbg-sent-bar"></span>' : (f.dateReleased ? '' : '<span class="open-report-bar"></span>')}${esc(f.asset)}</td>
       <td class="dim">${fmtDate(f.dateReceive)}</td>
-      ${viewKey === 'failuresCwbg' ? '' : peIntervalCellHtml(f)}
+      ${viewKey === 'failuresCwbg' ? '' : peIntervalCellHtml(f, DATA.failures.indexOf(f))}
       <td>${esc(f.depoh)}</td>
       ${reportCellHtml(f, DATA.failures.indexOf(f))}
       <td><span class="badge badge-other">${esc(f.subSystem)}</span></td>
@@ -5417,7 +5430,7 @@ document.getElementById('actionPopupEditBtn').addEventListener('click', () => {
 document.addEventListener('click', e => {
   const popup = document.getElementById('actionTakenPopup');
   if (popup.hidden) return;
-  if (popup.contains(e.target) || e.target.closest('.action-taken-cell') || e.target.closest('.report-cell') || e.target.closest('.cwbg-findings-cell')) return;
+  if (popup.contains(e.target) || e.target.closest('.action-taken-cell') || e.target.closest('.report-cell') || e.target.closest('.cwbg-findings-cell') || e.target.closest('.pe-interval-cell')) return;
   hideActionTakenPopup();
 });
 document.getElementById('assetFlagPopupCloseBtn').addEventListener('click', hideAssetFlagPopup);
