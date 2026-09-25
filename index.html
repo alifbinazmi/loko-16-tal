@@ -1006,6 +1006,10 @@ const FAILURES_VIEWS = ['failures', 'failuresCwbg'];
 function filterRawValue(viewKey, row, key) {
   if (FAILURES_VIEWS.includes(viewKey) && ['c1', 'c2', 'c3', 'c4'].includes(key)) return failureCellValue(row, key);
   if (FAILURES_VIEWS.includes(viewKey) && key === 'downtimeCalc') return computeDowntimeMs(row);
+  if (FAILURES_VIEWS.includes(viewKey) && key === 'peInterval') {
+    const d = peIntervalDetail(row);
+    return d ? `${d.lastType} → ${d.nextType || '—'}` : null;
+  }
   return row[key];
 }
 const DATE_FILTER_KEYS = new Set(['dateReceive', 'dateReleased', 'tarikh', 'lastPE', 'nextPE', 'last45', 'date']);
@@ -2874,7 +2878,7 @@ function renderFailures(viewKey = 'failures') {
       <div class="table-scroll">
         <table>
           <thead><tr>
-            ${columns.map(c => c.key === 'editAction' ? `<th>${esc(c.label)}</th>` : columnHeaderHtml(viewKey, c.key, c.label, c.key === 'peInterval' ? { noFilter: true } : undefined)).join('')}
+            ${columns.map(c => c.key === 'editAction' ? `<th>${esc(c.label)}</th>` : columnHeaderHtml(viewKey, c.key, c.label)).join('')}
           </tr></thead>
           <tbody>${body}</tbody>
         </table>
