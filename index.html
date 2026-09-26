@@ -2097,6 +2097,9 @@ function renderDashboard() {
   document.getElementById('content').innerHTML = `
     ${renderDashboardKpiGridsHtml()}
 
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+      <button type="button" class="btn btn-ghost" id="dashExportBtn">Export Dashboard to Excel</button>
+    </div>
     <div class="chart-grid">
       <div class="chart-panel"><h3>Fleet Availability by Month</h3><div class="chart-wrap"><canvas id="chartDashAvailability"></canvas></div></div>
       <div class="chart-panel"><h3>Reliability (MKBF) by Month</h3><div class="chart-wrap"><canvas id="chartDashReliability"></canvas></div></div>
@@ -2110,7 +2113,8 @@ function renderDashboard() {
   `;
   wireKpiCards();
   drawDashboardCharts(ssTotals, assetTotals);
-
+  const dashExportBtn = document.getElementById('dashExportBtn');
+  if (dashExportBtn) dashExportBtn.addEventListener('click', exportDashboardToExcel);
 }
 
 function destroyCharts() { /* canvas charts are redrawn fresh each time; nothing to tear down */ }
@@ -2337,12 +2341,16 @@ function roundRectFull(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+let _dashboardChartData = {}; // populated below: { canvasId: { title, labelHeader, valueHeader, labels, values } }
 function drawDashboardCharts(ssTotals, assetTotals) {
+  _dashboardChartData = {};
+
   const ssEntries = Object.entries(ssTotals).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   drawBarChart('chartSubsystem', ssEntries.map(e => e[0]), ssEntries.map(e => e[1]), '#A85D00', {
     rotate: true,
     onClick: (idx) => goToSubsystem(ssEntries[idx][0]),
   });
+  _dashboardChartData.chartSubsystem = { title: 'Failures by Sub-System', labelHeader: 'Sub-System', valueHeader: 'Failures', labels: ssEntries.map(e => e[0]), values: ssEntries.map(e => e[1]) };
 
   const monthCounts = {};
   countableFailures().forEach(f => { const k = monthKey(f.dateReceive); if (k) monthCounts[k] = (monthCounts[k] || 0) + 1; });
@@ -2351,6 +2359,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
     rotate: false,
     onClick: (idx) => drillFailuresByMonth(monthKeys[idx]),
   });
+  _dashboardChartData.chartMonthly = { title: 'Monthly Unscheduled Trend', labelHeader: 'Month', valueHeader: 'Failures', labels: monthKeys.map(monthLabel), values: monthKeys.map(k => monthCounts[k]) };
 
   const incMonthCounts = {};
   DATA.incidents.forEach(i => { if (i.month && i.asset) incMonthCounts[i.month] = (incMonthCounts[i.month] || 0) + 1; });
@@ -2359,31 +2368,37 @@ function drawDashboardCharts(ssTotals, assetTotals) {
     rotate: false,
     onClick: (idx) => drillIncidentsByMonth(incMonths[idx]),
   });
+  _dashboardChartData.chartMonthlyIncidents = { title: 'Monthly 16-TAL Incidents', labelHeader: 'Month', valueHeader: 'Incidents', labels: incMonths.map(incidentMonthShortLabel), values: incMonths.map(m => incMonthCounts[m]) };
 
   const assetEntries = Object.entries(assetTotals).sort((a, b) => b[1] - a[1]).slice(0, 12);
   drawBarChart('chartAsset', assetEntries.map(e => e[0]), assetEntries.map(e => e[1]), '#159253', { rotate: false });
+  _dashboardChartData.chartAsset = { title: 'Failures by Locomotive (top 12)', labelHeader: 'Asset', valueHeader: 'Failures', labels: assetEntries.map(e => e[0]), values: assetEntries.map(e => e[1]) };
 
   const availMonths = availabilityTrackedMonths();
   const availData = availMonths.map(m => ({ month: m, value: computeDailyAvailabilityAverage(m), target: availabilityTargetForMonth(m) }));
   drawBarChart('chartDashAvailability', availData.map(a => monthLabel(a.month)), availData.map(a => a.value),
     availData.map(a => a.value >= a.target ? '#159253' : '#B0202F'),
     { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability') });
+  _dashboardChartData.chartDashAvailability = { title: 'Fleet Availability by Month', labelHeader: 'Month', valueHeader: 'Availability %', labels: availData.map(a => monthLabel(a.month)), values: availData.map(a => a.value) };
 
   const relMonths = reliabilityTrackedMonths();
   const mkbfData = relMonths.map(m => computeMkbfKm(m) || 0);
   drawBarChart('chartDashReliability', relMonths.map(monthLabel), mkbfData,
     mkbfData.map(v => v >= MKBF_TARGET_KM ? '#159253' : '#B0202F'),
     { rotate: false, targetLine: MKBF_TARGET_KM, onClick: () => setView('reliability') });
+  _dashboardChartData.chartDashReliability = { title: 'Reliability (MKBF) by Month', labelHeader: 'Month', valueHeader: 'MKBF (km)', labels: relMonths.map(monthLabel), values: mkbfData };
 
   const peMonthCounts = {};
   DATA.peHistory.forEach(h => { if (h.date) { const k = monthKey(h.date); if (k) peMonthCounts[k] = (peMonthCounts[k] || 0) + 1; } });
   const peMonthKeys = Object.keys(peMonthCounts).sort();
   drawBarChart('chartDashPe', peMonthKeys.map(monthLabel), peMonthKeys.map(k => peMonthCounts[k]), '#A85D00',
     { rotate: false, onClick: () => setView('masterplan') });
+  _dashboardChartData.chartDashPe = { title: 'PE Completions by Month', labelHeader: 'Month', valueHeader: 'PE Completions', labels: peMonthKeys.map(monthLabel), values: peMonthKeys.map(k => peMonthCounts[k]) };
 
   const runningData = relMonths.map(m => dailyStatusFleetKmForMonth(m));
   drawBarChart('chartDashRunning', relMonths.map(monthLabel), runningData, '#2F7EE0',
     { rotate: false, onClick: () => setView('dailyStatus') });
+  _dashboardChartData.chartDashRunning = { title: 'Total Running (km) by Month', labelHeader: 'Month', valueHeader: 'Running (km)', labels: relMonths.map(monthLabel), values: runningData };
 }
 let _dashboardResizeTimer = null;
 window.addEventListener('resize', () => {
@@ -2718,6 +2733,39 @@ async function downloadWorkbook(wb, filename) {
   a.href = url; a.download = filename;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+function excelSafeSheetName(name) {
+  return name.replace(/[\\/*?:[\]]/g, ' ').slice(0, 31);
+}
+async function exportDashboardToExcel() {
+  const btn = document.getElementById('dashExportBtn');
+  const originalLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparing export…'; }
+  try {
+    await loadExcelJsLib();
+    const wb = new ExcelJS.Workbook();
+    Object.entries(_dashboardChartData).forEach(([canvasId, chart]) => {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas || !chart.labels.length) return;
+      const ws = wb.addWorksheet(excelSafeSheetName(chart.title));
+      const imgId = wb.addImage({ base64: canvas.toDataURL('image/png'), extension: 'png' });
+      ws.addImage(imgId, { tl: { col: 0, row: 0 }, ext: { width: 640, height: 340 } });
+      const tableStartRow = 20;
+      ws.getRow(tableStartRow).values = [chart.labelHeader || 'Label', chart.valueHeader || 'Value'];
+      ws.getRow(tableStartRow).font = { bold: true };
+      chart.labels.forEach((label, i) => {
+        ws.getRow(tableStartRow + 1 + i).values = [label, chart.values[i]];
+      });
+      ws.getColumn(1).width = 24;
+      ws.getColumn(2).width = 14;
+    });
+    await downloadWorkbook(wb, 'Dashboard_Export.xlsx');
+  } catch (e) {
+    console.error('Dashboard export failed', e);
+    toast('Export failed — check your connection and try again', true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+  }
 }
 async function exportUswToExcel() {
   const btn = document.getElementById('uswExportBtn');
