@@ -1868,6 +1868,8 @@ function renderTopbarActions() {
     ${activeFilterCount ? `<button class="btn btn-ghost" id="clearFiltersBtn" style="font-size:11.5px;padding:8px 12px;">${filterIcon()}Clear filters (${activeFilterCount})</button>` : ''}
     <div class="search-box">${ICONS.search}<input id="searchInput" placeholder="Search records..." value="${esc(searchTerm)}"/></div>
     ${currentView === 'failures' ? `<button class="btn btn-ghost" id="uswExportBtn">Export to Excel</button>` : ''}
+    ${currentView === 'incidents' ? `<button class="btn btn-ghost" id="incidentExportBtn">Export to Excel</button>` : ''}
+    ${currentView === 'langgar' ? `<button class="btn btn-ghost" id="langgarExportBtn">Export to Excel</button>` : ''}
     ${currentView !== 'failuresCwbg' ? `<button class="btn btn-success" id="newReportBtn">${ICONS.plus}New Report</button>` : ''}
   `;
   document.getElementById('searchInput').addEventListener('input', e => { searchTerm = e.target.value; renderContent(); });
@@ -1879,6 +1881,10 @@ function renderTopbarActions() {
   if (clearBtn) clearBtn.addEventListener('click', () => clearAllFilters(currentView));
   const uswExportBtn = document.getElementById('uswExportBtn');
   if (uswExportBtn) uswExportBtn.addEventListener('click', exportUswToExcel);
+  const incidentExportBtn = document.getElementById('incidentExportBtn');
+  if (incidentExportBtn) incidentExportBtn.addEventListener('click', exportIncidentsToExcel);
+  const langgarExportBtn = document.getElementById('langgarExportBtn');
+  if (langgarExportBtn) langgarExportBtn.addEventListener('click', exportLanggarToExcel);
 }
 
 function latestAvailabilityInfo() {
@@ -2793,6 +2799,57 @@ async function exportUswToExcel() {
     await downloadWorkbook(wb, 'USW_Unscheduled_Reports.xlsx');
   } catch (e) {
     console.error('USW export failed', e);
+    toast('Export failed — check your connection and try again', true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+  }
+}
+async function exportIncidentsToExcel() {
+  const btn = document.getElementById('incidentExportBtn');
+  const originalLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparing export…'; }
+  try {
+    await loadExcelJsLib();
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Incidents');
+    const headers = ['Date', 'Asset', 'Depoh Attend', 'Kerja Tren', 'Fault Report', 'Chronology', 'Status', 'Driver', 'CWO', 'Remark'];
+    ws.addRow(headers).font = { bold: true };
+    DATA.incidents.forEach(i => {
+      const dateStr = i.month && i.day ? `${i.month}-${String(i.day).padStart(2, '0')}` : '';
+      ws.addRow([
+        dateStr ? fmtDate(dateStr) : '', i.asset || '', i.depohAttend || '', i.kerjaTren || '',
+        i.faultReport || '', i.solution || '', i.status || '', i.driver || '', i.cwo || '', i.remark || '',
+      ]);
+    });
+    ws.columns.forEach((col, i) => { col.width = i === 1 ? 10 : (['Fault Report', 'Chronology', 'Remark'].includes(headers[i]) ? 28 : 16); });
+    await downloadWorkbook(wb, 'Incident_Reports.xlsx');
+  } catch (e) {
+    console.error('Incident export failed', e);
+    toast('Export failed — check your connection and try again', true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+  }
+}
+async function exportLanggarToExcel() {
+  const btn = document.getElementById('langgarExportBtn');
+  const originalLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparing export…'; }
+  try {
+    await loadExcelJsLib();
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Accidents');
+    const headers = ['Bil Kes', 'Tarikh', 'Lokasi', 'No Tren', 'Stokereta', 'Jenis Kerosakan', 'Kronologi', 'Kos Kerosakan', 'Tindakan', 'No CMMS', 'Remark'];
+    ws.addRow(headers).font = { bold: true };
+    DATA.langgar.forEach(l => {
+      ws.addRow([
+        l.bilKes || '', l.tarikh ? fmtDate(l.tarikh) : '', l.lokasi || '', l.noTren || '', l.stokereta || '',
+        l.jenisKerosakan || '', l.kronologi || '', l.kosKerosakan || '', l.tindakan || '', l.noCmms || '', l.remark || '',
+      ]);
+    });
+    ws.columns.forEach((col, i) => { col.width = i === 0 ? 10 : (['Kronologi', 'Tindakan', 'Remark'].includes(headers[i]) ? 28 : 16); });
+    await downloadWorkbook(wb, 'Accident_Reports.xlsx');
+  } catch (e) {
+    console.error('Accident export failed', e);
     toast('Export failed — check your connection and try again', true);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
