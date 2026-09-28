@@ -5578,6 +5578,7 @@ async function startApp() {
 }
 
 /* ---------- auth gate ---------- */
+const IDLE_LIMIT_MS = 3 * 60 * 60 * 1000;
 function showLoginScreen(message) {
   document.body.classList.remove('authed');
   document.getElementById('loginScreen').style.display = 'flex';
@@ -5587,6 +5588,25 @@ function showLoginScreen(message) {
 function hideLoginScreen() {
   document.getElementById('loginScreen').style.display = 'none';
   document.body.classList.add('authed');
+}
+function performLogout() {
+  localStorage.removeItem('loko_authed');
+  localStorage.removeItem('loko_last_activity');
+  location.reload();
+}
+function isSessionExpired() {
+  if (localStorage.getItem('loko_authed') !== '1') return true;
+  const lastActivity = Number(localStorage.getItem('loko_last_activity') || 0);
+  if (!lastActivity) return true;
+  return Date.now() - lastActivity > IDLE_LIMIT_MS;
+}
+let _lastActivityWrite = 0;
+function recordActivity() {
+  if (!document.body.classList.contains('authed')) return;
+  const now = Date.now();
+  if (now - _lastActivityWrite < 15000) return;
+  _lastActivityWrite = now;
+  localStorage.setItem('loko_last_activity', String(now));
 }
 async function handleLoginSubmit(e) {
   e.preventDefault();
@@ -5600,17 +5620,30 @@ async function handleLoginSubmit(e) {
   btn.textContent = 'Sign in';
   if (!data || data.password !== password) { showLoginScreen('Invalid username or password'); return; }
   localStorage.setItem('loko_authed', '1');
+  localStorage.setItem('loko_last_activity', String(Date.now()));
   hideLoginScreen();
   startApp();
 }
 (async function boot() {
   document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
-  document.getElementById('logoutBtn').addEventListener('click', () => {
-    localStorage.removeItem('loko_authed');
-    location.reload();
-  });
+  document.getElementById('logoutBtn').addEventListener('click', performLogout);
   document.getElementById('saveNowBtn').addEventListener('click', saveAllNow);
-  if (localStorage.getItem('loko_authed') === '1') { hideLoginScreen(); startApp(); } else { showLoginScreen(); }
+  ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => {
+    document.addEventListener(evt, recordActivity, { capture: true, passive: true });
+  });
+  setInterval(() => {
+    if (localStorage.getItem('loko_authed') === '1' && isSessionExpired()) performLogout();
+  }, 60 * 1000);
+  if (!isSessionExpired()) {
+    localStorage.setItem('loko_last_activity', String(Date.now()));
+    _lastActivityWrite = Date.now();
+    hideLoginScreen();
+    startApp();
+  } else {
+    localStorage.removeItem('loko_authed');
+    localStorage.removeItem('loko_last_activity');
+    showLoginScreen();
+  }
 })();
 
 </script>
