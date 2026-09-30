@@ -4207,34 +4207,48 @@ function countFilledForMonth(yyyyMm) {
    nothing here (e.g. "yad prai", "Shunt.BG", plain shunting/repair notes)
    contribute 0 km. ---------- */
 const KM_RATE_RULES = [
-  { test: v => v === '26', km: 723.1 },
-  { test: v => v === '27', km: 723.1 },
-  { test: v => /^80\d\d\/80\d\d$/.test(v), km: 116.8 },      // e.g. 8001/8046, 8030/8033
-  { test: v => /^81\d\d\/81\d\d$/.test(v), km: 315 },        // e.g. 8101/8150, 8147/8150
-  { test: v => v === '1', km: 72 },
-  { test: v => v === '2', km: 72 },
-  { test: v => /^\d{3}[+&]\d{3}$/.test(v), km: 266 },        // e.g. 474+473, 476+471, 474&475
-  { test: v => /^\d{3}-\d{3}$/.test(v), km: 532 },           // e.g. 472-471, 472-476, 474-471
-  { test: v => v === 'yad utara', km: 55 },
-  { test: v => v === 'yad prai', km: 55 },
-  { test: v => v === 'f.klang', km: 55 },
-  { test: v => v === 'e&o 24 (g)', km: 222 },
-  { test: v => v === 'e&o 24 (m)', km: 381.5 },
-  { test: v => v === 'e&o 24 (mg)', km: 223 },
-  { test: v => v === 'e&o 24 (i)', km: 223 },
-  { test: v => v === 'e&o (24,21)', km: 680 },
-  { test: v => v === 'e&o 21 (g)', km: 381.5 },
-  { test: v => v === 'e&o 21 (jb)', km: 222 },
-  { test: v => v === 'mysawasdee', km: 1080 },
-  { test: v => v === 'rtsm', km: 390 },
-  { test: v => v === 'sp.train (butterworth)', km: 776 },
-  { test: v => v === 'jnk', km: 1396 },
-  { test: v => v === 'sp. train (jb)', km: 724 },
-  { test: v => v === 'kvdt', km: 150 },
-  { test: v => v === 'b.utara', km: 150 },
-  { test: v => v === 'b.selatan', km: 150 },
-  { test: v => v === 'b.timur', km: 150 },
+  { test: v => v === '26', km: 723.1, label: '26' },
+  { test: v => v === '27', km: 723.1, label: '27' },
+  { test: v => /^80\d\d\/80\d\d$/.test(v), km: 116.8, label: '80xx/80xx (e.g. 8001/8046)' },
+  { test: v => /^81\d\d\/81\d\d$/.test(v), km: 315, label: '81xx/81xx (e.g. 8101/8150)' },
+  { test: v => v === '1', km: 72, label: '1' },
+  { test: v => v === '2', km: 72, label: '2' },
+  { test: v => /^\d{3}[+&]\d{3}$/.test(v), km: 266, label: '3-digit+3-digit (e.g. 474+473)' },
+  { test: v => /^\d{3}-\d{3}$/.test(v), km: 532, label: '3-digit-3-digit (e.g. 472-471)' },
+  { test: v => v === 'yad utara', km: 55, label: 'Yad Utara' },
+  { test: v => v === 'yad prai', km: 55, label: 'Yad Prai' },
+  { test: v => v === 'f.klang', km: 55, label: 'F.Klang' },
+  { test: v => v === 'e&o 24 (g)', km: 222, label: 'E&O 24 (G)' },
+  { test: v => v === 'e&o 24 (m)', km: 381.5, label: 'E&O 24 (M)' },
+  { test: v => v === 'e&o 24 (mg)', km: 223, label: 'E&O 24 (MG)' },
+  { test: v => v === 'e&o 24 (i)', km: 223, label: 'E&O 24 (I)' },
+  { test: v => v === 'e&o (24,21)', km: 680, label: 'E&O (24,21)' },
+  { test: v => v === 'e&o 21 (g)', km: 381.5, label: 'E&O 21 (G)' },
+  { test: v => v === 'e&o 21 (jb)', km: 222, label: 'E&O 21 (JB)' },
+  { test: v => v === 'mysawasdee', km: 1080, label: 'Mysawasdee' },
+  { test: v => v === 'rtsm', km: 390, label: 'RTSM' },
+  { test: v => v === 'sp.train (butterworth)', km: 776, label: 'SP.Train (Butterworth)' },
+  { test: v => v === 'jnk', km: 1396, label: 'JNK' },
+  { test: v => v === 'sp. train (jb)', km: 724, label: 'SP. Train (JB)' },
+  { test: v => v === 'kvdt', km: 150, label: 'KVDT' },
+  { test: v => v === 'b.utara', km: 150, label: 'B.Utara' },
+  { test: v => v === 'b.selatan', km: 150, label: 'B.Selatan' },
+  { test: v => v === 'b.timur', km: 150, label: 'B.Timur' },
 ];
+function dutyCodeKmReferencePanelHtml() {
+  const rowsHtml = KM_RATE_RULES.map(rule => `<tr><td>${esc(rule.label)}</td><td class="num">${fmtKm(rule.km)}</td></tr>`).join('');
+  return `
+    <div class="panel" id="dsDutyCodeKmReference" style="margin-top:14px;">
+      <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;">Duty Code KM Reference</div>
+      <div class="table-scroll">
+        <table class="km-ref-table" style="width:100%;max-width:420px;">
+          <thead><tr><th>Code</th><th>KM</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+      <div class="row-count">Every duty code recognized by the automatic Total KM formula, with the distance it contributes per day. Codes not listed here contribute 0km.</div>
+    </div>`;
+}
 function computeMonthlyKm(asset, yyyyMm) {
   const cacheKey = `${asset}|${yyyyMm}|${_availCacheVersion}`;
   if (_monthlyKmCache.has(cacheKey)) return _monthlyKmCache.get(cacheKey);
@@ -5076,8 +5090,9 @@ function renderDailyStatus() {
           <tbody>${bodyRows}</tbody>
         </table>
       </div>
-      <div class="row-count">Click any cell to choose from previously used codes (e.g. "KVDT", "yad prai", "26", "27") or type a new one &mdash; type "Failed" to flag a failure. Total KM is calculated per locomotive from that month's duty codes using the fixed distance-per-code table (26/27 = 723.1km, KVDT/B.Utara/B.Selatan/B.Timur = 150km, etc.) &mdash; codes not in that table contribute 0km. Additional KM is a manual entry for any distance the formula doesn't capture; Total Final KM = Total KM + Additional KM. Leave a cell blank for a normal/unassigned day. Source: Reliability_Loco_16-TAL_3.xlsx</div>
+      <div class="row-count">Click any cell to choose from previously used codes (e.g. "KVDT", "yad prai", "26", "27") or type a new one &mdash; type "Failed" to flag a failure. Total KM is calculated per locomotive from that month's duty codes using the fixed distance-per-code table below &mdash; codes not in that table contribute 0km. Additional KM is a manual entry for any distance the formula doesn't capture; Total Final KM = Total KM + Additional KM. Leave a cell blank for a normal/unassigned day. Source: Reliability_Loco_16-TAL_3.xlsx</div>
     </div>
+    ${dutyCodeKmReferencePanelHtml()}
     <div class="panel" id="dsDeploymentPanel" style="margin-top:14px;">${deploymentSummaryPanelHtml()}</div>
     <div class="panel" id="dsMonthlyTotals" style="margin-top:14px;">
       <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;">Fleet Total Final KM by Month</div>
