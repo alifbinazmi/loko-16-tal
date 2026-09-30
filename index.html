@@ -4240,11 +4240,13 @@ function dutyCodeKmReferencePanelHtml() {
   return `
     <div class="panel" id="dsDutyCodeKmReference" style="margin-top:14px;">
       <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;">Duty Code KM Reference</div>
-      <div class="table-scroll">
-        <table class="km-ref-table" style="width:100%;max-width:420px;">
-          <thead><tr><th>Code</th><th>KM</th></tr></thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>
+      <div class="km-ref-grid">
+        <div class="km-ref-group">
+          <table class="km-ref-table">
+            <thead><tr><th colspan="2">Duty Codes</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
       </div>
       <div class="row-count">Every duty code recognized by the automatic Total KM formula, with the distance it contributes per day. Codes not listed here contribute 0km.</div>
     </div>`;
@@ -5092,13 +5094,13 @@ function renderDailyStatus() {
       </div>
       <div class="row-count">Click any cell to choose from previously used codes (e.g. "KVDT", "yad prai", "26", "27") or type a new one &mdash; type "Failed" to flag a failure. Total KM is calculated per locomotive from that month's duty codes using the fixed distance-per-code table below &mdash; codes not in that table contribute 0km. Additional KM is a manual entry for any distance the formula doesn't capture; Total Final KM = Total KM + Additional KM. Leave a cell blank for a normal/unassigned day. Source: Reliability_Loco_16-TAL_3.xlsx</div>
     </div>
-    ${dutyCodeKmReferencePanelHtml()}
     <div class="panel" id="dsDeploymentPanel" style="margin-top:14px;">${deploymentSummaryPanelHtml()}</div>
     <div class="panel" id="dsMonthlyTotals" style="margin-top:14px;">
       <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;">Fleet Total Final KM by Month</div>
       <div style="display:flex;flex-wrap:wrap;gap:10px;">${monthlyTotalsHtml}</div>
     </div>
     ${kmReferenceTablePanelHtml()}
+    ${dutyCodeKmReferencePanelHtml()}
     <datalist id="dailyStatusOptions">${optionsHtml}</datalist>
   `;
   wireDailyStatusNav();
