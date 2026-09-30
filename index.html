@@ -5042,15 +5042,6 @@ function renderDailyStatus() {
     const finalKm = computeFinalKm(loco.asset, dailyStatusMonth);
     return `<tr><td>${showClass ? esc(loco.class) : ''}</td>${assetFlagCellHtml(loco, isCurrentlyInactive)}${dayCells}<td class="num km-cell" id="dsKm-${loco.asset}">${fmtKm(rowKm)}</td><td class="day-cell additional-km-cell"><input type="number" step="0.1" class="additional-km-input${addKm ? ' has-value' : ''}" data-asset="${loco.asset}" value="${addKm || ''}" placeholder="0"></td><td class="num final-km-cell" id="dsFinalKm-${loco.asset}">${fmtKm(finalKm)}</td></tr>`;
   }).join('');
-  let lastKmClass = null;
-  const kmSummaryRows = DATA.locoPerf.map(loco => {
-    const showClass = loco.class !== lastKmClass;
-    lastKmClass = loco.class;
-    const rowKm = computeMonthlyKm(loco.asset, dailyStatusMonth);
-    const addKm = getAdditionalKm(loco.asset, dailyStatusMonth);
-    const finalKm = computeFinalKm(loco.asset, dailyStatusMonth);
-    return `<tr><td>${showClass ? esc(loco.class) : ''}</td><td class="num">${esc(loco.asset)}</td><td class="num">${fmtKm(rowKm)}</td><td class="num">${fmtKm(addKm)}</td><td class="num" style="font-weight:700;">${fmtKm(finalKm)}</td></tr>`;
-  }).join('');
   const monthFilled = countFilledForMonth(dailyStatusMonth);
   const optionsHtml = collectDailyStatusOptions().map(v => `<option value="${esc(v)}">`).join('');
   const fleetKm = fleetFinalKmTotal();
@@ -5076,15 +5067,6 @@ function renderDailyStatus() {
           <div class="dim" style="font-size:11px;"><span id="dsFilledCount">${monthFilled}</span> of ${DATA.locoPerf.length * nDays} cells filled this month</div>
           <div style="font-size:12px;font-weight:700;color:var(--amber);">Fleet total (final): <span id="dsFleetKm">${fmtKm(fleetKm)}</span> km</div>
         </div>
-      </div>
-    </div>
-    <div class="panel" id="dsKmSummaryPanel" style="margin-bottom:14px;">
-      <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;">KM Summary &mdash; ${monthLabelLong(dailyStatusMonth)}</div>
-      <div class="table-scroll">
-        <table class="km-ref-table" style="width:100%;">
-          <thead><tr><th>Class</th><th>Asset</th><th>Total KM</th><th>Additional KM</th><th>Total Final KM</th></tr></thead>
-          <tbody>${kmSummaryRows}</tbody>
-        </table>
       </div>
     </div>
     <div class="panel">
