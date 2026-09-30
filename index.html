@@ -4236,18 +4236,20 @@ const KM_RATE_RULES = [
   { test: v => v === 'b.timur', km: 150, label: 'B.Timur' },
 ];
 function dutyCodeKmReferencePanelHtml() {
-  const rowsHtml = KM_RATE_RULES.map(rule => `<tr><td>${esc(rule.label)}</td><td class="num">${fmtKm(rule.km)}</td></tr>`).join('');
+  const chunkSize = Math.ceil(KM_RATE_RULES.length / 5);
+  const chunks = [];
+  for (let i = 0; i < KM_RATE_RULES.length; i += chunkSize) chunks.push(KM_RATE_RULES.slice(i, i + chunkSize));
+  const groupsHtml = chunks.map((group, gi) => `
+    <div class="km-ref-group">
+      <table class="km-ref-table">
+        <thead><tr><th colspan="2">Duty Codes ${gi + 1}</th></tr></thead>
+        <tbody>${group.map(rule => `<tr><td>${esc(rule.label)}</td><td class="num">${fmtKm(rule.km)}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>`).join('');
   return `
     <div class="panel" id="dsDutyCodeKmReference" style="margin-top:14px;">
       <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;">Duty Code KM Reference</div>
-      <div class="km-ref-grid">
-        <div class="km-ref-group">
-          <table class="km-ref-table">
-            <thead><tr><th colspan="2">Duty Codes</th></tr></thead>
-            <tbody>${rowsHtml}</tbody>
-          </table>
-        </div>
-      </div>
+      <div class="km-ref-grid">${groupsHtml}</div>
       <div class="row-count">Every duty code recognized by the automatic Total KM formula, with the distance it contributes per day. Codes not listed here contribute 0km.</div>
     </div>`;
 }
