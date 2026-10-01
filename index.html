@@ -4275,6 +4275,13 @@ const KM_RATE_RULES = [
   { test: v => v === '55/56', km: 290, label: '55/56' },
   { test: v => v === '35/38', km: 544, label: '35/38' },
   { test: v => v === '34/39', km: 544, label: '34/39' },
+  { test: v => v === '20 (jb-g)', km: 210, label: '20 (JB-G)' },
+  { test: v => v === '20 (g-m)', km: 315, label: '20 (G-M)' },
+  { test: v => v === '21 (m-g)', km: 272, label: '21 (M-G)' },
+  { test: v => v === '22 (g-i)', km: 390, label: '22 (G-I)' },
+  { test: v => v === '21 (i-b)', km: 340, label: '21 (I-B)' },
+  { test: v => v === '21 (i-g)', km: 390, label: '21 (I-G)' },
+  { test: v => v === '21 (g-jb)', km: 210, label: '21 (G-JB)' },
 ];
 function dutyCodeKmReferencePanelHtml() {
   const chunkSize = Math.ceil(KM_RATE_RULES.length / 5);
