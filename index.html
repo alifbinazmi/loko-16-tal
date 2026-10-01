@@ -441,6 +441,7 @@
   .daily-cell-input:focus{outline:none;border-color:var(--amber);background:var(--panel-2);}
   .daily-cell-input.has-value{color:var(--text);background:var(--panel-2);}
   .daily-cell-input.fail-value{color:#000000;font-weight:700;background:#FF1E1E;border-color:#CC0000;}
+  .daily-cell-input.km-flag{outline:2px dashed #9333ea;outline-offset:-2px;}
   .daily-cell-input.has-value:not(.fail-value){
     background-color:hsl(var(--cell-hue,210),62%,80%);
     color:hsl(var(--cell-hue,210),65%,20%);
@@ -4097,8 +4098,11 @@ async function saveDailyCellValue(inp) {
   if (val) DATA.dailyStatus[key] = val; else delete DATA.dailyStatus[key];
   invalidateAvailabilityCache();
   const isFail = /fail/i.test(val);
+  const missingKm = dailyCellMissingKm(val);
   inp.classList.toggle('has-value', !!val);
   inp.classList.toggle('fail-value', isFail);
+  inp.classList.toggle('km-flag', missingKm);
+  inp.title = val + (missingKm ? ' — not counted toward KM' : '');
   inp.style.cssText = dailyValueStyle(val);
   await saveKey('dailyStatus');
   if (![1, 3].includes(maintenancePriority(val)) && DATA.dsMaintenanceNotes[asset]) {
@@ -4781,6 +4785,13 @@ function classifyDailyValue(raw) {
   if (DEPARTMENTAL_CODES.some(c => u === c || u.startsWith(c))) return 'departmental';
   return 'others';
 }
+function dailyCellMissingKm(raw) {
+  const v = (raw || '').trim();
+  if (!v) return false;
+  const cls = classifyDailyValue(v);
+  if (cls === 'maintenance' || cls === 'inactive') return false; // intentionally 0 km, not a mistake
+  return !KM_RATE_RULES.some(rule => rule.test(v.toLowerCase()));
+}
 let deploymentSelectedDate = null;
 function deploymentDateOrDefault() {
   if (deploymentSelectedDate) return deploymentSelectedDate;
@@ -5081,9 +5092,10 @@ function renderDailyStatus() {
       const dateStr = `${dailyStatusMonth}-${String(i + 1).padStart(2, '0')}`;
       const val = (DATA.dailyStatus[`${loco.asset}|${dateStr}`] || '').trim();
       const isFail = /fail/i.test(val);
+      const missingKm = dailyCellMissingKm(val);
       const style = dailyValueStyle(val);
       const todayCls = dateStr === todayStr ? ' today-col' : '';
-      return `<td class="day-cell${todayCls}"><input type="text" autocomplete="off" class="daily-cell-input${val ? ' has-value' : ''}${isFail ? ' fail-value' : ''}"${style ? ` style="${style}"` : ''} data-asset="${loco.asset}" data-date="${dateStr}" value="${esc(val)}" title="${esc(val)}"></td>`;
+      return `<td class="day-cell${todayCls}"><input type="text" autocomplete="off" class="daily-cell-input${val ? ' has-value' : ''}${isFail ? ' fail-value' : ''}${missingKm ? ' km-flag' : ''}"${style ? ` style="${style}"` : ''} data-asset="${loco.asset}" data-date="${dateStr}" value="${esc(val)}" title="${esc(val)}${missingKm ? ' — not counted toward KM' : ''}"></td>`;
     }).join('');
     const rowKm = computeMonthlyKm(loco.asset, dailyStatusMonth);
     const addKm = getAdditionalKm(loco.asset, dailyStatusMonth);
