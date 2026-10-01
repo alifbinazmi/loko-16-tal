@@ -3917,7 +3917,9 @@ const DAILY_STATUS_ALIAS_MAP = {
 };
 function canonicalizeDailyStatusValue(raw) {
   const t0 = autoCapitalizeDailyValue((raw || '').trim());
-  const t = t0.replace(/^pe(\d)/i, 'PE $1'); // PE15/PE45/PE360/PE180/etc. -> always space before the number
+  let t = t0.replace(/^pe(\d)/i, 'PE $1'); // PE15/PE45/PE360/PE180/etc. -> always space before the number
+  t = t.replace(/^l\/e\s*\.?\s*/i, 'L/E '); // L/E prefix -> always exactly one space, no period
+  t = t.replace(/^att(?=\s|$)/i, 'ATT'); // ATT prefix -> always capitalized (word-boundary, doesn't touch ATTD...)
   const key = t.toLowerCase().replace(/\s+/g, ' ').replace(/^([a-z])\.\s+/, '$1.');
   return DAILY_STATUS_ALIAS_MAP[key] || t;
 }
