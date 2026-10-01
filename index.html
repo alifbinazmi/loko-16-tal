@@ -4236,13 +4236,12 @@ function countFilledForMonth(yyyyMm) {
   }).length;
 }
 /* ---------- Total KM formula. Most duty codes below are an EXACT,
-   case-insensitive match against that day's status text. A couple represent a
-   whole FAMILY of codes rather than one literal string (the 80xx/80xx and
-   81xx/81xx unit-number pairings, e.g. "8147/8150") \u2014 those use a numeric
-   pattern so every variant is captured. Other unit-number pairings like
-   "474+473" and "472-471" are intentionally EXACT matches only \u2014 similar
-   looking variants (e.g. "476+471", "472-476") do NOT count toward KM.
-   Codes matching
+   case-insensitive match against that day's status text. A few represent a
+   whole FAMILY of codes rather than one literal string \u2014 the daily roster
+   uses many different unit-number pairings for the same duty type (e.g.
+   "474+473", "476+471", "472-475", "8147/8150" all mean the same kind of
+   run with different specific units) \u2014 those use a numeric pattern so every
+   variant is captured, not just the one example given. Codes matching
    nothing here (e.g. "yad prai", "Shunt.BG", plain shunting/repair notes)
    contribute 0 km. ---------- */
 const KM_RATE_RULES = [
@@ -4252,8 +4251,8 @@ const KM_RATE_RULES = [
   { test: v => /^81\d\d\/81\d\d$/.test(v), km: 315, label: '81xx/81xx (e.g. 8101/8150)' },
   { test: v => v === '1', km: 72, label: '1' },
   { test: v => v === '2', km: 72, label: '2' },
-  { test: v => v === '474+473', km: 266, label: '474+473' },
-  { test: v => v === '472-471', km: 532, label: '472-471' },
+  { test: v => /^\d{3}[+&]\d{3}$/.test(v), km: 266, label: '3-digit+3-digit (e.g. 474+473)' },
+  { test: v => /^\d{3}-\d{3}$/.test(v), km: 532, label: '3-digit-3-digit (e.g. 472-471)' },
   { test: v => v === 'yad utara', km: 55, label: 'Yad Utara' },
   { test: v => v === 'yad prai', km: 55, label: 'Yad Prai' },
   { test: v => v === 'f.klang', km: 55, label: 'F.Klang' },
