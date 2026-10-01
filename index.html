@@ -3914,6 +3914,8 @@ const DAILY_STATUS_ALIAS_MAP = {
 
   'pe 45 s': 'PE 45S', 'pe 45ds': 'PE 45S',
 
+  'tren 55 56': '55/56', 'tren 55/56': '55/56',
+
   'b.timur': 'B.TIMUR',
   'b.utara': 'B.UTARA',
   'b.selatan': 'B.SELATAN', 'b.sltn': 'B.SELATAN',
@@ -4268,6 +4270,7 @@ const KM_RATE_RULES = [
   { test: v => v === 'b.utara', km: 150, label: 'B.Utara' },
   { test: v => v === 'b.selatan', km: 150, label: 'B.Selatan' },
   { test: v => v === 'b.timur', km: 150, label: 'B.Timur' },
+  { test: v => v === '55/56', km: 290, label: '55/56' },
 ];
 function dutyCodeKmReferencePanelHtml() {
   const chunkSize = Math.ceil(KM_RATE_RULES.length / 5);
