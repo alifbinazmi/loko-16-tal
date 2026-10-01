@@ -3916,7 +3916,8 @@ const DAILY_STATUS_ALIAS_MAP = {
   'b.selatan': 'B.SELATAN', 'b.sltn': 'B.SELATAN',
 };
 function canonicalizeDailyStatusValue(raw) {
-  const t = autoCapitalizeDailyValue((raw || '').trim());
+  const t0 = autoCapitalizeDailyValue((raw || '').trim());
+  const t = t0.replace(/^pe(\d)/i, 'PE $1'); // PE15/PE45/PE360/PE180/etc. -> always space before the number
   const key = t.toLowerCase().replace(/\s+/g, ' ').replace(/^([a-z])\.\s+/, '$1.');
   return DAILY_STATUS_ALIAS_MAP[key] || t;
 }
