@@ -4282,6 +4282,9 @@ const KM_RATE_RULES = [
   { test: v => v === '21 (i-b)', km: 340, label: '21 (I-B)' },
   { test: v => v === '21 (i-g)', km: 390, label: '21 (I-G)' },
   { test: v => v === '21 (g-jb)', km: 210, label: '21 (G-JB)' },
+  { test: v => v === '24 (jb-g)', km: 210, label: '24 (JB-G)' },
+  { test: v => v === '24 (g-i)', km: 390, label: '24 (G-I)' },
+  { test: v => v === '24 (i-bk)', km: 650, label: '24 (I-BK)' },
 ];
 function dutyCodeKmReferencePanelHtml() {
   const chunkSize = Math.ceil(KM_RATE_RULES.length / 5);
