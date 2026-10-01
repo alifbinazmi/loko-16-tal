@@ -3895,12 +3895,37 @@ function autoCapitalizeDailyValue(t) {
   if (tu === 'YAD PRAI') return 'Yad Prai';
   return t;
 }
+// Known duty-code spelling/spacing variants that refer to the exact same depot shorthand.
+// Keyed by the lowercased form with no space after the "X." prefix, so "S. TUMPAT", "s.tumpat",
+// and "S.TUMPAT" all normalize to the same lookup key regardless of spacing/casing. A prefix
+// never merges into a different prefix — L/E, Shunt., ATT, and anything outside this list stays as-is.
+const DAILY_STATUS_ALIAS_MAP = {
+  'f.klang': 'F.Klang',
+
+  's.tum': 'S.TUM', 's.tumpat': 'S.TUM',
+  's.kem': 'S.KEM', 's.kempas': 'S.KEM',
+  's.gem': 'S.GEM', 's.gemas': 'S.GEM',
+  's.lipis': 'S.LIPIS', 's,lipis': 'S.LIPIS',
+  's.klsd': 'S.KLSD',
+  's.dbg': 'S.DBG',
+  's.dbt': 'S.DBT',
+  's.klang': 'S.KLANG', 's.p/klang': 'S.KLANG', 's.port klang': 'S.KLANG',
+
+  'b.timur': 'B.TIMUR',
+  'b.utara': 'B.UTARA',
+  'b.selatan': 'B.SELATAN', 'b.sltn': 'B.SELATAN',
+};
+function canonicalizeDailyStatusValue(raw) {
+  const t = autoCapitalizeDailyValue((raw || '').trim());
+  const key = t.toLowerCase().replace(/\s+/g, ' ').replace(/^([a-z])\.\s+/, '$1.');
+  return DAILY_STATUS_ALIAS_MAP[key] || t;
+}
 function collectDailyStatusOptions() {
   const counts = new Map();
   Object.values(DATA.dailyStatus).forEach(v => {
     let t = (v || '').trim();
     if (!t) return;
-    t = autoCapitalizeDailyValue(t);
+    t = canonicalizeDailyStatusValue(t);
     counts.set(t, (counts.get(t) || 0) + 1);
   });
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
@@ -4062,7 +4087,7 @@ async function saveDailyCellValue(inp) {
   const date = inp.dataset.date;
   const key = `${asset}|${date}`;
   const oldVal = DATA.dailyStatus[key];
-  const val = autoCapitalizeDailyValue(inp.value.trim());
+  const val = canonicalizeDailyStatusValue(inp.value.trim());
   inp.value = val;
   if (val) DATA.dailyStatus[key] = val; else delete DATA.dailyStatus[key];
   invalidateAvailabilityCache();
