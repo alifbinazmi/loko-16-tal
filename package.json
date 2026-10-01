@@ -1,0 +1,13 @@
+{
+  "name": "loko-dashboard-automation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "daily-failure-report": "node scripts/daily-failure-report.mjs",
+    "weekly-failure-summary": "node scripts/weekly-failure-summary.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "nodemailer": "^6.9.15"
+  }
+}

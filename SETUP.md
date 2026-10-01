@@ -187,6 +187,52 @@ Both `dashboard_store` and `login_credentials` have `using (true)` read policies
 
 ---
 
+## Daily & Weekly Failure Report Emails
+
+Two GitHub Actions workflows read the `failures` data straight from Supabase and email a summary — both share the same failure-analysis logic (`scripts/lib/failure-analysis.mjs`) so their numbers always agree with the dashboard's USW/Sub-System tabs:
+
+- **Daily** (`.github/workflows/daily-failure-report.yml` → `scripts/daily-failure-report.mjs`) — sends every morning at 08:30 (Asia/Kuala_Lumpur): failures logged the previous day, repeat failures this month (same locomotive + sub-system 2+ times), month-to-date top failing sub-system/locomotive/depot with trend arrows vs. last month, a root-cause (4M) breakdown, and downtime totals.
+- **Weekly** (`.github/workflows/weekly-failure-summary.yml` → `scripts/weekly-failure-summary.mjs`) — sends every Monday at 08:30, covering the week that just ended (last Monday–Sunday): the same set of sections, scoped to that week instead of a single day/month, with trends compared to the previous week.
+
+Both run entirely on GitHub's servers — your computer doesn't need to be on.
+
+### One-time setup
+
+1. **Turn on 2-Step Verification** on the Gmail account that will send the email: [myaccount.google.com/security](https://myaccount.google.com/security)
+2. **Generate an App Password**: go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), create one for "Mail", and copy the 16-character password it gives you
+3. In your GitHub repo, go to **Settings → Secrets and variables → Actions → New repository secret**, and add each of these (both workflows share the same 5 secrets):
+
+| Secret name | Value |
+|---|---|
+| `SUPABASE_URL` | Same Project URL from Step 3 above |
+| `SUPABASE_ANON_KEY` | Same Publishable key from Step 3 above |
+| `GMAIL_USER` | The Gmail address you enabled the App Password on |
+| `GMAIL_APP_PASSWORD` | The 16-character App Password (no spaces) |
+| `RECIPIENT_EMAIL` | The email address that should receive the report |
+
+4. Push these files to GitHub if they aren't already there: `package.json`, `scripts/lib/failure-analysis.mjs`, `scripts/daily-failure-report.mjs`, `scripts/weekly-failure-summary.mjs`, `.github/workflows/daily-failure-report.yml`, `.github/workflows/weekly-failure-summary.yml`.
+
+### Testing it
+
+You don't have to wait for the scheduled time to test either one:
+
+1. Go to your repo on GitHub → **Actions** tab → **Daily Failure Report** or **Weekly Failure Summary** (left sidebar)
+2. Click **Run workflow** → **Run workflow** (this uses the manual trigger, `workflow_dispatch`)
+3. Wait ~30 seconds, refresh, click into the run — a green checkmark means it sent successfully
+4. Check the recipient's inbox (and spam folder, the first time)
+
+### Troubleshooting the report emails
+
+| Problem | Fix |
+|---|---|
+| Workflow run fails with "Missing required env var" | One of the 5 secrets above is missing or misspelled — check **Settings → Secrets and variables → Actions** |
+| Fails with a Gmail auth error | The App Password is wrong, has spaces in it, or 2-Step Verification isn't actually turned on for that account |
+| Email never arrives but the run succeeded | Check spam folder; also double check `RECIPIENT_EMAIL` is spelled correctly |
+| Daily report says "No failures reported yesterday" every day | Confirm failures are actually being entered with `dateReceive` set to that day in the dashboard's USW tab |
+| Weekly summary looks the same as the daily one | That's expected on a week with few failures — check the "Week of ..." date range in the subject line to confirm it's actually covering 7 days, not 1 |
+
+---
+
 ## Troubleshooting
 
 | Problem | Fix |
