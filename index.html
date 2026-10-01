@@ -4113,7 +4113,6 @@ async function saveDailyCellValue(inp) {
   if (counter) counter.textContent = countFilledForMonth(dailyStatusMonth);
   refreshDailyStatusOptions();
   refreshRowKmCells(asset);
-  refreshKmFlagPanel();
   refreshDeploymentSummary();
 
   const oldPeCode = (oldVal || '').replace(/\s+/g, '').toUpperCase();
@@ -4306,57 +4305,6 @@ function computeMonthlyKm(asset, yyyyMm) {
   const result = Math.round(total * 10) / 10;
   _monthlyKmCache.set(cacheKey, result);
   return result;
-}
-function computeKmFlaggedCells(yyyyMm) {
-  const nDays = daysInMonthCount(yyyyMm);
-  const out = [];
-  DATA.locoPerf.forEach(loco => {
-    for (let d = 1; d <= nDays; d++) {
-      const dateStr = `${yyyyMm}-${String(d).padStart(2, '0')}`;
-      const val = (DATA.dailyStatus[`${loco.asset}|${dateStr}`] || '').trim();
-      if (dailyCellMissingKm(val)) out.push({ asset: loco.asset, date: dateStr, val });
-    }
-  });
-  return out;
-}
-function kmFlaggedCellsPanelHtml() {
-  const flagged = computeKmFlaggedCells(dailyStatusMonth);
-  if (!flagged.length) {
-    return `<div class="panel" id="dsKmFlagPanel" style="margin-top:14px;">
-      <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;">Cells Not Counted Toward KM</div>
-      <div class="row-count">None this month &mdash; every filled cell matches a known duty code.</div>
-    </div>`;
-  }
-  const itemsHtml = flagged.map(f => `
-    <div class="km-flag-item" data-asset="${f.asset}" data-date="${f.date}" style="cursor:pointer;display:flex;justify-content:space-between;gap:10px;padding:7px 10px;border-radius:6px;background:var(--panel-2);">
-      <span>${esc(f.date)} &middot; Loco ${esc(f.asset)}</span>
-      <strong>${esc(f.val)}</strong>
-    </div>`).join('');
-  return `<div class="panel" id="dsKmFlagPanel" style="margin-top:14px;">
-    <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9333ea;margin-bottom:10px;">Cells Not Counted Toward KM (${flagged.length})</div>
-    <div style="display:flex;flex-direction:column;gap:6px;">${itemsHtml}</div>
-    <div class="row-count">Click a row to jump to that cell.</div>
-  </div>`;
-}
-function wireKmFlagPanel() {
-  const panel = document.getElementById('dsKmFlagPanel');
-  if (!panel) return;
-  panel.querySelectorAll('.km-flag-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const { asset, date } = item.dataset;
-      const cell = document.querySelector(`.daily-cell-input[data-asset="${asset}"][data-date="${date}"]`);
-      if (cell) {
-        cell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-        cell.focus();
-      }
-    });
-  });
-}
-function refreshKmFlagPanel() {
-  const panel = document.getElementById('dsKmFlagPanel');
-  if (!panel) return;
-  panel.outerHTML = kmFlaggedCellsPanelHtml();
-  wireKmFlagPanel();
 }
 function fmtKm(n) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
@@ -5190,7 +5138,6 @@ function renderDailyStatus() {
       </div>
       <div class="row-count">Click any cell to choose from previously used codes (e.g. "KVDT", "yad prai", "26", "27") or type a new one &mdash; type "Failed" to flag a failure. Total KM is calculated per locomotive from that month's duty codes using the fixed distance-per-code table below &mdash; codes not in that table contribute 0km. Additional KM is a manual entry for any distance the formula doesn't capture; Total Final KM = Total KM + Additional KM. Leave a cell blank for a normal/unassigned day. Source: Reliability_Loco_16-TAL_3.xlsx</div>
     </div>
-    ${kmFlaggedCellsPanelHtml()}
     <div class="panel" id="dsDeploymentPanel" style="margin-top:14px;">${deploymentSummaryPanelHtml()}</div>
     <div class="panel" id="dsMonthlyTotals" style="margin-top:14px;">
       <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;">Fleet Total Final KM by Month</div>
@@ -5203,7 +5150,6 @@ function renderDailyStatus() {
   wireDailyStatusNav();
   wireDailyStatusCells();
   wireDailyStatusMonthChips();
-  wireKmFlagPanel();
   wireDeploymentSummaryInputs();
   wireDeploymentDateControl();
   wireAssetFlagCells();
