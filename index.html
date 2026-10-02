@@ -4285,10 +4285,12 @@ const KM_RATE_RULES = [
   { test: v => v === '24 (jb-g)', km: 210, label: '24 (JB-G)' },
   { test: v => v === '24 (g-i)', km: 390, label: '24 (G-I)' },
   { test: v => v === '24 (i-bk)', km: 650, label: '24 (I-BK)' },
+  { test: v => v === 'shuttle selatan', km: 575, label: 'Shuttle Selatan' },
+  { test: v => v === 'shuttle hybrid', km: 120, label: 'Shuttle Hybrid' },
 ];
 // Hidden from the reference table below (retired, use the newer route-segment codes instead),
 // but intentionally still left in KM_RATE_RULES so existing cells keep calculating correctly.
-const KM_REFERENCE_HIDDEN_LABELS = ['E&O 24 (G)', 'E&O 24 (M)', 'E&O 24 (MG)', 'E&O 24 (I)', 'E&O (24,21)', 'E&O 21 (G)', 'E&O 21 (JB)'];
+const KM_REFERENCE_HIDDEN_LABELS = ['E&O 24 (G)', 'E&O 24 (M)', 'E&O 24 (MG)', 'E&O 24 (I)', 'E&O (24,21)', 'E&O 21 (G)', 'E&O 21 (JB)', '80xx/80xx (e.g. 8001/8046)', '81xx/81xx (e.g. 8101/8150)'];
 function dutyCodeKmReferencePanelHtml() {
   const visibleRules = KM_RATE_RULES.filter(rule => !KM_REFERENCE_HIDDEN_LABELS.includes(rule.label));
   const chunkSize = Math.ceil(visibleRules.length / 5);
