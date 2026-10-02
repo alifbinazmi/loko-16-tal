@@ -3884,6 +3884,7 @@ function dailyValueStyle(rawVal) {
   if (/B\.?\s?(UTARA|SELATAN|TIMUR)/.test(upper)) return 'background-color:#B6B6B6;color:#242424;border-color:#949494;'; // Wilayah B.Utara/Selatan/Timur: grey
   if (/SP\.?\s?TRAIN|SPECIAL\s?TRAIN/.test(upper)) return 'background-color:#2B2B2B;color:#FFFFFF;border-color:#000000;'; // Special Train: black
   if (upper.includes('YAD PRAI') || upper.includes('YAD UTARA')) return 'background-color:#F2B063;color:#5C3200;border-color:#E89530;'; // yad lansiran: orange
+  if (upper === 'SHUTTLE SELATAN') return 'background-color:#5FCFC0;color:#0B4A43;border-color:#3DB3A3;'; // Shuttle Selatan: teal (distinct from hash-based S.* colors)
   if (val.includes('+')) return 'background-color:#F28E8E;color:#6B0000;border-color:#E85C5C;'; // combined loco (+): light red
   if (/^\d{3}-\d{3}$/.test(val)) return 'background-color:#F2B063;color:#5C3200;border-color:#E89530;'; // lansiran pattern (e.g. 472-471): orange
 
