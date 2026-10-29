@@ -2377,7 +2377,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   const ssEntries = Object.entries(ssTotals).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   drawBarChart('chartSubsystem', ssEntries.map(e => e[0]), ssEntries.map(e => e[1]), '#A85D00', {
     rotate: true,
-    onClick: (idx) => goToSubsystem(ssEntries[idx][0]),
+    onClick: () => setView('subsystem'),
     showValues: true,
   });
   _dashboardChartData.chartSubsystem = { title: 'Failures by Sub-System', labelHeader: 'Sub-System', valueHeader: 'Failures', labels: ssEntries.map(e => e[0]), values: ssEntries.map(e => e[1]) };
