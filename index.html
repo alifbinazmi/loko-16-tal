@@ -2120,13 +2120,13 @@ function renderDashboard() {
     </div>
     <div class="chart-grid">
       <div class="chart-panel"><h3 id="chartDashAvailabilityTitle" style="cursor:pointer;">Fleet Availability by Month</h3><div class="chart-wrap"><canvas id="chartDashAvailability"></canvas></div></div>
-      <div class="chart-panel"><h3>Reliability (MKBF) by Month</h3><div class="chart-wrap"><canvas id="chartDashReliability"></canvas></div></div>
-      <div class="chart-panel"><h3>PE Completions by Month</h3><div class="chart-wrap"><canvas id="chartDashPe"></canvas></div></div>
-      <div class="chart-panel"><h3>Monthly Unscheduled Trend <span class="chart-hint">click a bar to drill in</span></h3><div class="chart-wrap"><canvas id="chartMonthly"></canvas></div></div>
-      <div class="chart-panel"><h3>Monthly 16-TAL Incidents <span class="chart-hint">click a bar to drill in</span></h3><div class="chart-wrap"><canvas id="chartMonthlyIncidents"></canvas></div></div>
-      <div class="chart-panel"><h3>Total Running (km) by Month</h3><div class="chart-wrap"><canvas id="chartDashRunning"></canvas></div></div>
-      <div class="chart-panel"><h3>Failures by Sub-System <span class="chart-hint">click a bar to drill in</span></h3><div class="chart-wrap"><canvas id="chartSubsystem"></canvas></div></div>
-      <div class="chart-panel"><h3>Failures by Locomotive (top 12)</h3><div class="chart-wrap"><canvas id="chartAsset"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartDashReliabilityTitle" style="cursor:pointer;">Reliability (MKBF) by Month</h3><div class="chart-wrap"><canvas id="chartDashReliability"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartDashPeTitle" style="cursor:pointer;">PE Completions by Month</h3><div class="chart-wrap"><canvas id="chartDashPe"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartMonthlyTitle" style="cursor:pointer;">Monthly Unscheduled Trend <span class="chart-hint">click a bar to drill in</span></h3><div class="chart-wrap"><canvas id="chartMonthly"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartMonthlyIncidentsTitle" style="cursor:pointer;">Monthly 16-TAL Incidents <span class="chart-hint">click a bar to drill in</span></h3><div class="chart-wrap"><canvas id="chartMonthlyIncidents"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartDashRunningTitle" style="cursor:pointer;">Total Running (km) by Month</h3><div class="chart-wrap"><canvas id="chartDashRunning"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartSubsystemTitle" style="cursor:pointer;">Failures by Sub-System <span class="chart-hint">click a bar to drill in</span></h3><div class="chart-wrap"><canvas id="chartSubsystem"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartAssetTitle" style="cursor:pointer;">Failures by Locomotive (top 12)</h3><div class="chart-wrap"><canvas id="chartAsset"></canvas></div></div>
     </div>
   `;
   wireKpiCards();
@@ -2385,6 +2385,8 @@ function drawDashboardCharts(ssTotals, assetTotals) {
     showValues: true,
   });
   _dashboardChartData.chartSubsystem = { title: 'Failures by Sub-System', labelHeader: 'Sub-System', valueHeader: 'Failures', labels: ssEntries.map(e => e[0]), values: ssEntries.map(e => e[1]) };
+  const chartSubsystemTitleEl = document.getElementById('chartSubsystemTitle');
+  if (chartSubsystemTitleEl) chartSubsystemTitleEl.addEventListener('click', () => setView('subsystem'));
 
   const monthCounts = {};
   countableFailures().forEach(f => { const k = monthKey(f.dateReceive); if (k) monthCounts[k] = (monthCounts[k] || 0) + 1; });
@@ -2395,6 +2397,8 @@ function drawDashboardCharts(ssTotals, assetTotals) {
     showValues: true,
   });
   _dashboardChartData.chartMonthly = { title: 'Monthly Unscheduled Trend', labelHeader: 'Month', valueHeader: 'Failures', labels: monthKeys.map(monthLabel), values: monthKeys.map(k => monthCounts[k]) };
+  const chartMonthlyTitleEl = document.getElementById('chartMonthlyTitle');
+  if (chartMonthlyTitleEl) chartMonthlyTitleEl.addEventListener('click', () => setView('failures'));
 
   const incMonthCounts = {};
   DATA.incidents.forEach(i => { if (i.month && i.asset) incMonthCounts[i.month] = (incMonthCounts[i.month] || 0) + 1; });
@@ -2405,10 +2409,14 @@ function drawDashboardCharts(ssTotals, assetTotals) {
     showValues: true,
   });
   _dashboardChartData.chartMonthlyIncidents = { title: 'Monthly 16-TAL Incidents', labelHeader: 'Month', valueHeader: 'Incidents', labels: incMonths.map(incidentMonthShortLabel), values: incMonths.map(m => incMonthCounts[m]) };
+  const chartMonthlyIncidentsTitleEl = document.getElementById('chartMonthlyIncidentsTitle');
+  if (chartMonthlyIncidentsTitleEl) chartMonthlyIncidentsTitleEl.addEventListener('click', () => setView('incidents'));
 
   const assetEntries = Object.entries(assetTotals).sort((a, b) => b[1] - a[1]).slice(0, 12);
   drawBarChart('chartAsset', assetEntries.map(e => e[0]), assetEntries.map(e => e[1]), '#6250d6', { rotate: false, showValues: true });
   _dashboardChartData.chartAsset = { title: 'Failures by Locomotive (top 12)', labelHeader: 'Asset', valueHeader: 'Failures', labels: assetEntries.map(e => e[0]), values: assetEntries.map(e => e[1]) };
+  const chartAssetTitleEl = document.getElementById('chartAssetTitle');
+  if (chartAssetTitleEl) chartAssetTitleEl.addEventListener('click', () => setView('failures'));
 
   const availMonths = availabilityTrackedMonths();
   const availData = availMonths.map(m => ({ month: m, value: computeDailyAvailabilityAverage(m), target: availabilityTargetForMonth(m) }));
@@ -2425,6 +2433,8 @@ function drawDashboardCharts(ssTotals, assetTotals) {
     mkbfData.map(v => v >= MKBF_TARGET_KM ? '#159253' : '#B0202F'),
     { rotate: false, targetLine: MKBF_TARGET_KM, onClick: () => setView('reliability'), showValues: true, valueFormat: v => fmtKm(v) });
   _dashboardChartData.chartDashReliability = { title: 'Reliability (MKBF) by Month', labelHeader: 'Month', valueHeader: 'MKBF (km)', labels: relMonths.map(monthLabel), values: mkbfData };
+  const chartDashReliabilityTitleEl = document.getElementById('chartDashReliabilityTitle');
+  if (chartDashReliabilityTitleEl) chartDashReliabilityTitleEl.addEventListener('click', () => setView('reliability'));
 
   const peMonthCounts = {};
   DATA.peHistory.forEach(h => { if (h.date) { const k = monthKey(h.date); if (k) peMonthCounts[k] = (peMonthCounts[k] || 0) + 1; } });
@@ -2432,11 +2442,15 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   drawBarChart('chartDashPe', peMonthKeys.map(monthLabel), peMonthKeys.map(k => peMonthCounts[k]), '#2a78d6',
     { rotate: false, onClick: () => setView('masterplan'), showValues: true });
   _dashboardChartData.chartDashPe = { title: 'PE Completions by Month', labelHeader: 'Month', valueHeader: 'PE Completions', labels: peMonthKeys.map(monthLabel), values: peMonthKeys.map(k => peMonthCounts[k]) };
+  const chartDashPeTitleEl = document.getElementById('chartDashPeTitle');
+  if (chartDashPeTitleEl) chartDashPeTitleEl.addEventListener('click', () => setView('masterplan'));
 
   const runningData = relMonths.map(m => dailyStatusFleetKmForMonth(m));
   drawBarChart('chartDashRunning', relMonths.map(monthLabel), runningData, '#eda100',
     { rotate: false, onClick: () => setView('dailyStatus'), showValues: true, valueFormat: v => fmtKm(v) });
   _dashboardChartData.chartDashRunning = { title: 'Total Running (km) by Month', labelHeader: 'Month', valueHeader: 'Running (km)', labels: relMonths.map(monthLabel), values: runningData };
+  const chartDashRunningTitleEl = document.getElementById('chartDashRunningTitle');
+  if (chartDashRunningTitleEl) chartDashRunningTitleEl.addEventListener('click', () => setView('dailyStatus'));
 }
 let _dashboardResizeTimer = null;
 window.addEventListener('resize', () => {
