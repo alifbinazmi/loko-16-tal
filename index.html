@@ -2377,7 +2377,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   _dashboardChartData = {};
 
   const ssEntries = Object.entries(ssTotals).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-  drawBarChart('chartSubsystem', ssEntries.map(e => e[0]), ssEntries.map(e => e[1]), '#A85D00', {
+  drawBarChart('chartSubsystem', ssEntries.map(e => e[0]), ssEntries.map(e => e[1]), '#e87ba4', {
     rotate: true,
     onClick: () => setView('subsystem'),
     showValues: true,
@@ -2387,7 +2387,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   const monthCounts = {};
   countableFailures().forEach(f => { const k = monthKey(f.dateReceive); if (k) monthCounts[k] = (monthCounts[k] || 0) + 1; });
   const monthKeys = Object.keys(monthCounts).sort();
-  drawBarChart('chartMonthly', monthKeys.map(monthLabel), monthKeys.map(k => monthCounts[k]), '#2F7EE0', {
+  drawBarChart('chartMonthly', monthKeys.map(monthLabel), monthKeys.map(k => monthCounts[k]), '#eb6834', {
     rotate: false,
     onClick: (idx) => drillFailuresByMonth(monthKeys[idx]),
     showValues: true,
@@ -2397,7 +2397,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   const incMonthCounts = {};
   DATA.incidents.forEach(i => { if (i.month && i.asset) incMonthCounts[i.month] = (incMonthCounts[i.month] || 0) + 1; });
   const incMonths = Object.keys(incMonthCounts).sort((a, b) => incidentMonthSortKey(a) - incidentMonthSortKey(b));
-  drawBarChart('chartMonthlyIncidents', incMonths.map(incidentMonthShortLabel), incMonths.map(m => incMonthCounts[m]), '#B0202F', {
+  drawBarChart('chartMonthlyIncidents', incMonths.map(incidentMonthShortLabel), incMonths.map(m => incMonthCounts[m]), '#1baf7a', {
     rotate: false,
     onClick: (idx) => drillIncidentsByMonth(incMonths[idx]),
     showValues: true,
@@ -2405,7 +2405,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   _dashboardChartData.chartMonthlyIncidents = { title: 'Monthly 16-TAL Incidents', labelHeader: 'Month', valueHeader: 'Incidents', labels: incMonths.map(incidentMonthShortLabel), values: incMonths.map(m => incMonthCounts[m]) };
 
   const assetEntries = Object.entries(assetTotals).sort((a, b) => b[1] - a[1]).slice(0, 12);
-  drawBarChart('chartAsset', assetEntries.map(e => e[0]), assetEntries.map(e => e[1]), '#159253', { rotate: false, showValues: true });
+  drawBarChart('chartAsset', assetEntries.map(e => e[0]), assetEntries.map(e => e[1]), '#6250d6', { rotate: false, showValues: true });
   _dashboardChartData.chartAsset = { title: 'Failures by Locomotive (top 12)', labelHeader: 'Asset', valueHeader: 'Failures', labels: assetEntries.map(e => e[0]), values: assetEntries.map(e => e[1]) };
 
   const availMonths = availabilityTrackedMonths();
@@ -2425,12 +2425,12 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   const peMonthCounts = {};
   DATA.peHistory.forEach(h => { if (h.date) { const k = monthKey(h.date); if (k) peMonthCounts[k] = (peMonthCounts[k] || 0) + 1; } });
   const peMonthKeys = Object.keys(peMonthCounts).sort();
-  drawBarChart('chartDashPe', peMonthKeys.map(monthLabel), peMonthKeys.map(k => peMonthCounts[k]), '#A85D00',
+  drawBarChart('chartDashPe', peMonthKeys.map(monthLabel), peMonthKeys.map(k => peMonthCounts[k]), '#2a78d6',
     { rotate: false, onClick: () => setView('masterplan'), showValues: true });
   _dashboardChartData.chartDashPe = { title: 'PE Completions by Month', labelHeader: 'Month', valueHeader: 'PE Completions', labels: peMonthKeys.map(monthLabel), values: peMonthKeys.map(k => peMonthCounts[k]) };
 
   const runningData = relMonths.map(m => dailyStatusFleetKmForMonth(m));
-  drawBarChart('chartDashRunning', relMonths.map(monthLabel), runningData, '#2F7EE0',
+  drawBarChart('chartDashRunning', relMonths.map(monthLabel), runningData, '#eda100',
     { rotate: false, onClick: () => setView('dailyStatus'), showValues: true, valueFormat: v => fmtKm(v) });
   _dashboardChartData.chartDashRunning = { title: 'Total Running (km) by Month', labelHeader: 'Month', valueHeader: 'Running (km)', labels: relMonths.map(monthLabel), values: runningData };
 }
