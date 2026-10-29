@@ -2119,7 +2119,7 @@ function renderDashboard() {
       <button type="button" class="btn btn-ghost" id="dashExportBtn">Export Dashboard to Excel</button>
     </div>
     <div class="chart-grid">
-      <div class="chart-panel"><h3>Fleet Availability by Month</h3><div class="chart-wrap"><canvas id="chartDashAvailability"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartDashAvailabilityTitle" style="cursor:pointer;">Fleet Availability by Month</h3><div class="chart-wrap"><canvas id="chartDashAvailability"></canvas></div></div>
       <div class="chart-panel"><h3>Reliability (MKBF) by Month</h3><div class="chart-wrap"><canvas id="chartDashReliability"></canvas></div></div>
       <div class="chart-panel"><h3>PE Completions by Month</h3><div class="chart-wrap"><canvas id="chartDashPe"></canvas></div></div>
       <div class="chart-panel"><h3>Monthly Unscheduled Trend <span class="chart-hint">click a bar to drill in</span></h3><div class="chart-wrap"><canvas id="chartMonthly"></canvas></div></div>
@@ -2416,6 +2416,8 @@ function drawDashboardCharts(ssTotals, assetTotals) {
     availData.map(a => a.value >= a.target ? '#159253' : '#B0202F'),
     { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability'), yMin: 5, yMax: 30, ySteps: 5, showValues: true, valueFormat: v => v.toFixed(1) + '%' });
   _dashboardChartData.chartDashAvailability = { title: 'Fleet Availability by Month', labelHeader: 'Month', valueHeader: 'Availability %', labels: availData.map(a => monthLabel(a.month)), values: availData.map(a => a.value) };
+  const availTitleEl = document.getElementById('chartDashAvailabilityTitle');
+  if (availTitleEl) availTitleEl.addEventListener('click', () => setView('availability'));
 
   const relMonths = reliabilityTrackedMonths();
   const mkbfData = relMonths.map(m => computeMkbfKm(m) || 0);
