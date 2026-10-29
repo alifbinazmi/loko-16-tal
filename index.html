@@ -4612,7 +4612,7 @@ function renderMasterplan() {
       <button class="btn btn-primary" id="addPeRecordBtn" style="font-size:11.5px;padding:7px 12px;">${ICONS.plus}Add PE Record</button>
     </div>
     <div class="panel">
-      <div class="table-scroll">
+      <div class="table-scroll" style="height:400px;">
         <table>
           <thead><tr>
             ${PE_HISTORY_COLUMNS.map(c => columnHeaderHtml('peHistory', c.key, c.label)).join('')}
