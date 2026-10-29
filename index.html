@@ -3430,7 +3430,7 @@ function availabilityMonthYearControlHtml() {
   const years = [];
   for (let y = minYear; y <= maxYear; y++) years.push(y);
   return `
-    <div class="sortby-box">
+    <div class="sortby-box" style="flex-shrink:0;">
       ${ICONS.calendar}
       <select id="daMonthSelect" aria-label="Select month">
         ${MONTH_NAMES.map((m, i) => `<option value="${i + 1}" ${curMonthNum === i + 1 ? 'selected' : ''}>${m}</option>`).join('')}
@@ -3439,7 +3439,7 @@ function availabilityMonthYearControlHtml() {
         ${years.map(y => `<option value="${y}" ${curYear === y ? 'selected' : ''}>${y}</option>`).join('')}
       </select>
     </div>
-    <button class="btn" id="daDisplayBtn" style="font-size:11.5px;padding:8px 12px;background:#8BC34A;color:#0B2E00;border-color:#6FA83A;">Display</button>`;
+    <button class="btn" id="daDisplayBtn" style="font-size:11.5px;padding:8px 12px;background:#8BC34A;color:#0B2E00;border-color:#6FA83A;flex-shrink:0;white-space:nowrap;">Display</button>`;
 }
 function wireDailyAvailabilityNav() {
   const prev = document.getElementById('daPrevMonth');
@@ -3474,18 +3474,6 @@ function renderDailyAvailabilityGrid() {
   const avg = computeDailyAvailabilityAverage(dailyAvailabilityMonth);
   const target = availabilityTargetForMonth(dailyAvailabilityMonth);
   return `
-    <div class="panel" style="margin-bottom:14px;" id="availDailyGridPanel">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <button class="btn btn-ghost" id="daPrevMonth">&lsaquo; Prev</button>
-          <div style="font-weight:700;font-size:14px;min-width:150px;text-align:center;">${monthLabelLong(dailyAvailabilityMonth)}</div>
-          <button class="btn btn-ghost" id="daNextMonth">Next &rsaquo;</button>
-          <button class="btn btn-ghost" id="daToday" style="font-size:11px;">Jump to ${monthLabelLong(todayMonthKey())}</button>
-          ${availabilityMonthYearControlHtml()}
-        </div>
-        <div style="font-size:12px;font-weight:700;color:var(--amber);">Average this month: ${avg}<span class="dim" style="font-weight:400;"> / ${target} target</span></div>
-      </div>
-    </div>
     <div class="panel">
       <div class="table-scroll compact">
         <table class="daily-table avail-daily-table" style="min-width:0;">
@@ -3494,6 +3482,16 @@ function renderDailyAvailabilityGrid() {
         </table>
       </div>
       <div class="row-count">Auto-computed from the Daily Status table &mdash; a locomotive counts as available that day unless its status cell is FAILED, PE (periodic exam), REPAIR, REPAINT, or OH (overhaul). Edit a locomotive's daily status on the Daily Status tab to change its availability here.</div>
+    </div>
+    <div class="panel" style="margin-top:14px;" id="availDailyGridPanel">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow-x:auto;">
+        <button class="btn btn-ghost" id="daPrevMonth" style="flex-shrink:0;white-space:nowrap;">&lsaquo; Prev</button>
+        <div style="font-weight:700;font-size:14px;flex-shrink:0;white-space:nowrap;">${monthLabelLong(dailyAvailabilityMonth)}</div>
+        <button class="btn btn-ghost" id="daNextMonth" style="flex-shrink:0;white-space:nowrap;">Next &rsaquo;</button>
+        <button class="btn btn-ghost" id="daToday" style="font-size:11px;flex-shrink:0;white-space:nowrap;">Today</button>
+        ${availabilityMonthYearControlHtml()}
+        <div style="font-size:12px;font-weight:700;color:var(--amber);flex-shrink:0;white-space:nowrap;">Avg: ${avg}<span class="dim" style="font-weight:400;"> / ${target}</span></div>
+      </div>
     </div>
   `;
 }
