@@ -237,6 +237,7 @@
   .stat-card .val .n{font-family:var(--mono);color:var(--indigo);}
 
   .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .reliability-split{display:grid;grid-template-columns:1fr 1.6fr;gap:14px;align-items:start;}
   .chart-panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px 18px 10px 18px;box-shadow:0 1px 2px rgba(23,27,39,.04), 0 6px 16px -10px rgba(23,27,39,.12);}
   .section-eyebrow{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);margin:18px 0 10px 2px;display:flex;align-items:center;gap:8px;}
   .section-eyebrow::after{content:"";flex:1;height:1px;background:var(--border-soft);}
@@ -566,7 +567,7 @@
 
   @media (max-width:980px){
     .kpi-grid,.stat-grid{grid-template-columns:repeat(2,1fr);}
-    .chart-grid{grid-template-columns:1fr;}
+    .chart-grid,.reliability-split{grid-template-columns:1fr;}
   }
   @media (max-width:700px){
     body{flex-direction:column;}
@@ -3813,41 +3814,45 @@ function renderReliability() {
       <div class="chart-panel"><h3>Reliability (MKBF) by Month</h3><div class="chart-wrap"><canvas id="chartReliability"></canvas></div></div>
     </div>
 
-    <div class="panel" style="margin-top:14px;margin-bottom:14px;">
-      <div class="table-scroll">
-        <table>
-          <thead><tr>
-            <th>Month</th><th>Running (km)</th><th>Failures</th><th>MKBF (km/failure)</th><th>Target (km)</th><th>Status</th>
-          </tr></thead>
-          <tbody>${monthlyRows}</tbody>
-        </table>
+    <div class="reliability-split" style="margin-top:14px;margin-bottom:14px;">
+      <div class="panel">
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>Month</th><th>Running (km)</th><th>Failures</th><th>MKBF (km/failure)</th><th>Target (km)</th><th>Status</th>
+            </tr></thead>
+            <tbody>${monthlyRows}</tbody>
+          </table>
+        </div>
+        <div class="row-count">Running (km) is the fleet-wide Total Final KM summed from the Daily Status tab for that month. Failures are from the original Reliability_Loco_16-TAL.xlsx logs through June 2026, and live 16-TAL Incident records (status = FAIL only) from July 2026 onward. MKBF = Running km &divide; Failures for that month, against a ${fmtKm(MKBF_TARGET_KM)} km target.</div>
       </div>
-      <div class="row-count">Running (km) is the fleet-wide Total Final KM summed from the Daily Status tab for that month. Failures are from the original Reliability_Loco_16-TAL.xlsx logs through June 2026, and live 16-TAL Incident records (status = FAIL only) from July 2026 onward. MKBF = Running km &divide; Failures for that month, against a ${fmtKm(MKBF_TARGET_KM)} km target.</div>
-    </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px;flex-wrap:wrap;gap:8px;">
-      <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">Locomotive Performance</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <select id="reliabilityMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);">
-          <option value="all"${reliabilityPerfMonth === 'all' ? ' selected' : ''}>All Months</option>
-          ${trackedPerfMonths.map(m => `<option value="${esc(m)}"${reliabilityPerfMonth === m ? ' selected' : ''}>${esc(monthLabel(m))}</option>`).join('')}
-        </select>
-        <select id="reliabilityClassSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);">
-          <option value="all"${reliabilityClassFilter === 'all' ? ' selected' : ''}>All Classes</option>
-          ${locoClasses.map(c => `<option value="${esc(c)}"${reliabilityClassFilter === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}
-        </select>
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 10px;flex-wrap:wrap;gap:8px;">
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">Locomotive Performance</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <select id="reliabilityMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);">
+              <option value="all"${reliabilityPerfMonth === 'all' ? ' selected' : ''}>All Months</option>
+              ${trackedPerfMonths.map(m => `<option value="${esc(m)}"${reliabilityPerfMonth === m ? ' selected' : ''}>${esc(monthLabel(m))}</option>`).join('')}
+            </select>
+            <select id="reliabilityClassSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);">
+              <option value="all"${reliabilityClassFilter === 'all' ? ' selected' : ''}>All Classes</option>
+              ${locoClasses.map(c => `<option value="${esc(c)}"${reliabilityClassFilter === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="table-scroll">
+            <table>
+              <thead><tr>
+                ${LOCO_PERF_COLUMNS.map(c => columnHeaderHtml('locoPerf', c.key, c.label, ['unscheduled', 'pe', 'mileage', 'rank'].includes(c.key) ? { noFilter: true } : undefined)).join('')}
+              </tr></thead>
+              <tbody>${locoBody}</tbody>
+            </table>
+          </div>
+          <div class="row-count">${locoRows.length} of ${DATA.locoPerf.length} locomotives shown &middot; ${lst && lst.key ? 'sorted by ' + esc(LOCO_PERF_COLUMNS.find(c => c.key === lst.key).label) + (lst.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('locoPerf') ? ' &middot; ' + countActiveFilters('locoPerf') + ' column filter(s) active' : ''} &middot; ${reliabilityPerfMonth === 'all' ? 'All months (cumulative)' : esc(monthLabel(reliabilityPerfMonth)) + ' only'} &middot; Ranking is computed ${reliabilityClassFilter === 'all' ? 'fleet-wide, across all classes' : 'within ' + esc(reliabilityClassFilter) + ' only'} (higher PE, higher mileage, lower unscheduled = better)</div>
+        </div>
       </div>
-    </div>
-    <div class="panel">
-      <div class="table-scroll">
-        <table>
-          <thead><tr>
-            ${LOCO_PERF_COLUMNS.map(c => columnHeaderHtml('locoPerf', c.key, c.label, ['unscheduled', 'pe', 'mileage', 'rank'].includes(c.key) ? { noFilter: true } : undefined)).join('')}
-          </tr></thead>
-          <tbody>${locoBody}</tbody>
-        </table>
-      </div>
-      <div class="row-count">${locoRows.length} of ${DATA.locoPerf.length} locomotives shown &middot; ${lst && lst.key ? 'sorted by ' + esc(LOCO_PERF_COLUMNS.find(c => c.key === lst.key).label) + (lst.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('locoPerf') ? ' &middot; ' + countActiveFilters('locoPerf') + ' column filter(s) active' : ''} &middot; ${reliabilityPerfMonth === 'all' ? 'All months (cumulative)' : esc(monthLabel(reliabilityPerfMonth)) + ' only'} &middot; Ranking is computed ${reliabilityClassFilter === 'all' ? 'fleet-wide, across all classes' : 'within ' + esc(reliabilityClassFilter) + ' only'} (higher PE, higher mileage, lower unscheduled = better)</div>
     </div>
   `;
 
