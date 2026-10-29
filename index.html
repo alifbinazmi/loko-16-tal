@@ -2196,6 +2196,18 @@ function drawBarChart(canvasId, labels, values, color, opts = {}) {
     ctx.fill();
   });
 
+  if (opts.showValues) {
+    ctx.fillStyle = CHART_TEXT; ctx.font = 'bold 9px -apple-system,Segoe UI,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    values.forEach((v, i) => {
+      const bh = chartH * (v / maxV);
+      const x = padL + slot * i + slot / 2;
+      const y = padT + chartH - bh - 4;
+      const label = typeof opts.valueFormat === 'function' ? opts.valueFormat(v) : v;
+      ctx.fillText(label, x, y);
+    });
+  }
+
   ctx.fillStyle = CHART_TEXT; ctx.font = '9px -apple-system,Segoe UI,sans-serif';
   labels.forEach((lab, i) => {
     const x = padL + slot * i + slot / 2;
@@ -2392,7 +2404,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   const availData = availMonths.map(m => ({ month: m, value: computeDailyAvailabilityAverage(m), target: availabilityTargetForMonth(m) }));
   drawBarChart('chartDashAvailability', availData.map(a => monthLabel(a.month)), availData.map(a => a.value),
     availData.map(a => a.value >= a.target ? '#159253' : '#B0202F'),
-    { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability') });
+    { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability'), showValues: true, valueFormat: v => v.toFixed(1) + '%' });
   _dashboardChartData.chartDashAvailability = { title: 'Fleet Availability by Month', labelHeader: 'Month', valueHeader: 'Availability %', labels: availData.map(a => monthLabel(a.month)), values: availData.map(a => a.value) };
 
   const relMonths = reliabilityTrackedMonths();
