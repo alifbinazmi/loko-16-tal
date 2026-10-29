@@ -2378,6 +2378,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   drawBarChart('chartSubsystem', ssEntries.map(e => e[0]), ssEntries.map(e => e[1]), '#A85D00', {
     rotate: true,
     onClick: (idx) => goToSubsystem(ssEntries[idx][0]),
+    showValues: true,
   });
   _dashboardChartData.chartSubsystem = { title: 'Failures by Sub-System', labelHeader: 'Sub-System', valueHeader: 'Failures', labels: ssEntries.map(e => e[0]), values: ssEntries.map(e => e[1]) };
 
@@ -2387,6 +2388,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   drawBarChart('chartMonthly', monthKeys.map(monthLabel), monthKeys.map(k => monthCounts[k]), '#2F7EE0', {
     rotate: false,
     onClick: (idx) => drillFailuresByMonth(monthKeys[idx]),
+    showValues: true,
   });
   _dashboardChartData.chartMonthly = { title: 'Monthly Unscheduled Trend', labelHeader: 'Month', valueHeader: 'Failures', labels: monthKeys.map(monthLabel), values: monthKeys.map(k => monthCounts[k]) };
 
@@ -2396,37 +2398,38 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   drawBarChart('chartMonthlyIncidents', incMonths.map(incidentMonthShortLabel), incMonths.map(m => incMonthCounts[m]), '#B0202F', {
     rotate: false,
     onClick: (idx) => drillIncidentsByMonth(incMonths[idx]),
+    showValues: true,
   });
   _dashboardChartData.chartMonthlyIncidents = { title: 'Monthly 16-TAL Incidents', labelHeader: 'Month', valueHeader: 'Incidents', labels: incMonths.map(incidentMonthShortLabel), values: incMonths.map(m => incMonthCounts[m]) };
 
   const assetEntries = Object.entries(assetTotals).sort((a, b) => b[1] - a[1]).slice(0, 12);
-  drawBarChart('chartAsset', assetEntries.map(e => e[0]), assetEntries.map(e => e[1]), '#159253', { rotate: false });
+  drawBarChart('chartAsset', assetEntries.map(e => e[0]), assetEntries.map(e => e[1]), '#159253', { rotate: false, showValues: true });
   _dashboardChartData.chartAsset = { title: 'Failures by Locomotive (top 12)', labelHeader: 'Asset', valueHeader: 'Failures', labels: assetEntries.map(e => e[0]), values: assetEntries.map(e => e[1]) };
 
   const availMonths = availabilityTrackedMonths();
   const availData = availMonths.map(m => ({ month: m, value: computeDailyAvailabilityAverage(m), target: availabilityTargetForMonth(m) }));
   drawBarChart('chartDashAvailability', availData.map(a => monthLabel(a.month)), availData.map(a => a.value),
     availData.map(a => a.value >= a.target ? '#159253' : '#B0202F'),
-    { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability'), yMin: 5, yMax: 30, ySteps: 5 });
+    { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability'), yMin: 5, yMax: 30, ySteps: 5, showValues: true, valueFormat: v => v.toFixed(1) + '%' });
   _dashboardChartData.chartDashAvailability = { title: 'Fleet Availability by Month', labelHeader: 'Month', valueHeader: 'Availability %', labels: availData.map(a => monthLabel(a.month)), values: availData.map(a => a.value) };
 
   const relMonths = reliabilityTrackedMonths();
   const mkbfData = relMonths.map(m => computeMkbfKm(m) || 0);
   drawBarChart('chartDashReliability', relMonths.map(monthLabel), mkbfData,
     mkbfData.map(v => v >= MKBF_TARGET_KM ? '#159253' : '#B0202F'),
-    { rotate: false, targetLine: MKBF_TARGET_KM, onClick: () => setView('reliability') });
+    { rotate: false, targetLine: MKBF_TARGET_KM, onClick: () => setView('reliability'), showValues: true, valueFormat: v => fmtKm(v) });
   _dashboardChartData.chartDashReliability = { title: 'Reliability (MKBF) by Month', labelHeader: 'Month', valueHeader: 'MKBF (km)', labels: relMonths.map(monthLabel), values: mkbfData };
 
   const peMonthCounts = {};
   DATA.peHistory.forEach(h => { if (h.date) { const k = monthKey(h.date); if (k) peMonthCounts[k] = (peMonthCounts[k] || 0) + 1; } });
   const peMonthKeys = Object.keys(peMonthCounts).sort();
   drawBarChart('chartDashPe', peMonthKeys.map(monthLabel), peMonthKeys.map(k => peMonthCounts[k]), '#A85D00',
-    { rotate: false, onClick: () => setView('masterplan') });
+    { rotate: false, onClick: () => setView('masterplan'), showValues: true });
   _dashboardChartData.chartDashPe = { title: 'PE Completions by Month', labelHeader: 'Month', valueHeader: 'PE Completions', labels: peMonthKeys.map(monthLabel), values: peMonthKeys.map(k => peMonthCounts[k]) };
 
   const runningData = relMonths.map(m => dailyStatusFleetKmForMonth(m));
   drawBarChart('chartDashRunning', relMonths.map(monthLabel), runningData, '#2F7EE0',
-    { rotate: false, onClick: () => setView('dailyStatus') });
+    { rotate: false, onClick: () => setView('dailyStatus'), showValues: true, valueFormat: v => fmtKm(v) });
   _dashboardChartData.chartDashRunning = { title: 'Total Running (km) by Month', labelHeader: 'Month', valueHeader: 'Running (km)', labels: relMonths.map(monthLabel), values: runningData };
 }
 let _dashboardResizeTimer = null;
