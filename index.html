@@ -2019,49 +2019,49 @@ function buildOrderedKpiCards() {
 
   const cards = {
     availability: `
-      <div class="kpi" style="--accent:${availPass ? 'var(--green)' : 'var(--red)'};" data-kpi="availability">
+      <div class="kpi" style="--accent:${availPass ? 'var(--green)' : 'var(--red)'};" data-kpi="availability" data-nav-view="availability">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Fleet Availability</span>${kpiMonthSelectHtml('availability')}</div>
         <div class="kpi-value">${availV.count}<small>/ ${availTarget} target</small></div>
         <div class="kpi-foot">${kpiFootHtml('availability', monthLabel(availShownMonth) + ' &middot; avg locos/day &middot; ' + (availPass ? 'On target' : 'Below target'), availV)}</div>
         <div class="kpi-corner">${ICONS.gauge}</div>
       </div>`,
     reliability: `
-      <div class="kpi" style="--accent:${mkbfPass ? 'var(--green)' : 'var(--red)'};" data-kpi="reliability">
+      <div class="kpi" style="--accent:${mkbfPass ? 'var(--green)' : 'var(--red)'};" data-kpi="reliability" data-nav-view="reliability">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Reliability (MKBF)</span>${kpiMonthSelectHtml('reliability')}</div>
         <div class="kpi-value">${mkbfV.count}<small>/ ${fmtKm(MKBF_TARGET_KM)} km</small></div>
         <div class="kpi-foot">${kpiFootHtml('reliability', monthLabel(mkbfShownMonth) + ' &middot; running km &divide; failures', mkbfV)}</div>
         <div class="kpi-corner">${ICONS.reliability}</div>
       </div>`,
     pe: `
-      <div class="kpi" style="--accent:${peAchievedPct >= 80 ? 'var(--green)' : peAchievedPct >= 50 ? 'var(--amber)' : 'var(--red)'};" data-kpi="pe">
+      <div class="kpi" style="--accent:${peAchievedPct >= 80 ? 'var(--green)' : peAchievedPct >= 50 ? 'var(--amber)' : 'var(--red)'};" data-kpi="pe" data-nav-view="masterplan">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Periodic Examination (PE)</span>${kpiMonthSelectHtml('pe')}</div>
         <div class="kpi-value">${peV.key && peV.key !== 'ALL' ? peV.count : peAchievedPct}<small>${peV.key && peV.key !== 'ALL' ? ' completed' : '%'}</small></div>
         <div class="kpi-foot">${kpiFootHtml('pe', PE_PLAN_SUMMARY.actual + ' of ' + PE_PLAN_SUMMARY.plan + ' planned PE tasks, YTD', peV)}</div>
         <div class="kpi-corner">${ICONS.masterplan}</div>
       </div>`,
     failures: `
-      <div class="kpi" style="--accent:var(--green)" data-kpi="failures">
+      <div class="kpi" style="--accent:var(--green)" data-kpi="failures" data-nav-view="failures">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Total Unscheduled Reports</span>${kpiMonthSelectHtml('failures')}</div>
         <div class="kpi-value">${failuresV.count}</div>
         <div class="kpi-foot">${kpiFootHtml('failures', 'Unscheduled Report Details', failuresV)}</div>
         <div class="kpi-corner">${ICONS.failure}</div>
       </div>`,
     incidents: `
-      <div class="kpi" style="--accent:var(--blue)" data-kpi="incidents">
+      <div class="kpi" style="--accent:var(--blue)" data-kpi="incidents" data-nav-view="incidents">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Total 16-TAL Incidents</span>${kpiMonthSelectHtml('incidents')}</div>
         <div class="kpi-value">${incidentsV.count}</div>
         <div class="kpi-foot">${kpiFootHtml('incidents', 'Total 16-TAL Incidents', incidentsV)}</div>
         <div class="kpi-corner">${ICONS.incident}</div>
       </div>`,
     running: `
-      <div class="kpi" style="--accent:var(--blue);" data-kpi="running">
+      <div class="kpi" style="--accent:var(--blue);" data-kpi="running" data-nav-view="dailyStatus">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Total Running</span>${kpiMonthSelectHtml('running')}</div>
         <div class="kpi-value">${runningV.count}<small>km</small></div>
         <div class="kpi-foot">${kpiFootHtml('running', 'Fleet-wide, from Daily Status', runningV)}</div>
         <div class="kpi-corner">${ICONS.reliability}</div>
       </div>`,
     langgar: `
-      <div class="kpi" style="--accent:var(--amber)" data-kpi="langgar">
+      <div class="kpi" style="--accent:var(--amber)" data-kpi="langgar" data-nav-view="langgar">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>16-TAL Accidents</span>${kpiMonthSelectHtml('langgar')}</div>
         <div class="kpi-value">${langgarV.count}</div>
         <div class="kpi-foot">${kpiFootHtml('langgar', 'Wilayah Timur, 01/01&ndash;31/12/2026', langgarV)}</div>
@@ -2073,7 +2073,7 @@ function buildOrderedKpiCards() {
       const effMonth = topPerformerV.key && topPerformerV.key !== 'ALL' ? topPerformerV.key : 'all';
       const top = effMonth === 'all' ? topPerf : fleetTopPerformerForMonth(effMonth);
       return `
-      <div class="kpi" style="--accent:var(--indigo);" data-kpi="topPerformer">
+      <div class="kpi" style="--accent:var(--indigo);" data-kpi="topPerformer" data-nav-view="reliability">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top Performer</span>${kpiMonthSelectHtml('topPerformer')}</div>
         <div class="kpi-value">${top ? esc(top.asset) : '&mdash;'}<small>${top ? esc(top.class) : ''}</small></div>
         <div class="kpi-foot">${kpiFootHtml('topPerformer', 'Fleet-wide &middot; best combined PE, mileage &amp; unscheduled score', topPerformerV)}</div>
