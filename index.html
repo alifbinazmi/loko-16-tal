@@ -2404,7 +2404,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   const availData = availMonths.map(m => ({ month: m, value: computeDailyAvailabilityAverage(m), target: availabilityTargetForMonth(m) }));
   drawBarChart('chartDashAvailability', availData.map(a => monthLabel(a.month)), availData.map(a => a.value),
     availData.map(a => a.value >= a.target ? '#159253' : '#B0202F'),
-    { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability'), showValues: true, valueFormat: v => v.toFixed(1) + '%' });
+    { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability') });
   _dashboardChartData.chartDashAvailability = { title: 'Fleet Availability by Month', labelHeader: 'Month', valueHeader: 'Availability %', labels: availData.map(a => monthLabel(a.month)), values: availData.map(a => a.value) };
 
   const relMonths = reliabilityTrackedMonths();
@@ -3517,7 +3517,7 @@ function renderAvailability() {
   `;
 
   drawBarChart('chartAvailability', avail.map(a => monthLabel(a.month)), avail.map(a => a.value),
-    avail.map(a => a.value >= a.target ? '#159253' : '#B0202F'), { rotate: false, targetLine: avail.map(a => a.target) });
+    avail.map(a => a.value >= a.target ? '#159253' : '#B0202F'), { rotate: false, targetLine: avail.map(a => a.target), showValues: true, valueFormat: v => v.toFixed(1) + '%' });
   wireDailyAvailabilityNav();
   wireAvailabilityTargetInputs();
 }
@@ -3840,7 +3840,7 @@ function renderReliability() {
   `;
 
   drawBarChart('chartReliability', rel.map(m => monthLabel(m)), rel.map(m => computeMkbfKm(m) || 0),
-    rel.map(m => (computeMkbfKm(m) || 0) >= MKBF_TARGET_KM ? '#159253' : '#B0202F'), { rotate: false, targetLine: MKBF_TARGET_KM });
+    rel.map(m => (computeMkbfKm(m) || 0) >= MKBF_TARGET_KM ? '#159253' : '#B0202F'), { rotate: false, targetLine: MKBF_TARGET_KM, showValues: true, valueFormat: v => fmtKm(v) });
 
   wireSortHeaders();
   wireFilterButtons();
