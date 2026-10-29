@@ -2395,6 +2395,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
     rotate: false,
     onClick: (idx) => drillFailuresByMonth(monthKeys[idx]),
     showValues: true,
+    yMin: 0, yMax: 50, ySteps: 10,
   });
   _dashboardChartData.chartMonthly = { title: 'Monthly Unscheduled Trend', labelHeader: 'Month', valueHeader: 'Failures', labels: monthKeys.map(monthLabel), values: monthKeys.map(k => monthCounts[k]) };
   const chartMonthlyTitleEl = document.getElementById('chartMonthlyTitle');
@@ -2407,6 +2408,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
     rotate: false,
     onClick: (idx) => drillIncidentsByMonth(incMonths[idx]),
     showValues: true,
+    yMin: 0, yMax: 40, ySteps: 8,
   });
   _dashboardChartData.chartMonthlyIncidents = { title: 'Monthly 16-TAL Incidents', labelHeader: 'Month', valueHeader: 'Incidents', labels: incMonths.map(incidentMonthShortLabel), values: incMonths.map(m => incMonthCounts[m]) };
   const chartMonthlyIncidentsTitleEl = document.getElementById('chartMonthlyIncidentsTitle');
@@ -2440,7 +2442,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   DATA.peHistory.forEach(h => { if (h.date) { const k = monthKey(h.date); if (k) peMonthCounts[k] = (peMonthCounts[k] || 0) + 1; } });
   const peMonthKeys = Object.keys(peMonthCounts).sort();
   drawBarChart('chartDashPe', peMonthKeys.map(monthLabel), peMonthKeys.map(k => peMonthCounts[k]), '#2a78d6',
-    { rotate: false, onClick: () => setView('masterplan'), showValues: true });
+    { rotate: false, onClick: () => setView('masterplan'), showValues: true, yMin: 0, yMax: 50, ySteps: 10 });
   _dashboardChartData.chartDashPe = { title: 'PE Completions by Month', labelHeader: 'Month', valueHeader: 'PE Completions', labels: peMonthKeys.map(monthLabel), values: peMonthKeys.map(k => peMonthCounts[k]) };
   const chartDashPeTitleEl = document.getElementById('chartDashPeTitle');
   if (chartDashPeTitleEl) chartDashPeTitleEl.addEventListener('click', () => setView('masterplan'));
