@@ -3523,6 +3523,18 @@ function renderAvailability() {
     </tr>`;
   }).join('');
 
+  const futureAvailMonths = ['2026-11', '2026-12'].filter(m => !months.includes(m));
+  const futureAvailRows = futureAvailMonths.map(m => {
+    const target = availabilityTargetForMonth(m);
+    return `<tr>
+      <td class="dim">${monthLabel(m)}</td>
+      <td class="num dim">&mdash;</td>
+      <td class="num"><input type="number" step="0.1" class="avail-target-input" data-month="${m}" value="${target}" style="width:60px;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:3px;padding:4px 6px;font-size:12px;color:var(--text);text-align:right;"></td>
+      <td class="num dim">&mdash;</td>
+      <td><span class="dim">Pending</span></td>
+    </tr>`;
+  }).join('');
+
   document.getElementById('content').innerHTML = `
     <div class="chart-grid" style="grid-template-columns:1fr;">
       <div class="chart-panel"><h3>Fleet Availability by Month</h3><div class="chart-wrap"><canvas id="chartAvailability"></canvas></div></div>
@@ -3537,7 +3549,7 @@ function renderAvailability() {
               <thead><tr>
                 <th>Month</th><th>Availability (avg locos/day)</th><th>Target</th><th>Variance</th><th>Status</th>
               </tr></thead>
-              <tbody>${monthlyRows}</tbody>
+              <tbody>${monthlyRows}${futureAvailRows}</tbody>
             </table>
           </div>
           <div class="row-count">Availability = average of the daily totals in the table alongside, for that month.</div>
