@@ -4489,8 +4489,8 @@ function renderMasterplan() {
   const st = sortState.peSchedule;
   if (st && st.key) rows = sortRows(rows, 'peSchedule', (r, k) => r[k]);
 
-  const peRowHtml = r => `
-    <tr>
+  const peRowHtml = (r, cls) => `
+    <tr data-pe-group="${esc(cls)}" style="display:none;">
       <td class="dim">${esc(r.class)}</td>
       <td class="num">${esc(r.asset)}</td>
       <td class="dim">${fmtDate(r.lastPE)}</td>
@@ -4516,7 +4516,12 @@ function renderMasterplan() {
 
   const body = rows.length ? peOrderedClasses.map(cls => {
     const group = peGroupMap.get(cls);
-    return `<tr class="pe-class-divider"><td colspan="${PE_COLUMNS.length}">${esc(cls)} <span class="dim">(${group.length})</span></td></tr>${group.map(peRowHtml).join('')}`;
+    return `<tr class="pe-class-divider" data-pe-group="${esc(cls)}" style="cursor:pointer;">
+      <td colspan="${PE_COLUMNS.length}">
+        <span class="pe-group-chevron" style="display:inline-flex;font-size:10px;color:var(--amber);transition:transform .15s;margin-right:6px;">&#9654;</span>
+        ${esc(cls)} <span class="dim">(${group.length})</span>
+      </td>
+    </tr>${group.map(r => peRowHtml(r, cls)).join('')}`;
   }).join('') : `<tr class="empty-row"><td colspan="${PE_COLUMNS.length}">No locomotives match your filters.</td></tr>`;
 
   const totalOverdue = DATA.peSchedule.filter(r => r.status === 'OVERDUE').length;
@@ -4613,6 +4618,16 @@ function renderMasterplan() {
   wireSortHeaders();
   wireFilterButtons();
   wireComponentToggles();
+  document.querySelectorAll('.pe-class-divider').forEach(row => {
+    row.addEventListener('click', () => {
+      const grp = row.dataset.peGroup;
+      const subs = document.querySelectorAll(`tr[data-pe-group="${grp}"]:not(.pe-class-divider)`);
+      const chevron = row.querySelector('.pe-group-chevron');
+      const isOpen = subs[0] && subs[0].style.display !== 'none';
+      subs.forEach(s => { s.style.display = isOpen ? 'none' : ''; });
+      if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+    });
+  });
 }
 
 /* ---------- Annual PE Plan (read-only whole-year wall chart) ---------- */
