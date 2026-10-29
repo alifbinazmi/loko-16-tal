@@ -3487,7 +3487,7 @@ function renderDailyAvailabilityGrid() {
       </div>
     </div>
     <div class="panel">
-      <div class="table-scroll" style="max-height:520px;">
+      <div class="table-scroll compact">
         <table class="daily-table avail-daily-table" style="min-width:0;">
           <thead><tr><th>Day</th><th class="cls-col">19c</th><th class="cls-col">23c</th><th class="cls-col">24c</th><th class="cls-col">25c</th><th>Total</th></tr></thead>
           <tbody>${rows}</tbody>
@@ -3530,19 +3530,26 @@ function renderAvailability() {
       <div class="chart-panel"><h3>Fleet Availability by Month</h3><div class="chart-wrap"><canvas id="chartAvailability"></canvas></div></div>
     </div>
 
-    <div class="panel" style="margin-top:14px;margin-bottom:14px;">
-      <div class="table-scroll">
-        <table>
-          <thead><tr>
-            <th>Month</th><th>Availability (avg locos/day)</th><th>Target</th><th>Variance</th><th>Status</th>
-          </tr></thead>
-          <tbody>${monthlyRows}</tbody>
-        </table>
+    <div class="reliability-split" style="margin-top:14px;margin-bottom:14px;">
+      <div>
+        <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:0 0 10px;">Availability 2026</div>
+        <div class="panel">
+          <div class="table-scroll compact">
+            <table>
+              <thead><tr>
+                <th>Month</th><th>Availability (avg locos/day)</th><th>Target</th><th>Variance</th><th>Status</th>
+              </tr></thead>
+              <tbody>${monthlyRows}</tbody>
+            </table>
+          </div>
+          <div class="row-count">Availability = average of the daily totals in the table alongside, for that month.</div>
+        </div>
       </div>
-      <div class="row-count">Availability = average of the daily totals in the table below, for that month.</div>
-    </div>
 
-    ${renderDailyAvailabilityGrid()}
+      <div>
+        ${renderDailyAvailabilityGrid()}
+      </div>
+    </div>
   `;
 
   drawBarChart('chartAvailability', avail.map(a => monthLabel(a.month)), avail.map(a => a.value),
