@@ -2169,14 +2169,17 @@ function drawBarChart(canvasId, labels, values, color, opts = {}) {
   const chartW = w - padL - padR, chartH = h - padT - padB;
   const targetArr = Array.isArray(opts.targetLine) ? opts.targetLine : null;
   const targetScalar = targetArr ? null : opts.targetLine;
-  const maxV = niceMax(Math.max(...values, targetArr ? Math.max(...targetArr) : (targetScalar || 0), 1));
-  const steps = 4;
+  const minV = opts.yMin != null ? opts.yMin : 0;
+  const maxV = opts.yMax != null ? opts.yMax : niceMax(Math.max(...values, targetArr ? Math.max(...targetArr) : (targetScalar || 0), 1));
+  const range = maxV - minV;
+  const steps = opts.ySteps || 4;
+  const frac = v => Math.max(0, Math.min(1, (v - minV) / range));
 
   ctx.strokeStyle = CHART_GRID; ctx.lineWidth = 1; ctx.font = '10px -apple-system,Segoe UI,sans-serif'; ctx.fillStyle = CHART_TEXT;
   for (let i = 0; i <= steps; i++) {
     const y = padT + chartH - (chartH * i / steps);
     ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
-    const val = Math.round(maxV * i / steps);
+    const val = Math.round(minV + (range * i / steps));
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     ctx.fillText(val, padL - 6, y);
   }
@@ -2186,7 +2189,7 @@ function drawBarChart(canvasId, labels, values, color, opts = {}) {
   const barW = Math.max(4, Math.min(30, slot * 0.55));
   values.forEach((v, i) => {
     const barColor = Array.isArray(color) ? color[i] : color;
-    const bh = chartH * (v / maxV);
+    const bh = chartH * frac(v);
     const x = padL + slot * i + slot / 2 - barW / 2;
     const y = padT + chartH - bh;
     const grad = ctx.createLinearGradient(0, y, 0, padT + chartH);
@@ -2200,7 +2203,7 @@ function drawBarChart(canvasId, labels, values, color, opts = {}) {
     ctx.fillStyle = CHART_TEXT; ctx.font = 'bold 9px -apple-system,Segoe UI,sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     values.forEach((v, i) => {
-      const bh = chartH * (v / maxV);
+      const bh = chartH * frac(v);
       const x = padL + slot * i + slot / 2;
       const y = padT + chartH - bh - 4;
       const label = typeof opts.valueFormat === 'function' ? opts.valueFormat(v) : v;
@@ -2226,7 +2229,7 @@ function drawBarChart(canvasId, labels, values, color, opts = {}) {
     ctx.strokeStyle = '#A85D00'; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
     ctx.beginPath();
     targetArr.forEach((t, i) => {
-      const ty = padT + chartH - chartH * (t / maxV);
+      const ty = padT + chartH - chartH * frac(t);
       const xStart = padL + slot * i, xEnd = padL + slot * (i + 1);
       if (i === 0) ctx.moveTo(xStart, ty); else ctx.lineTo(xStart, ty);
       ctx.lineTo(xEnd, ty);
@@ -2235,7 +2238,7 @@ function drawBarChart(canvasId, labels, values, color, opts = {}) {
     ctx.setLineDash([]);
     ctx.restore();
   } else if (targetScalar) {
-    const ty = padT + chartH - chartH * (targetScalar / maxV);
+    const ty = padT + chartH - chartH * frac(targetScalar);
     ctx.save();
     ctx.strokeStyle = '#A85D00'; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
     ctx.beginPath(); ctx.moveTo(padL, ty); ctx.lineTo(padL + chartW, ty); ctx.stroke();
@@ -2404,7 +2407,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   const availData = availMonths.map(m => ({ month: m, value: computeDailyAvailabilityAverage(m), target: availabilityTargetForMonth(m) }));
   drawBarChart('chartDashAvailability', availData.map(a => monthLabel(a.month)), availData.map(a => a.value),
     availData.map(a => a.value >= a.target ? '#159253' : '#B0202F'),
-    { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability') });
+    { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability'), yMin: 5, yMax: 30, ySteps: 5 });
   _dashboardChartData.chartDashAvailability = { title: 'Fleet Availability by Month', labelHeader: 'Month', valueHeader: 'Availability %', labels: availData.map(a => monthLabel(a.month)), values: availData.map(a => a.value) };
 
   const relMonths = reliabilityTrackedMonths();
@@ -3517,7 +3520,7 @@ function renderAvailability() {
   `;
 
   drawBarChart('chartAvailability', avail.map(a => monthLabel(a.month)), avail.map(a => a.value),
-    avail.map(a => a.value >= a.target ? '#159253' : '#B0202F'), { rotate: false, targetLine: avail.map(a => a.target), showValues: true, valueFormat: v => v.toFixed(1) + '%' });
+    avail.map(a => a.value >= a.target ? '#159253' : '#B0202F'), { rotate: false, targetLine: avail.map(a => a.target), showValues: true, valueFormat: v => v.toFixed(1) + '%', yMin: 5, yMax: 30, ySteps: 5 });
   wireDailyAvailabilityNav();
   wireAvailabilityTargetInputs();
 }
