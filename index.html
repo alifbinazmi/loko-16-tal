@@ -237,7 +237,7 @@
   .stat-card .val .n{font-family:var(--mono);color:var(--indigo);}
 
   .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-  .reliability-split{display:grid;grid-template-columns:1.15fr 1.45fr;gap:14px;align-items:start;}
+  .reliability-split{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
   .chart-panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px 18px 10px 18px;box-shadow:0 1px 2px rgba(23,27,39,.04), 0 6px 16px -10px rgba(23,27,39,.12);}
   .section-eyebrow{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);margin:18px 0 10px 2px;display:flex;align-items:center;gap:8px;}
   .section-eyebrow::after{content:"";flex:1;height:1px;background:var(--border-soft);}
@@ -3775,6 +3775,16 @@ function renderReliability() {
     </tr>`;
   }).join('');
 
+  const futureMonths = ['2026-11', '2026-12'].filter(m => !rel.includes(m));
+  const futureMonthRows = futureMonths.map(m => `<tr>
+    <td class="dim">${monthLabel(m)}</td>
+    <td class="num dim">&mdash;</td>
+    <td class="num dim">&mdash;</td>
+    <td class="num dim">&mdash;</td>
+    <td class="num dim">${fmtKm(MKBF_TARGET_KM)}</td>
+    <td><span class="dim">Pending</span></td>
+  </tr>`).join('');
+
   locoPerfEffectiveRows = reliabilityPerfMonth === 'all'
     ? DATA.locoPerf.map(l => ({ ...l, unscheduled: unscheduledCountForAsset(l.asset) }))
     : (() => {
@@ -3816,16 +3826,19 @@ function renderReliability() {
     </div>
 
     <div class="reliability-split" style="margin-top:14px;margin-bottom:14px;">
+      <div>
+        <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:0 0 10px;">Reliability 2026</div>
       <div class="panel">
         <div class="table-scroll compact">
           <table>
             <thead><tr>
               <th>Month</th><th>Running (km)</th><th>Failures</th><th>MKBF (km/failure)</th><th>Target (km)</th><th>Status</th>
             </tr></thead>
-            <tbody>${monthlyRows}</tbody>
+            <tbody>${monthlyRows}${futureMonthRows}</tbody>
           </table>
         </div>
         <div class="row-count">Running (km) is the fleet-wide Total Final KM summed from the Daily Status tab for that month. Failures are from the original Reliability_Loco_16-TAL.xlsx logs through June 2026, and live 16-TAL Incident records (status = FAIL only) from July 2026 onward. MKBF = Running km &divide; Failures for that month, against a ${fmtKm(MKBF_TARGET_KM)} km target.</div>
+      </div>
       </div>
 
       <div>
