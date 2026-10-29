@@ -1491,6 +1491,8 @@ function fmtDate(s) {
 }
 function monthKey(s) {
   if (!s) return null;
+  const dmy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+  if (dmy) return dmy[3] + '-' + dmy[2].padStart(2, '0');
   const d = new Date(s);
   if (isNaN(d)) return null;
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
@@ -3250,7 +3252,16 @@ function renderLanggar() {
       <td class="dim" style="position:relative;">${esc(l.noCmms)}<span class="row-edit-flag">${ICONS.edit}Edit</span></td>
     </tr>`).join('') : `<tr class="empty-row"><td colspan="${LANGGAR_COLUMNS.length}">No 16-TAL Accident cases match your filters.</td></tr>`;
 
+  const langgarMonths2026 = Array.from({ length: 12 }, (_, i) => `2026-${String(i + 1).padStart(2, '0')}`);
+  const langgarMonthCounts = {};
+  DATA.langgar.forEach(l => { const k = monthKey(l.tarikh); if (k) langgarMonthCounts[k] = (langgarMonthCounts[k] || 0) + 1; });
+  const langgarChartValues = langgarMonths2026.map(m => langgarMonthCounts[m] || 0);
+
   document.getElementById('content').innerHTML = `
+    <div class="chart-grid" style="grid-template-columns:1fr;">
+      <div class="chart-panel"><h3>16-TAL Accidents by Month</h3><div class="chart-wrap"><canvas id="chartLanggar"></canvas></div></div>
+    </div>
+
     <div class="panel">
       <div class="table-scroll">
         <table>
@@ -3263,6 +3274,10 @@ function renderLanggar() {
       <div class="row-count">${rows.length} of ${DATA.langgar.length} records shown &middot; ${st && st.key ? 'sorted by ' + esc(LANGGAR_COLUMNS.find(c=>c.key===st.key).label) + (st.dir===-1?' (desc)':' (asc)') : 'newest first'}${langgarSelectedMonth ? ' &middot; ' + esc(monthLabel(langgarSelectedMonth)) + ' only' : ''}${countActiveFilters('langgar') ? ' &middot; ' + countActiveFilters('langgar') + ' column filter(s) active' : ''} &middot; hover the Kronologi cell to read the full chronology</div>
     </div>
   `;
+  drawBarChart('chartLanggar', langgarMonths2026.map(monthLabel), langgarChartValues, '#A85D00', {
+    rotate: false, showValues: true,
+    onClick: (idx) => drillLanggarByMonth(langgarMonths2026[idx]),
+  });
   wireSortHeaders();
   wireFilterButtons();
   wireRowClicks('langgar', true);
