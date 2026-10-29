@@ -2418,7 +2418,13 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   drawBarChart('chartAsset', assetEntries.map(e => e[0]), assetEntries.map(e => e[1]), '#6250d6', { rotate: false, showValues: true });
   _dashboardChartData.chartAsset = { title: 'Failures by Locomotive (top 12)', labelHeader: 'Asset', valueHeader: 'Failures', labels: assetEntries.map(e => e[0]), values: assetEntries.map(e => e[1]) };
   const chartAssetTitleEl = document.getElementById('chartAssetTitle');
-  if (chartAssetTitleEl) chartAssetTitleEl.addEventListener('click', () => setView('failures'));
+  if (chartAssetTitleEl) chartAssetTitleEl.addEventListener('click', () => {
+    setView('reliability');
+    requestAnimationFrame(() => {
+      const el = document.getElementById('topLocoFailuresPanel');
+      if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+  });
 
   const availMonths = availabilityTrackedMonths();
   const availData = availMonths.map(m => ({ month: m, value: computeDailyAvailabilityAverage(m), target: availabilityTargetForMonth(m) }));
@@ -3798,6 +3804,7 @@ document.addEventListener('change', e => {
 });
 function renderReliability() {
   const rel = reliabilityTrackedMonths();
+  const topLocoFailures = Object.entries(computeAssetTotals(countableFailures())).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
   const monthlyRows = rel.map(m => {
     const mkbf = computeMkbfKm(m);
@@ -3905,6 +3912,22 @@ function renderReliability() {
         </div>
       </div>
     </div>
+
+    <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:20px 0 10px;">Top Loco Failures</div>
+    <div class="panel" id="topLocoFailuresPanel">
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Rank</th><th>Asset</th><th>Failures</th></tr></thead>
+          <tbody>${topLocoFailures.map(([asset, count], i) => `
+            <tr data-asset="${esc(asset)}" style="cursor:pointer;" title="View this locomotive's Unscheduled Reports">
+              <td class="dim">#${i + 1}</td>
+              <td class="num">${esc(asset)}</td>
+              <td class="num">${count}</td>
+            </tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div class="row-count">Top 10 locomotives by Unscheduled Report count, fleet-wide, all time.</div>
+    </div>
   `;
 
   drawBarChart('chartReliability', rel.map(m => monthLabel(m)), rel.map(m => computeMkbfKm(m) || 0),
@@ -3913,6 +3936,9 @@ function renderReliability() {
   wireSortHeaders();
   wireFilterButtons();
   wireReliabilityClassFilter();
+  document.querySelectorAll('#topLocoFailuresPanel tr[data-asset]').forEach(row => {
+    row.addEventListener('click', () => drillToAssetFailures(row.dataset.asset));
+  });
 }
 function wireReliabilityClassFilter() {
   const sel = document.getElementById('reliabilityClassSelect');
