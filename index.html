@@ -772,8 +772,6 @@ let sortState = { locoPerf: { key: 'unscheduled', dir: -1 }, peSchedule: { key: 
 let columnFilters = { failures: {}, failuresCwbg: {}, incidents: {}, langgar: {}, locoPerf: {}, peSchedule: {}, peHistory: {} }; // per-view: { colKey: Set(rawValueKeys) }
 let reliabilityClassFilter = 'all';
 let reliabilityPerfMonth = 'all';
-let slideSelectedMonths = new Set();
-let slideGroupSize = 1; // 1 | 2 | 3 | 'all'
 let locoPerfEffectiveRows = null;
 let openFilterPanel = null; // { view, key } | null
 let filterPanelSearch = {}; // "view:key" -> search text typed inside the filter panel
@@ -2028,6 +2026,27 @@ function averageDowntimeBySubsystem(rows = DATA.failures) {
     .map(sub => ({ subsystem: sub, avgMinutes: Math.round(sums[sub] / counts[sub]) }))
     .sort((a, b) => b.avgMinutes - a.avgMinutes);
 }
+function getFullYearMonths(year) {
+  return Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+}
+function computePeTypeMonthTotals(rows = DATA.peHistory) {
+  const types = ['PE15', 'PE30', 'PE45', 'PE180', 'PE360'];
+  const normType = t => t === 'PE45S' ? 'PE45' : t;
+  const byTypeMonth = {};
+  types.forEach(t => { byTypeMonth[t] = {}; });
+  rows.forEach(r => {
+    const type = normType(r.type);
+    const m = monthKey(r.date);
+    if (!m || !byTypeMonth[type]) return;
+    byTypeMonth[type][m] = (byTypeMonth[type][m] || 0) + 1;
+  });
+  return { types, byTypeMonth };
+}
+function langgarMonthTotals(rows = DATA.langgar) {
+  const counts = {};
+  rows.forEach(l => { const k = monthKey(l.tarikh); if (k) counts[k] = (counts[k] || 0) + 1; });
+  return counts;
+}
 function buildOrderedKpiCards() {
   const totalFailures = countableFailures().length;
   const totalIncidents = DATA.incidents.filter(i => i.asset).length;
@@ -2162,7 +2181,7 @@ function renderDashboard() {
 
     <div class="section-eyebrow">Monthly Trends</div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;">
-      <button type="button" class="btn btn-ghost" id="dashSlidesBtn">Export to Slideshow</button>
+      <button type="button" class="btn btn-ghost" id="dashSlidesBtn">Export Performance Slideshow</button>
       <button type="button" class="btn btn-ghost" id="dashExportBtn">Export Dashboard to Excel</button>
     </div>
     <div class="chart-grid">
@@ -2185,7 +2204,7 @@ function renderDashboard() {
   const dashExportBtn = document.getElementById('dashExportBtn');
   if (dashExportBtn) dashExportBtn.addEventListener('click', exportDashboardToExcel);
   const dashSlidesBtn = document.getElementById('dashSlidesBtn');
-  if (dashSlidesBtn) dashSlidesBtn.addEventListener('click', openFailureSlidesModal);
+  if (dashSlidesBtn) dashSlidesBtn.addEventListener('click', openPerformanceSlidesModal);
 }
 
 function destroyCharts() { /* canvas charts are redrawn fresh each time; nothing to tear down */ }
@@ -5381,35 +5400,21 @@ function failureSlidesTrackedMonths() {
   });
   return Object.keys(counts).sort().map(k => ({ key: k, count: counts[k] }));
 }
-function openFailureSlidesModal() {
+function openPerformanceSlidesModal() {
   const months = failureSlidesTrackedMonths();
-  slideSelectedMonths = new Set([...slideSelectedMonths].filter(m => months.some(x => x.key === m)));
-
-  const checkboxesHtml = months.map(({ key, count }) => `
-    <label class="filter-panel-item">
-      <input type="checkbox" data-slide-month="${esc(key)}" ${slideSelectedMonths.has(key) ? 'checked' : ''}>
-      <span>${esc(monthLabelLong(key))}</span>
-      <span class="cnt">${count}</span>
-    </label>`).join('');
-
   const modal = document.getElementById('modal');
   modal.innerHTML = `
     <div class="modal-head">
-      <h2>Export Failure Analysis Slideshow</h2>
+      <h2>Export Performance Slideshow</h2>
       <button class="modal-close" id="modalCloseBtn">${ICONS.close}</button>
     </div>
     <div class="modal-body">
-      <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:0 0 10px;">Select months to include</div>
-      <div style="display:flex;flex-direction:column;gap:2px;max-height:320px;overflow:auto;">
-        ${checkboxesHtml || '<div class="dim" style="padding:8px 0;">No failure data recorded yet.</div>'}
-      </div>
-      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim);margin-top:16px;">
-        Months per slide
-        <select id="slideGroupSizeSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);">
-          <option value="1"${slideGroupSize === 1 ? ' selected' : ''}>1</option>
-          <option value="2"${slideGroupSize === 2 ? ' selected' : ''}>2</option>
-          <option value="3"${slideGroupSize === 3 ? ' selected' : ''}>3</option>
-          <option value="all"${slideGroupSize === 'all' ? ' selected' : ''}>All selected</option>
+      <p class="dim" style="margin:0 0 14px;font-size:12.5px;">Builds a fixed Reliability / Availability / Maintainability / Accidents deck. The Sub-System and 4M breakdown slides can be scoped to one month below &mdash; every other slide is always cumulative across all months.</p>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim);">
+        Sub-System &amp; 4M breakdown scope
+        <select id="perfSlideMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);">
+          <option value="all">All Months</option>
+          ${months.map(({ key }) => `<option value="${esc(key)}">${esc(monthLabelLong(key))}</option>`).join('')}
         </select>
       </label>
     </div>
@@ -5422,99 +5427,155 @@ function openFailureSlidesModal() {
   document.getElementById('modalBackdrop').scrollTop = 0;
   document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
   document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
-  document.querySelectorAll('[data-slide-month]').forEach(cb => {
-    cb.addEventListener('change', () => {
-      const m = cb.dataset.slideMonth;
-      if (cb.checked) slideSelectedMonths.add(m); else slideSelectedMonths.delete(m);
-    });
-  });
-  document.getElementById('slideGroupSizeSelect').addEventListener('change', e => {
-    slideGroupSize = e.target.value === 'all' ? 'all' : Number(e.target.value);
-  });
-  document.getElementById('exportSlidesBtn').addEventListener('click', exportFailureSlides);
+  document.getElementById('exportSlidesBtn').addEventListener('click', exportPerformanceSlides);
 }
-function chunkMonths(months, size) {
-  if (size === 'all') return months.length ? [months] : [];
-  const out = [];
-  for (let i = 0; i < months.length; i += size) out.push(months.slice(i, i + size));
-  return out;
-}
-function slideMonthRangeLabel(monthsChunk) {
-  if (monthsChunk.length === 1) return monthLabelLong(monthsChunk[0]);
-  return `${monthLabelLong(monthsChunk[0])} – ${monthLabelLong(monthsChunk[monthsChunk.length - 1])}`;
-}
-async function exportFailureSlides() {
-  const months = [...slideSelectedMonths].sort();
-  if (!months.length) {
-    toast('Pick at least one month before exporting.', true);
-    return;
-  }
+async function exportPerformanceSlides() {
+  const scopeSel = document.getElementById('perfSlideMonthSelect');
+  const scopeMonth = scopeSel ? scopeSel.value : 'all';
   const btn = document.getElementById('exportSlidesBtn');
   const originalLabel = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Preparing deck…'; }
-  const chunks = chunkMonths(months, slideGroupSize);
   try {
     await loadPptxGenJsLib();
     const pptx = new PptxGenJS();
     pptx.defineLayout({ name: 'LOKO16X9', width: 13.33, height: 7.5 });
     pptx.layout = 'LOKO16X9';
 
-    chunks.forEach(chunk => {
-      const rows = countableFailures().filter(f => chunk.includes(monthKey(f.dateReceive)));
-      const rangeLabel = slideMonthRangeLabel(chunk);
-      const topSubsystem = topEntry(computeSubsystemTotals(rows));
-      const topAsset = topEntry(computeAssetTotals(rows));
-      const topDepot = topEntry(computeDepotTotals(rows));
-      const repeatOffenders = computeRepeatOffenders(rows).slice(0, 8);
-      const fourM = compute4MTotals(rows);
-      const downtimeMinutes = sumDowntimeMinutes(rows);
-      const avgDowntime = averageDowntimeBySubsystem(rows).slice(0, 5);
+    const headerOpts = { bold: true, fill: { color: '2C2C2A' }, color: 'F0EFEC' };
+    const cellOpts = { fontSize: 11, color: 'F0EFEC', fill: { color: '1A1A19' }, border: { color: '2C2C2A', pt: 0.5 } };
+    const fullYear = getFullYearMonths(2026);
 
-      const slide = pptx.addSlide();
-      slide.background = { color: '0B0B0B' };
-      slide.addText('LOKO 16-TAL Failure Analysis', { x: 0.5, y: 0.35, w: 12.3, h: 0.5, fontSize: 14, color: '898781', fontFace: 'Arial' });
-      slide.addText(rangeLabel, { x: 0.5, y: 0.75, w: 12.3, h: 0.6, fontSize: 28, bold: true, color: 'F0EFEC', fontFace: 'Arial' });
-      slide.addText(`${rows.length} failures logged`, { x: 0.5, y: 1.35, w: 12.3, h: 0.4, fontSize: 14, color: 'C3C2B7', fontFace: 'Arial' });
+    function addSlideHeader(slide, eyebrow, title) {
+      slide.addText(eyebrow, { x: 0.5, y: 0.35, w: 12.3, h: 0.35, fontSize: 13, color: '898781', fontFace: 'Arial', charSpacing: 2 });
+      slide.addText(title, { x: 0.5, y: 0.7, w: 12.3, h: 0.6, fontSize: 26, bold: true, color: 'F0EFEC', fontFace: 'Arial' });
+    }
+    function addMonthlyBarChart(slide, labels, values, opts = {}) {
+      slide.addChart(pptx.ChartType.bar, [{ name: opts.seriesName || 'Value', labels, values }], {
+        x: opts.x ?? 0.6, y: opts.y ?? 1.5, w: opts.w ?? 12.1, h: opts.h ?? 5.3,
+        barDir: 'col',
+        chartColors: opts.colors || ['2a78d6'],
+        showLegend: false, showTitle: false,
+        showValue: true, dataLabelColor: 'F0EFEC', dataLabelFontSize: 9,
+        catAxisLabelColor: 'C3C2B7', catAxisLabelFontSize: 9,
+        valAxisLabelColor: 'C3C2B7', valAxisLabelFontSize: 9,
+        catAxisLineColor: '383835', valAxisLineColor: '383835',
+        valGridLine: { color: '2C2C2A' }, catGridLine: { style: 'none' },
+        valAxisTitle: opts.valAxisTitle, showValAxisTitle: !!opts.valAxisTitle, valAxisTitleColor: '898781', valAxisTitleFontSize: 10,
+      });
+    }
 
-      const headerOpts = { bold: true, fill: { color: '2C2C2A' }, color: 'F0EFEC' };
-      const cellOpts = { fontSize: 11, color: 'F0EFEC', fill: { color: '1A1A19' }, border: { color: '2C2C2A', pt: 0.5 } };
+    // COVER
+    const cover = pptx.addSlide(); cover.background = { color: '0B0B0B' };
+    cover.addText('LOKO 16-TAL', { x: 0.8, y: 2.6, w: 11.7, h: 0.6, fontSize: 18, color: '898781', fontFace: 'Arial' });
+    cover.addText('Fleet Performance Review', { x: 0.8, y: 3.1, w: 11.7, h: 1.0, fontSize: 40, bold: true, color: 'F0EFEC', fontFace: 'Arial' });
+    cover.addText(`Generated ${monthLabelLong(todayMonthKey())}`, { x: 0.8, y: 4.1, w: 11.7, h: 0.4, fontSize: 13, color: 'C3C2B7', fontFace: 'Arial' });
 
-      const leaderRows = [
-        ['Top sub-system', topSubsystem ? `${topSubsystem.key} (${topSubsystem.count})` : '—'],
-        ['Top locomotive', topAsset ? `${topAsset.key} (${topAsset.count})` : '—'],
-        ['Top depot', topDepot ? `${topDepot.key} (${topDepot.count})` : '—'],
-        ['Total downtime', downtimeMinutes ? (formatDowntime(downtimeMinutes * 60000) || '—') : '—'],
+    // RELIABILITY
+    const availMonths = availabilityTrackedMonths();
+    const availValues = availMonths.map(m => computeDailyAvailabilityAverage(m));
+    const availTargets = availMonths.map(m => availabilityTargetForMonth(m));
+    const availColors = availValues.map((v, i) => v >= availTargets[i] ? '159253' : 'B0202F');
+
+    let slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
+    addSlideHeader(slide, 'RELIABILITY', 'Fleet Availability by Month');
+    addMonthlyBarChart(slide, availMonths.map(monthLabel), availValues, { colors: availColors, valAxisTitle: 'Avg locos/day' });
+
+    const rel = reliabilityTrackedMonths();
+    slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
+    addSlideHeader(slide, 'RELIABILITY', 'Monthly Summary');
+    const relHeaderRow = ['Month', 'Running (km)', 'Failures', 'MKBF (km/failure)', 'Target (km)', 'Status'].map(t => ({ text: t, options: headerOpts }));
+    const relDataRows = rel.map(m => {
+      const mkbf = computeMkbfKm(m);
+      const pass = mkbf !== null && mkbf >= MKBF_TARGET_KM;
+      const statusText = mkbf === null ? '—' : (pass ? 'On target' : 'Below');
+      const statusColor = mkbf === null ? 'C3C2B7' : (pass ? '0ca30c' : 'e66767');
+      return [
+        { text: monthLabel(m), options: cellOpts },
+        { text: String(dailyStatusFleetKmForMonth(m)), options: cellOpts },
+        { text: String(failuresForMonth(m) ?? '—'), options: cellOpts },
+        { text: mkbf === null ? '—' : String(mkbf), options: cellOpts },
+        { text: String(MKBF_TARGET_KM), options: cellOpts },
+        { text: statusText, options: { ...cellOpts, color: statusColor, bold: true } },
       ];
-      slide.addTable(
-        [[{ text: 'Leaders', options: { ...headerOpts, colspan: 2 } }], ...leaderRows],
-        { x: 0.5, y: 1.95, w: 5.8, colW: [2.6, 3.2], ...cellOpts }
-      );
-
-      const fourMRows = Object.entries(fourM).map(([k, v]) => [k, String(v)]);
-      slide.addTable(
-        [[{ text: '4M breakdown', options: { ...headerOpts, colspan: 2 } }], ...fourMRows],
-        { x: 6.6, y: 1.95, w: 3.6, colW: [2.2, 1.4], ...cellOpts }
-      );
-
-      if (repeatOffenders.length) {
-        const repRows = repeatOffenders.map(r => [String(r.asset), r.subsystem, String(r.count)]);
-        slide.addTable(
-          [['Locomotive', 'Sub-system', 'Count'].map(t => ({ text: t, options: headerOpts })), ...repRows],
-          { x: 0.5, y: 4.3, w: 6.0, colW: [2.2, 2.8, 1.0], fontSize: 10.5, color: 'F0EFEC', fill: { color: '1A1A19' }, border: { color: '2C2C2A', pt: 0.5 } }
-        );
-      }
-      if (avgDowntime.length) {
-        const dtRows = avgDowntime.map(d => [d.subsystem, formatDowntime(d.avgMinutes * 60000) || '—']);
-        slide.addTable(
-          [['Sub-system', 'Avg downtime'].map(t => ({ text: t, options: headerOpts })), ...dtRows],
-          { x: 6.9, y: 4.3, w: 5.3, colW: [2.8, 2.5], fontSize: 10.5, color: 'F0EFEC', fill: { color: '1A1A19' }, border: { color: '2C2C2A', pt: 0.5 } }
-        );
-      }
     });
+    slide.addTable([relHeaderRow, ...relDataRows], { x: 0.5, y: 1.6, w: 12.3, h: 5.0, colW: [1.8, 2.2, 1.8, 2.5, 2.0, 2.0] });
 
-    const fileLabel = months.length === 1 ? months[0] : `${months[0]}_to_${months[months.length - 1]}`;
-    await pptx.writeFile({ fileName: `LOKO-Failure-Analysis-${fileLabel}.pptx` });
-    toast(`Exported ${chunks.length} slide${chunks.length === 1 ? '' : 's'}.`);
+    slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
+    addSlideHeader(slide, 'RELIABILITY', 'MKBF, Failures & Running — Monthly');
+    const relLabels = rel.map(monthLabel);
+    const mkbfValues = rel.map(m => computeMkbfKm(m) || 0);
+    const mkbfColors = rel.map(m => (computeMkbfKm(m) || 0) >= MKBF_TARGET_KM ? '159253' : 'B0202F');
+    const failValues = rel.map(m => failuresForMonth(m) || 0);
+    const runningValues = rel.map(m => dailyStatusFleetKmForMonth(m));
+    slide.addText('MKBF (km/failure)', { x: 0.6, y: 1.15, w: 6, h: 0.25, fontSize: 10, color: '898781', bold: true, fontFace: 'Arial' });
+    addMonthlyBarChart(slide, relLabels, mkbfValues, { x: 0.6, y: 1.42, w: 12.1, h: 1.65, colors: mkbfColors });
+    slide.addText('Failures', { x: 0.6, y: 3.15, w: 6, h: 0.25, fontSize: 10, color: '898781', bold: true, fontFace: 'Arial' });
+    addMonthlyBarChart(slide, relLabels, failValues, { x: 0.6, y: 3.42, w: 12.1, h: 1.65, colors: ['e66767'] });
+    slide.addText('Total Running (km)', { x: 0.6, y: 5.15, w: 6, h: 0.25, fontSize: 10, color: '898781', bold: true, fontFace: 'Arial' });
+    addMonthlyBarChart(slide, relLabels, runningValues, { x: 0.6, y: 5.42, w: 12.1, h: 1.65, colors: ['3987e5'] });
+
+    const uswMonthCounts = {};
+    countableFailures().forEach(f => { const k = monthKey(f.dateReceive); if (k) uswMonthCounts[k] = (uswMonthCounts[k] || 0) + 1; });
+    const uswMonths = Object.keys(uswMonthCounts).sort();
+    slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
+    addSlideHeader(slide, 'RELIABILITY', 'Failures (USW) by Month');
+    addMonthlyBarChart(slide, uswMonths.map(monthLabel), uswMonths.map(k => uswMonthCounts[k]), { colors: ['e34948'], valAxisTitle: 'Failures' });
+
+    const scopedRows = scopeMonth === 'all' ? countableFailures() : countableFailures().filter(f => monthKey(f.dateReceive) === scopeMonth);
+    const scopeLabel = scopeMonth === 'all' ? 'All Months' : monthLabelLong(scopeMonth);
+
+    const subEntries = Object.entries(computeSubsystemTotals(scopedRows)).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
+    addSlideHeader(slide, 'RELIABILITY', `Sub-System Failures — ${scopeLabel}`);
+    addMonthlyBarChart(slide, subEntries.map(e => e[0]), subEntries.map(e => e[1]), { colors: ['6250d6'], valAxisTitle: 'Failures' });
+
+    const fourMEntries = Object.entries(compute4MTotals(scopedRows));
+    slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
+    addSlideHeader(slide, 'RELIABILITY', `4M Component Breakdown — ${scopeLabel}`);
+    addMonthlyBarChart(slide, fourMEntries.map(e => e[0]), fourMEntries.map(e => e[1]), { colors: ['eda100'], valAxisTitle: 'Count' });
+
+    const topLoco = Object.entries(computeAssetTotals(countableFailures())).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
+    addSlideHeader(slide, 'RELIABILITY', 'Top Loco Failures');
+    addMonthlyBarChart(slide, topLoco.map(e => String(e[0])), topLoco.map(e => e[1]), { colors: ['6250d6'], valAxisTitle: 'Failures' });
+
+    // AVAILABILITY
+    slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
+    addSlideHeader(slide, 'AVAILABILITY', 'Fleet Availability — Monthly');
+    addMonthlyBarChart(slide, availMonths.map(monthLabel), availValues, { x: 0.6, y: 1.35, w: 12.1, h: 3.3, colors: availColors, valAxisTitle: 'Avg locos/day' });
+    const availHeaderRow = ['', ...fullYear.map(m => monthLabel(m))].map(t => ({ text: t, options: headerOpts }));
+    const availDataRow = ['Availability (avg locos/day)', ...fullYear.map(m => availMonths.includes(m) ? String(computeDailyAvailabilityAverage(m)) : '—')].map(t => ({ text: t, options: cellOpts }));
+    slide.addTable([availHeaderRow, availDataRow], { x: 0.5, y: 4.9, w: 12.3, h: 1.3, colW: [2.46, ...Array(12).fill(0.82)], fontSize: 9 });
+
+    // MAINTAINABILITY
+    const peMonthCounts = {};
+    DATA.peHistory.forEach(h => { if (h.date) { const k = monthKey(h.date); if (k) peMonthCounts[k] = (peMonthCounts[k] || 0) + 1; } });
+    const peMonths = Object.keys(peMonthCounts).sort();
+    slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
+    addSlideHeader(slide, 'MAINTAINABILITY', 'PE Completions by Month');
+    addMonthlyBarChart(slide, peMonths.map(monthLabel), peMonths.map(k => peMonthCounts[k]), { colors: ['2a78d6'], valAxisTitle: 'PE Completions' });
+
+    const { types: peTypes, byTypeMonth } = computePeTypeMonthTotals();
+    slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
+    addSlideHeader(slide, 'MAINTAINABILITY', 'PE Completions by Type — Monthly Breakdown');
+    const peHeaderRow = ['PE Type', ...fullYear.map(m => monthLabel(m))].map(t => ({ text: t, options: headerOpts }));
+    const peTypeRows = peTypes.map(type => fullYear.map(m => byTypeMonth[type][m] || 0));
+    const peTotalsRow = fullYear.map((m, i) => peTypeRows.reduce((s, r) => s + r[i], 0));
+    slide.addTable([
+      peHeaderRow,
+      ...peTypes.map((type, ti) => [type, ...peTypeRows[ti].map(String)].map(t => ({ text: t, options: cellOpts }))),
+      ['Total', ...peTotalsRow.map(String)].map(t => ({ text: t, options: { ...cellOpts, bold: true, fill: { color: '2C2C2A' } } })),
+    ], { x: 0.5, y: 1.6, w: 12.3, h: 5.0, colW: [1.5, ...Array(12).fill(0.9)], fontSize: 10 });
+
+    // ACCIDENTS 2026
+    const langgarCounts = langgarMonthTotals();
+    const langgarMonths = Object.keys(langgarCounts).sort();
+    slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
+    addSlideHeader(slide, 'ACCIDENTS 2026', '16-TAL Accidents by Month');
+    addMonthlyBarChart(slide, langgarMonths.map(monthLabel), langgarMonths.map(k => langgarCounts[k]), { colors: ['d03b3b'], valAxisTitle: 'Accidents' });
+
+    await pptx.writeFile({ fileName: 'LOKO-Performance-Slideshow.pptx' });
+    toast('Exported performance slideshow.');
     closeModal();
   } catch (err) {
     console.error(err);
