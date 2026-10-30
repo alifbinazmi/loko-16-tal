@@ -245,6 +245,7 @@
   .chart-panel h3{margin:0 0 12px 0;font-size:12.5px;font-weight:700;letter-spacing:.03em;color:var(--text);display:flex;align-items:center;gap:8px;}
   .chart-panel h3::before{content:"";width:3px;height:12px;background:var(--amber);border-radius:2px;}
   .chart-hint{margin-left:auto;font-size:10px;font-weight:600;letter-spacing:.02em;text-transform:none;color:var(--text-faint);}
+  .chart-badge{margin-left:auto;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--panel-2);border:1px solid var(--border-soft);color:var(--text);white-space:nowrap;}
 
   @keyframes rowFlash{
     0%,100%{background:transparent;}
@@ -2204,18 +2205,18 @@ function renderDashboard() {
       <button type="button" class="btn btn-ghost" id="dashExportBtn">Export Dashboard to Excel</button>
     </div>
     <div class="chart-grid">
-      <div class="chart-panel"><h3 id="chartDashAvailabilityTitle" style="cursor:pointer;">Fleet Availability by Month</h3><div class="chart-wrap"><canvas id="chartDashAvailability"></canvas></div></div>
-      <div class="chart-panel"><h3 id="chartDashReliabilityTitle" style="cursor:pointer;">Reliability (MKBF) by Month</h3><div class="chart-wrap"><canvas id="chartDashReliability"></canvas></div></div>
-      <div class="chart-panel"><h3 id="chartDashPeTitle" style="cursor:pointer;">PE Completions by Month</h3><div class="chart-wrap"><canvas id="chartDashPe"></canvas></div></div>
-      <div class="chart-panel"><h3 id="chartMonthlyTitle" style="cursor:pointer;">Monthly Unscheduled Trend</h3><div class="chart-wrap"><canvas id="chartMonthly"></canvas></div></div>
-      <div class="chart-panel"><h3 id="chartMonthlyIncidentsTitle" style="cursor:pointer;">Monthly 16-TAL Incidents</h3><div class="chart-wrap"><canvas id="chartMonthlyIncidents"></canvas></div></div>
-      <div class="chart-panel"><h3 id="chartDashRunningTitle" style="cursor:pointer;">Total Running (km) by Month</h3><div class="chart-wrap"><canvas id="chartDashRunning"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartDashAvailabilityTitle" style="cursor:pointer;">Fleet Availability by Month<span class="chart-badge" id="chartDashAvailabilityBadge"></span></h3><div class="chart-wrap"><canvas id="chartDashAvailability"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartDashReliabilityTitle" style="cursor:pointer;">Reliability (MKBF) by Month<span class="chart-badge" id="chartDashReliabilityBadge"></span></h3><div class="chart-wrap"><canvas id="chartDashReliability"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartDashPeTitle" style="cursor:pointer;">PE Completions by Month<span class="chart-badge" id="chartDashPeBadge"></span></h3><div class="chart-wrap"><canvas id="chartDashPe"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartMonthlyTitle" style="cursor:pointer;">Monthly Unscheduled Trend<span class="chart-badge" id="chartMonthlyBadge"></span></h3><div class="chart-wrap"><canvas id="chartMonthly"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartMonthlyIncidentsTitle" style="cursor:pointer;">Monthly 16-TAL Incidents<span class="chart-badge" id="chartMonthlyIncidentsBadge"></span></h3><div class="chart-wrap"><canvas id="chartMonthlyIncidents"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartDashRunningTitle" style="cursor:pointer;">Total Running (km) by Month<span class="chart-badge" id="chartDashRunningBadge"></span></h3><div class="chart-wrap"><canvas id="chartDashRunning"></canvas></div></div>
     </div>
 
     <div class="section-eyebrow">Failure Breakdowns</div>
     <div class="chart-grid">
-      <div class="chart-panel"><h3 id="chartSubsystemTitle" style="cursor:pointer;">Failures by Sub-System</h3><div class="chart-wrap"><canvas id="chartSubsystem"></canvas></div></div>
-      <div class="chart-panel"><h3 id="chartAssetTitle" style="cursor:pointer;">Failures by Locomotive (top 12)</h3><div class="chart-wrap tall"><canvas id="chartAsset"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartSubsystemTitle" style="cursor:pointer;">Failures by Sub-System<span class="chart-badge" id="chartSubsystemBadge"></span></h3><div class="chart-wrap"><canvas id="chartSubsystem"></canvas></div></div>
+      <div class="chart-panel"><h3 id="chartAssetTitle" style="cursor:pointer;">Failures by Locomotive (top 12)<span class="chart-badge" id="chartAssetBadge"></span></h3><div class="chart-wrap tall"><canvas id="chartAsset"></canvas></div></div>
     </div>
   `;
   wireKpiCards();
@@ -2466,6 +2467,33 @@ function roundRectFull(ctx, x, y, w, h, r) {
 }
 
 let _dashboardChartData = {}; // populated below: { canvasId: { title, labelHeader, valueHeader, labels, values } }
+const CHART_BADGE_CONFIG = {
+  chartDashAvailability: { mode: 'latest', format: v => fmtKm(v) },
+  chartDashReliability: { mode: 'latest', format: v => fmtKm(v) + ' km' },
+  chartDashPe: { mode: 'latest', format: v => String(v) },
+  chartMonthly: { mode: 'latest', format: v => String(v) },
+  chartMonthlyIncidents: { mode: 'latest', format: v => String(v) },
+  chartDashRunning: { mode: 'latest', format: v => fmtKm(v) + ' km' },
+  chartSubsystem: { mode: 'top', format: v => String(v) },
+  chartAsset: { mode: 'top', format: v => String(v) },
+};
+function updateDashboardChartBadges() {
+  Object.entries(CHART_BADGE_CONFIG).forEach(([chartId, cfg]) => {
+    const data = _dashboardChartData[chartId];
+    const badgeEl = document.getElementById(chartId + 'Badge');
+    if (!badgeEl) return;
+    if (!data || !data.values.length) { badgeEl.textContent = ''; return; }
+    if (cfg.mode === 'latest') {
+      badgeEl.textContent = cfg.format(data.values[data.values.length - 1]);
+    } else {
+      let maxIdx = 0;
+      data.values.forEach((v, i) => { if (v > data.values[maxIdx]) maxIdx = i; });
+      const label = String(data.labels[maxIdx]);
+      const shortLabel = label.length > 14 ? label.slice(0, 12) + '…' : label;
+      badgeEl.textContent = `Top: ${shortLabel} (${cfg.format(data.values[maxIdx])})`;
+    }
+  });
+}
 function drawDashboardCharts(ssTotals, assetTotals) {
   _dashboardChartData = {};
 
@@ -2550,6 +2578,8 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   _dashboardChartData.chartDashRunning = { title: 'Total Running (km) by Month', labelHeader: 'Month', valueHeader: 'Running (km)', labels: relMonths.map(monthLabel), values: runningData };
   const chartDashRunningTitleEl = document.getElementById('chartDashRunningTitle');
   if (chartDashRunningTitleEl) chartDashRunningTitleEl.addEventListener('click', () => setView('dailyStatus'));
+
+  updateDashboardChartBadges();
 }
 let _dashboardResizeTimer = null;
 window.addEventListener('resize', () => {
