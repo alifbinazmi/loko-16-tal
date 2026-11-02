@@ -557,9 +557,14 @@
   body:not(.authed) .sidebar, body:not(.authed) .main{display:none;}
   .login-screen{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;
     background:linear-gradient(rgba(11,11,11,.55),rgba(11,11,11,.55)), url('login-bg.webp') center/cover no-repeat;}
-  .login-card{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:28px 26px;box-shadow:0 20px 60px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:14px;animation:modalIn .16s ease;}
-  .login-brand{font-family:var(--mono);font-size:10.5px;color:var(--text-faint);letter-spacing:.03em;text-transform:uppercase;}
-  .login-card h2{margin:0 0 4px 0;font-size:17px;font-weight:700;}
+  .login-card{width:100%;max-width:360px;background:rgba(255,255,255,.72);backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);border:1px solid rgba(255,255,255,.5);border-radius:16px;padding:32px 28px;box-shadow:0 8px 32px rgba(0,0,0,.25),0 0 40px rgba(168,93,0,.18);display:flex;flex-direction:column;align-items:center;gap:14px;animation:modalIn .16s ease;}
+  .login-badge{width:56px;height:56px;border-radius:50%;background:#fff;padding:8px;object-fit:contain;box-shadow:0 4px 16px rgba(0,0,0,.18),0 0 0 3px rgba(168,93,0,.15);}
+  .login-brand{font-family:var(--mono);font-size:10.5px;color:var(--text-faint);letter-spacing:.03em;text-transform:uppercase;text-align:center;}
+  .login-card h2{margin:2px 0 8px;font-size:22px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;text-align:center;}
+  .login-card .field{width:100%;}
+  .login-card .field input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(168,93,0,.18);}
+  .login-card #loginSubmitBtn{width:100%;background:linear-gradient(135deg,var(--amber),#7a4200);border:none;color:#fff;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:12px;border-radius:10px;transition:transform .15s ease,box-shadow .15s ease;}
+  .login-card #loginSubmitBtn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(168,93,0,.35);}
   .login-card .btn{width:100%;justify-content:center;margin-top:4px;}
   .login-error{color:var(--red);font-size:12px;background:var(--red-soft);border-radius:5px;padding:8px 10px;}
 
@@ -660,12 +665,13 @@
 
 <div id="loginScreen" class="login-screen">
   <form id="loginForm" class="login-card">
+    <img class="login-badge" id="loginBadge" alt="">
     <div class="login-brand">LOKO &middot; 16-TAL FLEET OPS</div>
-    <h2>Sign in</h2>
+    <h2>LOG IN</h2>
     <div class="field"><label>Username</label><input type="text" id="loginUsername" required autocomplete="username"></div>
     <div class="field"><label>Password</label><input type="password" id="loginPassword" required autocomplete="current-password"></div>
     <div class="login-error" id="loginError" hidden></div>
-    <button type="submit" class="btn btn-primary" id="loginSubmitBtn">Sign in</button>
+    <button type="submit" class="btn btn-primary" id="loginSubmitBtn">LOG IN</button>
   </form>
 </div>
 
@@ -6186,12 +6192,12 @@ async function handleLoginSubmit(e) {
   e.preventDefault();
   const btn = document.getElementById('loginSubmitBtn');
   btn.disabled = true;
-  btn.textContent = 'Signing in…';
+  btn.textContent = 'Logging in…';
   const username = document.getElementById('loginUsername').value.trim();
   const password = document.getElementById('loginPassword').value;
   const { data } = await _db.from('login_credentials').select('password, role').eq('username', username).maybeSingle();
   btn.disabled = false;
-  btn.textContent = 'Sign in';
+  btn.textContent = 'LOG IN';
   if (!data || data.password !== password) { showLoginScreen('Invalid username or password'); return; }
   localStorage.setItem('loko_authed', '1');
   localStorage.setItem('loko_last_activity', String(Date.now()));
@@ -6201,6 +6207,9 @@ async function handleLoginSubmit(e) {
   startApp();
 }
 (async function boot() {
+  const brandLogoEl = document.querySelector('.brand-logo');
+  const loginBadgeEl = document.getElementById('loginBadge');
+  if (brandLogoEl && loginBadgeEl) loginBadgeEl.src = brandLogoEl.src;
   document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
   document.getElementById('logoutBtn').addEventListener('click', performLogout);
   document.getElementById('saveNowBtn').addEventListener('click', saveAllNow);
