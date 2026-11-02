@@ -2080,6 +2080,17 @@ function computePeMonthTotals(months, rows = DATA.peHistory) {
   rows.forEach(r => { const k = monthKey(r.date); if (k && counts.hasOwnProperty(k)) counts[k]++; });
   return counts;
 }
+function computeIncidentStatusCounts(month, rows = DATA.incidents) {
+  const counts = { FAIL: 0, Ditahan: 0, Kelewatan: 0 };
+  rows.forEach(i => {
+    if (i.month !== month) return;
+    const s = (i.status || '').toUpperCase();
+    if (s === 'FAIL') counts.FAIL++;
+    else if (s === 'DITAHAN') counts.Ditahan++;
+    else if (s === 'KELEWATAN') counts.Kelewatan++;
+  });
+  return counts;
+}
 function buildNeedsAttentionRows(ctx) {
   const rows = [];
   if (ctx.overdue > 0) rows.push([`PE backlog: ${ctx.overdue} of ${ctx.totalActiveFleet}`, 'PE recovery plan for overdue locomotives.']);
@@ -2334,7 +2345,7 @@ function renderDashboard() {
   const dashExportBtn = document.getElementById('dashExportBtn');
   if (dashExportBtn) dashExportBtn.addEventListener('click', exportDashboardToExcel);
   const dashSlidesBtn = document.getElementById('dashSlidesBtn');
-  if (dashSlidesBtn) dashSlidesBtn.addEventListener('click', exportPerformanceSlides);
+  if (dashSlidesBtn) dashSlidesBtn.addEventListener('click', openPerformanceSlidesModal);
 }
 
 function destroyCharts() { /* canvas charts are redrawn fresh each time; nothing to tear down */ }
@@ -5555,8 +5566,39 @@ function renderDailyStatus() {
    PERFORMANCE SLIDESHOW EXPORT — builds a management-report .pptx
    from live dashboard data (light theme, matches the boss's reference deck)
    ============================================================ */
-async function exportPerformanceSlides() {
-  const btn = document.getElementById('dashSlidesBtn');
+function openPerformanceSlidesModal() {
+  const modalRange = reportingRange();
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="modal-head">
+      <h2>Export Performance Slideshow</h2>
+      <button class="modal-close" id="modalCloseBtn">${ICONS.close}</button>
+    </div>
+    <div class="modal-body">
+      <p class="dim" style="margin:0 0 14px;font-size:12.5px;">Pick the month shown on the "At a Glance" KPI tiles and the Unscheduled Reports breakdown. Every other slide still covers the full ${esc(modalRange.rangeLabel)} range.</p>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim);">
+        Report month
+        <select id="perfSlideMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);">
+          ${modalRange.months.map(m => `<option value="${esc(m)}"${m === modalRange.latestMonth ? ' selected' : ''}>${esc(monthLabelLong(m))}</option>`).join('')}
+        </select>
+      </label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="modalCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="exportSlidesBtn">Export to PowerPoint</button>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.add('open');
+  document.getElementById('modalBackdrop').scrollTop = 0;
+  document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+  document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
+  document.getElementById('exportSlidesBtn').addEventListener('click', () => {
+    const sel = document.getElementById('perfSlideMonthSelect');
+    exportPerformanceSlides(sel ? sel.value : modalRange.latestMonth);
+  });
+}
+async function exportPerformanceSlides(selectedMonth) {
+  const btn = document.getElementById('exportSlidesBtn');
   const originalLabel = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Preparing deck…'; }
   try {
@@ -5649,6 +5691,7 @@ async function exportPerformanceSlides() {
     }
 
     const range = reportingRange();
+    if (!selectedMonth || !range.months.includes(selectedMonth)) selectedMonth = range.latestMonth;
     const caveat = partialMonthCaveat(range);
     const countable = countableFailures();
     const totalFailuresAll = countable.length;
@@ -5700,21 +5743,36 @@ async function exportPerformanceSlides() {
 
     // ---------- SLIDE 2: AT A GLANCE ----------
     slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
-    addSlideHeader(slide, `AT A GLANCE · ${range.rangeLabelShort}`, atAGlanceHeadline({ overdue, repeatTotal }));
-    const runnerUp = subEntriesAll[1];
+    const countableMonth = countable.filter(f => monthKey(f.dateReceive) === selectedMonth);
+    const repeatTotalMonth = computeRepeatOffenders(countableMonth).reduce((a, b) => a + b.count, 0);
+    addSlideHeader(slide, `AT A GLANCE · ${monthLabel(selectedMonth)}`, atAGlanceHeadline({ overdue, repeatTotal: repeatTotalMonth }));
+
+    const mkbfMonthVal = computeMkbfKm(selectedMonth);
+    const mkbfMonthPass = mkbfMonthVal !== null && mkbfMonthVal >= MKBF_TARGET_KM;
+    const availMonthVal = computeDailyAvailabilityAverage(selectedMonth);
+    const availMonthTarget = availabilityTargetForMonth(selectedMonth);
+    const peMonthVal = peMonthTotals[selectedMonth] || 0;
+    const subTotalsMonth = computeSubsystemTotals(countableMonth);
+    const topSubMonth = countableMonth.length ? topEntry(subTotalsMonth) : null;
+    const subEntriesMonth = Object.entries(subTotalsMonth).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    const runnerUpMonth = subEntriesMonth[1];
+    const fourMMonth = compute4MTotals(countableMonth);
+    const totalCausesMonth = Object.values(fourMMonth).reduce((a, b) => a + b, 0);
+    const topCauseMonth = totalCausesMonth ? topEntry(fourMMonth) : null;
+
     const tiles = [
-      { label: 'Reliability (MKBF)', stat: `${mkbfPassCount} of ${mkbfVals.length} months on target`,
-        detail: mkbfLowest ? `Lowest: ${fmtKm(mkbfLowest.v)} km in ${monthLabel(mkbfLowest.m)}.` : '—' },
-      { label: 'Availability', stat: `${fmtKm(availMin)}–${fmtKm(availMax)}`,
-        detail: `locomotives a day on average; ${availBelowCount === 0 ? 'on target every month' : `below target in ${availBelowCount} month${availBelowCount > 1 ? 's' : ''}`}.` },
-      { label: 'Periodic Examination', stat: `${peTotal} PE`,
-        detail: `completed, but ${overdue} of ${totalActiveFleet} locomotives are overdue for PE.` },
-      { label: 'Unscheduled Reports', stat: `${totalFailuresAll}`,
-        detail: `in total; peak of ${uswPeak[1]} in ${monthLabel(uswPeak[0])}.` },
-      { label: 'Top Sub-System', stat: topSub ? topSub.key : '—',
-        detail: topSub ? `${topSub.count} reports (${Math.round(topSub.count / totalFailuresAll * 100)}%), ahead of ${runnerUp ? runnerUp[0] : '—'} (${runnerUp ? runnerUp[1] : 0}).` : '—' },
-      { label: '4M Root Cause', stat: topCauseEntry ? `${Math.round(topCauseEntry.count / totalCauses * 100)}%` : '—',
-        detail: topCauseEntry ? `of failure causes are ${topCauseEntry.key} (${topCauseEntry.count} of ${totalCauses}).` : '—' },
+      { label: 'Reliability (MKBF)', stat: mkbfMonthVal === null ? '—' : `${fmtKm(mkbfMonthVal)} km`,
+        detail: mkbfMonthVal === null ? 'No reliability data this month.' : `vs ${fmtKm(MKBF_TARGET_KM)} km target — ${mkbfMonthPass ? 'on target' : 'below target'}.` },
+      { label: 'Availability', stat: `${fmtKm(availMonthVal)}`,
+        detail: `locomotives a day; target ${fmtKm(availMonthTarget)} — ${availMonthVal >= availMonthTarget ? 'on target' : 'below target'}.` },
+      { label: 'Periodic Examination', stat: `${peMonthVal} PE`,
+        detail: `completed this month; ${overdue} of ${totalActiveFleet} overdue fleet-wide today.` },
+      { label: 'Unscheduled Reports', stat: `${countableMonth.length}`,
+        detail: topSubMonth ? `reports this month; top sub-system ${topSubMonth.key} (${topSubMonth.count}).` : 'reports this month.' },
+      { label: 'Top Sub-System', stat: topSubMonth ? topSubMonth.key : '—',
+        detail: topSubMonth ? `${topSubMonth.count} reports (${Math.round(topSubMonth.count / countableMonth.length * 100)}% of ${countableMonth.length}), ahead of ${runnerUpMonth ? runnerUpMonth[0] : '—'} (${runnerUpMonth ? runnerUpMonth[1] : 0}).` : '—' },
+      { label: '4M Root Cause', stat: topCauseMonth ? `${Math.round(topCauseMonth.count / totalCausesMonth * 100)}%` : '—',
+        detail: topCauseMonth ? `of failure causes are ${topCauseMonth.key} (${topCauseMonth.count} of ${totalCausesMonth}).` : 'No 4M data this month.' },
     ];
     const kpiColW = 3.943, kpiGap = 0.25, kpiRowH = 2.675;
     tiles.forEach((t, i) => {
@@ -5778,17 +5836,24 @@ async function exportPerformanceSlides() {
     // ---------- SLIDE 6: 04 · UNSCHEDULED REPORTS ----------
     slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
     addSlideHeader(slide, '04 · UNSCHEDULED REPORTS', 'Monthly unscheduled failure reports');
-    addMonthlyBarChart(slide, range.months.map(monthLabel), uswVals, { y: 1.5, h: 3.6, colors: [LOKO_LIGHT.red], valAxisTitle: 'Reports' });
+    addMonthlyBarChart(slide, range.months.map(monthLabel), uswVals, { y: 1.5, h: 3.0, colors: [LOKO_LIGHT.red], valAxisTitle: 'Reports' });
     slide.addText(`${totalFailuresAll} unscheduled reports, ${range.rangeLabel}`,
-      { x: 0.6, y: 5.3, w: 12.1, h: 0.4, fontSize: 16, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
-    const peakSubTop = topEntry(computeSubsystemTotals(countable.filter(f => monthKey(f.dateReceive) === uswPeak[0])));
-    const lowestUsw = Object.entries(uswMonthTotals).reduce((a, b) => (b[1] < a[1] ? b : a));
-    const avgUsw = Math.round(uswVals.reduce((a, b) => a + b, 0) / uswVals.length * 10) / 10;
-    slide.addText([
-      { text: `Peak: ${uswPeak[1]} in ${monthLabel(uswPeak[0])}${peakSubTop ? ' — mostly ' + peakSubTop.key + ' (' + peakSubTop.count + ')' : ''}.`, options: { bullet: true, breakLine: true } },
-      { text: `Lowest: ${lowestUsw[1]} in ${monthLabel(lowestUsw[0])}.`, options: { bullet: true, breakLine: true } },
-      { text: `Average: ${avgUsw} reports a month.`, options: { bullet: true, breakLine: false } },
-    ], { x: 0.6, y: 5.75, w: 12.1, h: 1.3, fontSize: 12, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
+      { x: 0.6, y: 4.7, w: 12.1, h: 0.35, fontSize: 14, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
+
+    const incidentCounts = computeIncidentStatusCounts(selectedMonth);
+    const uswSelectedMonthTotal = uswMonthTotals[selectedMonth] || 0;
+    const balance = Math.max(0, uswSelectedMonthTotal - (incidentCounts.FAIL + incidentCounts.Ditahan + incidentCounts.Kelewatan));
+    slide.addText(`Breakdown for ${monthLabelLong(selectedMonth)}`,
+      { x: 0.6, y: 5.15, w: 12.1, h: 0.3, fontSize: 11, bold: true, color: LOKO_LIGHT.navy, fontFace: 'Arial', charSpacing: 1.5, isTextBox: true });
+    const uswBreakdownTileW = 2.875, uswBreakdownGap = 0.2;
+    [
+      ['TCCC (Failed)', incidentCounts.FAIL],
+      ['Ditahan', incidentCounts.Ditahan],
+      ['Kelewatan', incidentCounts.Kelewatan],
+      ['Found during maintenance/PE', balance],
+    ].forEach(([label, val], i) => {
+      addKpiTile(slide, 0.6 + i * (uswBreakdownTileW + uswBreakdownGap), 5.5, uswBreakdownTileW, 1.6, label, String(val), '');
+    });
 
     // ---------- SLIDE 7: 05 · SUB-SYSTEM FAILURES ----------
     slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
@@ -5882,6 +5947,7 @@ async function exportPerformanceSlides() {
 
     await pptx.writeFile({ fileName: 'LOKO-Performance-Slideshow.pptx' });
     toast('Exported performance slideshow.');
+    closeModal();
   } catch (err) {
     console.error(err);
     toast('Export failed — check the console.', true);
