@@ -3667,6 +3667,19 @@ function computeDailyAvailabilityAverage(yyyyMm) {
   _availMonthAvgCache.set(cacheKey, result);
   return result;
 }
+function computeDailyAvailabilityAverageByClass(yyyyMm) {
+  const nDays = daysInMonthCount(yyyyMm);
+  const sums = { c23: 0, c24: 0, c25: 0 };
+  let count = 0;
+  for (let d = 1; d <= nDays; d++) {
+    const dateStr = `${yyyyMm}-${String(d).padStart(2, '0')}`;
+    const rec = getAvailabilityRecord(dateStr);
+    if (rec) { sums.c23 += rec.c23 || 0; sums.c24 += rec.c24 || 0; sums.c25 += rec.c25 || 0; count++; }
+  }
+  const avg = {};
+  Object.keys(sums).forEach(k => { avg[k] = count ? Math.round((sums[k] / count) * 100) / 100 : 0; });
+  return avg;
+}
 function availabilityTargetForMonth(yyyyMm) {
   const overrideMonths = Object.keys(DATA.availabilityTargetOverrides).sort();
   let applicable = null;
@@ -5808,12 +5821,21 @@ async function exportPerformanceSlides(selectedMonth) {
     slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
     addSlideHeader(slide, '02 · AVAILABILITY', 'Average locomotives available per day, against a monthly target');
     addTargetLineChart(slide, range.months.map(monthLabel), availVals.map(x => x.v), availVals.map(x => x.t),
-      { y: 1.5, h: 3.8, seriesName: 'Availability', targetName: 'Target', valAxisTitle: 'locos / day' });
+      { y: 1.5, h: 3.1, seriesName: 'Availability', targetName: 'Target', valAxisTitle: 'locos / day' });
     slide.addText(`${fmtKm(availMin)} to ${fmtKm(availMax)} locomotives a day ${availBelowCount === 0 ? 'above target' : 'vs target'}`,
-      { x: 0.6, y: 5.45, w: 12.1, h: 0.4, fontSize: 16, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
+      { x: 0.6, y: 4.75, w: 12.1, h: 0.35, fontSize: 14, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
     const availBullets = [{ text: `Lowest: ${fmtKm(lowestAvail.v)} locos/day in ${monthLabel(lowestAvail.m)}.`, options: { bullet: true, breakLine: !!targetChange } }];
     if (targetChange) availBullets.push({ text: `Target raised from ${targetChange.from} to ${targetChange.to} in ${monthLabel(targetChange.month)}.`, options: { bullet: true, breakLine: false } });
-    slide.addText(availBullets, { x: 0.6, y: 5.9, w: 12.1, h: 0.9, fontSize: 12, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
+    slide.addText(availBullets, { x: 0.6, y: 5.15, w: 12.1, h: 0.5, fontSize: 11, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
+
+    slide.addText(`Average by class — ${monthLabelLong(selectedMonth)}`,
+      { x: 0.6, y: 5.75, w: 12.1, h: 0.3, fontSize: 11, bold: true, color: LOKO_LIGHT.navy, fontFace: 'Arial', charSpacing: 1.5, isTextBox: true });
+    const availByClassMonth = computeDailyAvailabilityAverageByClass(selectedMonth);
+    const classTileW = 3.867, classTileGap = 0.25;
+    [['23 Class', availByClassMonth.c23], ['24 Class', availByClassMonth.c24], ['25 Class', availByClassMonth.c25]]
+      .forEach(([label, val], i) => {
+        addKpiTile(slide, 0.6 + i * (classTileW + classTileGap), 6.1, classTileW, 1.3, label, `${fmtKm(val)}`, 'locos/day avg, this month');
+      });
 
     // ---------- SLIDE 5: 03 · PERIODIC EXAMINATION (PE) ----------
     slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
