@@ -2014,7 +2014,7 @@ function topEntry(totals) {
   const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
   return sorted.length ? { key: sorted[0][0], count: sorted[0][1] } : null;
 }
-function computeRepeatOffenders(rows = DATA.failures) {
+function computeRepeatOffenders(rows = DATA.failures, minCount = 2) {
   const totals = {};
   rows.forEach(f => {
     const asset = f.asset || 'Unassigned';
@@ -2023,7 +2023,7 @@ function computeRepeatOffenders(rows = DATA.failures) {
     totals[k] = (totals[k] || 0) + 1;
   });
   return Object.entries(totals)
-    .filter(([, count]) => count >= 2)
+    .filter(([, count]) => count >= minCount)
     .map(([k, count]) => { const [asset, subsystem] = k.split('|'); return { asset, subsystem, count }; })
     .sort((a, b) => b.count - a.count);
 }
@@ -2035,6 +2035,66 @@ function compute4MTotals(rows = DATA.failures) {
     });
   });
   return totals;
+}
+function compute4MMonthlyTotals(months, rows = DATA.failures) {
+  const CAUSES = ['Material', 'Method', 'Machine', 'Manpower'];
+  const byCauseMonth = {};
+  CAUSES.forEach(c => { byCauseMonth[c] = {}; months.forEach(m => { byCauseMonth[c][m] = 0; }); });
+  rows.forEach(f => {
+    const m = monthKey(f.dateReceive);
+    if (!m || !byCauseMonth.Material.hasOwnProperty(m)) return;
+    [f.c1_4m, f.c2_4m, f.c3_4m, f.c4_4m].forEach(v => { if (v && byCauseMonth[v]) byCauseMonth[v][m]++; });
+  });
+  const series = CAUSES.map(c => ({ name: c, values: months.map(m => byCauseMonth[c][m]) }));
+  return { months, causes: CAUSES, byCauseMonth, series };
+}
+function countReportsMissing4M(rows = DATA.failures) {
+  const keys = ['c1_4m', 'c2_4m', 'c3_4m', 'c4_4m'];
+  return rows.filter(f => keys.every(k => { const v = (f[k] || '').trim(); return !v || v === '-'; })).length;
+}
+function computeDefectTotals(rows = DATA.failures) {
+  const NAMED = ['Defective/Damage', 'Leakage/Blowing', 'Fault/Malfunction', 'Disconnected'];
+  const totals = {};
+  NAMED.forEach(n => { totals[n] = 0; });
+  totals.Other = 0;
+  rows.forEach(f => {
+    [f.c1Defect, f.c2Defect, f.c3Defect, f.c4Defect].forEach(v => {
+      const val = (v || '').trim();
+      if (!val || val === '-') return;
+      if (NAMED.includes(val)) totals[val]++; else totals.Other++;
+    });
+  });
+  return totals;
+}
+function computeAssetTopSubsystem(asset, rows = DATA.failures) {
+  return topEntry(computeSubsystemTotals(rows.filter(f => String(f.asset) === String(asset))));
+}
+function topAssetWithinSubsystem(subsystemName, rows = DATA.failures) {
+  const bucketRows = rows.filter(f => subsystemBucketFor(f.subSystem) === subsystemName);
+  const top = topEntry(computeAssetTotals(bucketRows));
+  return top ? { asset: top.key, count: top.count, bucketTotal: bucketRows.length } : null;
+}
+function computePeMonthTotals(months, rows = DATA.peHistory) {
+  const counts = {};
+  months.forEach(m => { counts[m] = 0; });
+  rows.forEach(r => { const k = monthKey(r.date); if (k && counts.hasOwnProperty(k)) counts[k]++; });
+  return counts;
+}
+function buildNeedsAttentionRows(ctx) {
+  const rows = [];
+  if (ctx.overdue > 0) rows.push([`PE backlog: ${ctx.overdue} of ${ctx.totalActiveFleet}`, 'PE recovery plan for overdue locomotives.']);
+  if (ctx.repeatTotal > 0) rows.push([`Repeat failures: ${ctx.repeatTotal}`, 'Root-cause review for repeat combinations.']);
+  if (ctx.materialPct >= 50) rows.push([`Material causes: ${ctx.materialPct}%`, 'Review spare-part quality and sourcing.']);
+  if (ctx.topSubsystem) rows.push([`${ctx.topSubsystem.name}: top sub-system (${ctx.topSubsystem.pct}%)`, `Add focused ${ctx.topSubsystem.name} maintenance checks.`]);
+  if (ctx.dataGapCount > 0) rows.push([`Data gaps: ${ctx.dataGapCount} reports missing 4M`, 'Make 4M a required field going forward.']);
+  return rows;
+}
+function atAGlanceHeadline(ctx) {
+  const issues = [];
+  if (ctx.overdue > 0) issues.push('PE backlog');
+  if (ctx.repeatTotal > 0) issues.push('repeat failures');
+  if (!issues.length) return 'All KPIs on target';
+  return `KPIs on target; ${issues.length === 1 ? issues[0] : issues.slice(0, -1).join(', ') + ' and ' + issues[issues.length - 1]} need${issues.length === 1 ? 's' : ''} attention`;
 }
 function sumDowntimeMinutes(rows = DATA.failures) {
   let total = 0;
@@ -2056,6 +2116,29 @@ function averageDowntimeBySubsystem(rows = DATA.failures) {
 }
 function getFullYearMonths(year) {
   return Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+}
+function monthAbbrev(yyyyMm) {
+  const [y, m] = yyyyMm.split('-');
+  return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'short' });
+}
+function reportingRange() {
+  const tracked = getTrackedMonthsWithData();
+  const todayMonth = todayMonthKey();
+  const latestTrackedMonth = tracked.length ? tracked[tracked.length - 1] : todayMonth;
+  const year = Number(latestTrackedMonth.split('-')[0]);
+  const monthsInYearWithData = tracked.filter(m => m.startsWith(year + '-'));
+  const latestMonth = monthsInYearWithData.length ? monthsInYearWithData[monthsInYearWithData.length - 1] : latestTrackedMonth;
+  const months = getFullYearMonths(year).filter(m => m <= latestMonth);
+  const isPartial = latestMonth === todayMonth;
+  const partialCutoffDay = isPartial ? Number(todayDateStr().slice(8, 10)) : null;
+  const rangeLabelShort = months.length > 1 ? `${monthAbbrev(months[0])}–${monthAbbrev(latestMonth)}` : monthAbbrev(latestMonth);
+  const rangeLabel = months.length > 1 ? `${rangeLabelShort} ${year}` : monthLabelLong(latestMonth);
+  return { year, months, latestMonth, isPartial, partialCutoffDay, rangeLabelShort, rangeLabel };
+}
+function partialMonthCaveat(range) {
+  if (!range.isPartial) return '';
+  const abbr = monthAbbrev(range.latestMonth);
+  return `*${abbr} = 1–${range.partialCutoffDay} ${abbr} only`;
 }
 function computeClassStatusBreakdown() {
   const today = todayDateStr();
@@ -2251,7 +2334,7 @@ function renderDashboard() {
   const dashExportBtn = document.getElementById('dashExportBtn');
   if (dashExportBtn) dashExportBtn.addEventListener('click', exportDashboardToExcel);
   const dashSlidesBtn = document.getElementById('dashSlidesBtn');
-  if (dashSlidesBtn) dashSlidesBtn.addEventListener('click', openPerformanceSlidesModal);
+  if (dashSlidesBtn) dashSlidesBtn.addEventListener('click', exportPerformanceSlides);
 }
 
 function destroyCharts() { /* canvas charts are redrawn fresh each time; nothing to tear down */ }
@@ -5469,54 +5552,11 @@ function renderDailyStatus() {
 }
 
 /* ============================================================
-   FAILURE ANALYSIS EXPORT TAB — pick months, export a real .pptx deck
+   PERFORMANCE SLIDESHOW EXPORT — builds a management-report .pptx
+   from live dashboard data (light theme, matches the boss's reference deck)
    ============================================================ */
-function failureSlidesTrackedMonths() {
-  const counts = {};
-  countableFailures().forEach(f => {
-    const k = monthKey(f.dateReceive);
-    if (k) counts[k] = (counts[k] || 0) + 1;
-  });
-  return Object.keys(counts).sort().map(k => ({ key: k, count: counts[k] }));
-}
-function openPerformanceSlidesModal() {
-  const months = failureSlidesTrackedMonths();
-  const latestMonth = months.length ? months[months.length - 1].key : null;
-  const modal = document.getElementById('modal');
-  modal.innerHTML = `
-    <div class="modal-head">
-      <h2>Export Performance Slideshow</h2>
-      <button class="modal-close" id="modalCloseBtn">${ICONS.close}</button>
-    </div>
-    <div class="modal-body">
-      <p class="dim" style="margin:0 0 14px;font-size:12.5px;">Builds a Loco Status / PE / Reliability / Failures deck. "Report period" scopes only the Reliability section's notable-failures list and the Failures-by-Sub-System slide &mdash; everything else always covers the full year or today's status.</p>
-      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim);">
-        Report period
-        <select id="perfSlideMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);">
-          <option value="latest">Latest month${latestMonth ? ' (' + esc(monthLabelLong(latestMonth)) + ')' : ''}</option>
-          <option value="all">All Months</option>
-          ${months.map(({ key }) => `<option value="${esc(key)}">${esc(monthLabelLong(key))}</option>`).join('')}
-        </select>
-      </label>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" id="modalCancelBtn">Cancel</button>
-      <button class="btn btn-primary" id="exportSlidesBtn">Export to PowerPoint</button>
-    </div>
-  `;
-  document.getElementById('modalBackdrop').classList.add('open');
-  document.getElementById('modalBackdrop').scrollTop = 0;
-  document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
-  document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
-  document.getElementById('exportSlidesBtn').addEventListener('click', exportPerformanceSlides);
-}
 async function exportPerformanceSlides() {
-  const scopeSel = document.getElementById('perfSlideMonthSelect');
-  const months = failureSlidesTrackedMonths();
-  const latestMonth = months.length ? months[months.length - 1].key : null;
-  let scopeMonth = scopeSel ? scopeSel.value : 'latest';
-  if (scopeMonth === 'latest') scopeMonth = latestMonth || 'all';
-  const btn = document.getElementById('exportSlidesBtn');
+  const btn = document.getElementById('dashSlidesBtn');
   const originalLabel = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Preparing deck…'; }
   try {
@@ -5525,140 +5565,287 @@ async function exportPerformanceSlides() {
     pptx.defineLayout({ name: 'LOKO16X9', width: 13.33, height: 7.5 });
     pptx.layout = 'LOKO16X9';
 
-    const headerOpts = { bold: true, fill: { color: '2C2C2A' }, color: 'F0EFEC' };
-    const cellOpts = { fontSize: 11, color: 'F0EFEC', fill: { color: '1A1A19' }, border: { color: '2C2C2A', pt: 0.5 } };
-    const fullYear = getFullYearMonths(2026);
-    const PE_LABELS = { PE15: 'PE15', PE30: 'PE30', PE45: 'PE45', PE45S: 'PE45-S', PE180: 'PE180', PE360: 'PE360' };
-    const scopeLabel = scopeMonth === 'all' ? 'All Months' : monthLabelLong(scopeMonth);
+    const LOKO_LIGHT = {
+      bg: 'F6F5F1', text: '15203A', muted: '4D5568', line: 'E0E0DF',
+      navy: '2F5F9E', red: 'B02020', lightBlue: '9CC0E6', orange: 'E39A3B',
+      lightBlue2: 'A9BEDB', pink: 'E8A0A0',
+    };
+    const headerOpts = { bold: true, fill: { color: LOKO_LIGHT.line }, color: LOKO_LIGHT.text };
+    const cellOpts = { fontSize: 11, color: LOKO_LIGHT.text, fill: { color: 'FFFFFF' }, border: { color: LOKO_LIGHT.line, pt: 0.5 } };
 
     function addSlideHeader(slide, eyebrow, title) {
-      slide.addText(eyebrow, { x: 0.5, y: 0.35, w: 12.3, h: 0.35, fontSize: 13, color: '898781', fontFace: 'Arial', charSpacing: 2, isTextBox: true });
-      slide.addText(title, { x: 0.5, y: 0.7, w: 12.3, h: 0.6, fontSize: 26, bold: true, color: 'F0EFEC', fontFace: 'Arial', isTextBox: true });
+      slide.addText(eyebrow, { x: 0.5, y: 0.35, w: 12.3, h: 0.3, fontSize: 12, bold: true, color: LOKO_LIGHT.navy, fontFace: 'Arial', charSpacing: 2, isTextBox: true });
+      slide.addText(title, { x: 0.5, y: 0.68, w: 12.3, h: 0.62, fontSize: 24, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
     }
     function addMonthlyBarChart(slide, labels, values, opts = {}) {
       slide.addChart(pptx.ChartType.bar, [{ name: opts.seriesName || 'Value', labels, values }], {
-        x: opts.x ?? 0.6, y: opts.y ?? 1.5, w: opts.w ?? 12.1, h: opts.h ?? 5.3,
-        barDir: 'col',
-        chartColors: opts.colors || ['2a78d6'],
+        x: opts.x ?? 0.6, y: opts.y ?? 1.5, w: opts.w ?? 12.1, h: opts.h ?? 4.2,
+        barDir: 'col', chartColors: opts.colors || [LOKO_LIGHT.navy],
         showLegend: false, showTitle: false,
-        showValue: true, dataLabelColor: 'F0EFEC', dataLabelFontSize: 9,
-        catAxisLabelColor: 'C3C2B7', catAxisLabelFontSize: 9,
-        valAxisLabelColor: 'C3C2B7', valAxisLabelFontSize: 9,
-        catAxisLineColor: '383835', valAxisLineColor: '383835',
-        valGridLine: { color: '2C2C2A' }, catGridLine: { style: 'none' },
-        valAxisTitle: opts.valAxisTitle, showValAxisTitle: !!opts.valAxisTitle, valAxisTitleColor: '898781', valAxisTitleFontSize: 10,
+        showValue: true, dataLabelColor: LOKO_LIGHT.text, dataLabelFontSize: 9,
+        catAxisLabelColor: LOKO_LIGHT.muted, catAxisLabelFontSize: 9,
+        valAxisLabelColor: LOKO_LIGHT.muted, valAxisLabelFontSize: 9,
+        catAxisLineColor: LOKO_LIGHT.line, valAxisLineColor: LOKO_LIGHT.line,
+        valGridLine: { color: LOKO_LIGHT.line }, catGridLine: { style: 'none' },
+        valAxisTitle: opts.valAxisTitle, showValAxisTitle: !!opts.valAxisTitle, valAxisTitleColor: LOKO_LIGHT.muted, valAxisTitleFontSize: 10,
       });
     }
-
-    const sections = ['Loco Status & Availability', 'Periodical Examination (PE)', 'Reliability', 'Unscheduled / Failures by Month', 'Failures by Sub-System'];
-
-    // COVER
-    const cover = pptx.addSlide(); cover.background = { color: '0B0B0B' };
-    cover.addText('LOKO 16-TAL', { x: 0.8, y: 2.6, w: 11.7, h: 0.6, fontSize: 18, color: '898781', fontFace: 'Arial', isTextBox: true });
-    cover.addText('Fleet Performance Review', { x: 0.8, y: 3.1, w: 11.7, h: 1.0, fontSize: 40, bold: true, color: 'F0EFEC', fontFace: 'Arial', isTextBox: true });
-    cover.addText(`Generated ${monthLabelLong(todayMonthKey())}`, { x: 0.8, y: 4.1, w: 11.7, h: 0.4, fontSize: 13, color: 'C3C2B7', fontFace: 'Arial', isTextBox: true });
-
-    // OUTLINE
-    let slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
-    addSlideHeader(slide, 'OUTLINE', 'What’s in this deck');
-    slide.addText(
-      sections.map((s, i) => ({ text: s, options: { bullet: true, breakLine: i < sections.length - 1 } })),
-      { x: 0.8, y: 1.7, w: 11, h: 4.5, fontSize: 18, color: 'F0EFEC', fontFace: 'Arial', paraSpaceAfter: 14, isTextBox: true }
-    );
-
-    // LOCO STATUS & AVAILABILITY (class-pair slides)
-    const byClass = computeClassStatusBreakdown();
-    const classKeys = Object.keys(byClass).sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0));
-    const classPairs = [];
-    for (let i = 0; i < classKeys.length; i += 2) classPairs.push(classKeys.slice(i, i + 2));
-
-    classPairs.forEach(pair => {
-      slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
-      addSlideHeader(slide, 'LOCO STATUS', 'Loco Status & Availability');
-      pair.forEach((cls, idx) => {
-        const x = idx === 0 ? 0.5 : 6.85;
-        const { active, inactive } = byClass[cls];
-        const total = active.length + inactive.length;
-        const pct = total ? Math.round((active.length / total) * 100) : 0;
-        const pctColor = pct >= 80 ? '0ca30c' : (pct >= 50 ? 'fab219' : 'e66767');
-        slide.addText(`${pct}% active`, { x, y: 1.5, w: 5.8, h: 0.5, fontSize: 22, bold: true, color: pctColor, fontFace: 'Arial', isTextBox: true });
-        slide.addText(`${cls} — ${active.length} of ${total} active`, { x, y: 2.05, w: 5.8, h: 0.35, fontSize: 13, color: 'C3C2B7', fontFace: 'Arial', isTextBox: true });
-        const rows = inactive.length
-          ? [['Inactive Asset', 'Reason'].map(t => ({ text: t, options: headerOpts })),
-             ...inactive.map(a => [String(a.asset), a.reason].map(t => ({ text: t, options: cellOpts })))]
-          : [[{ text: 'All locomotives active', options: { ...cellOpts, colspan: 2 } }]];
-        slide.addTable(rows, { x, y: 2.55, w: 5.8, colW: [1.6, 4.2], fontSize: 10 });
+    function addTargetLineChart(slide, labels, barValues, targetValues, opts = {}) {
+      slide.addChart([
+        { type: pptx.ChartType.bar, data: [{ name: opts.seriesName || 'Value', labels, values: barValues }],
+          options: { chartColors: opts.barColors || [LOKO_LIGHT.navy] } },
+        { type: pptx.ChartType.line, data: [{ name: opts.targetName || 'Target', labels, values: targetValues }],
+          options: { chartColors: [LOKO_LIGHT.red], lineSize: 2, lineDataSymbol: 'none' } },
+      ], {
+        x: opts.x ?? 0.6, y: opts.y ?? 1.5, w: opts.w ?? 12.1, h: opts.h ?? 4.0,
+        barDir: 'col', showLegend: true, legendPos: 'b', legendColor: LOKO_LIGHT.muted, legendFontSize: 9,
+        showTitle: false, showValue: true, dataLabelColor: LOKO_LIGHT.text, dataLabelFontSize: 9,
+        catAxisLabelColor: LOKO_LIGHT.muted, catAxisLabelFontSize: 9,
+        valAxisLabelColor: LOKO_LIGHT.muted, valAxisLabelFontSize: 9,
+        catAxisLineColor: LOKO_LIGHT.line, valAxisLineColor: LOKO_LIGHT.line,
+        valGridLine: { color: LOKO_LIGHT.line }, catGridLine: { style: 'none' },
+        valAxisTitle: opts.valAxisTitle, showValAxisTitle: !!opts.valAxisTitle, valAxisTitleColor: LOKO_LIGHT.muted, valAxisTitleFontSize: 10,
       });
+    }
+    function addStackedCauseChart(slide, labels, series, opts = {}) {
+      slide.addChart(pptx.ChartType.bar, series.map(s => ({ name: s.name, labels, values: s.values })), {
+        x: opts.x ?? 0.5, y: opts.y ?? 1.5, w: opts.w ?? 7.9, h: opts.h ?? 5.0,
+        barDir: 'col', barGrouping: 'stacked',
+        chartColors: opts.colors || [LOKO_LIGHT.navy, LOKO_LIGHT.lightBlue, LOKO_LIGHT.orange, LOKO_LIGHT.pink],
+        showLegend: true, legendPos: 'b', legendColor: LOKO_LIGHT.muted, legendFontSize: 9,
+        showValue: true, dataLabelPosition: 'ctr', dataLabelColor: 'FFFFFF', dataLabelFontSize: 8,
+        catAxisLabelColor: LOKO_LIGHT.muted, catAxisLabelFontSize: 9,
+        valAxisLabelColor: LOKO_LIGHT.muted, valAxisLabelFontSize: 9,
+        catAxisLineColor: LOKO_LIGHT.line, valAxisLineColor: LOKO_LIGHT.line,
+        valGridLine: { color: LOKO_LIGHT.line }, catGridLine: { style: 'none' },
+      });
+    }
+    function addKpiTile(slide, x, y, w, h, label, stat, detail) {
+      slide.addShape(pptx.ShapeType.roundRect, { x, y, w, h, rectRadius: 0.06, fill: { color: 'FFFFFF' }, line: { color: LOKO_LIGHT.line, width: 0.75 } });
+      slide.addText(label.toUpperCase(), { x: x + 0.2, y: y + 0.16, w: w - 0.4, h: 0.3, fontSize: 10.5, bold: true, color: LOKO_LIGHT.navy, fontFace: 'Arial', charSpacing: 1, isTextBox: true, margin: 0 });
+      slide.addText(stat, { x: x + 0.2, y: y + 0.46, w: w - 0.4, h: 0.6, fontSize: 26, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true, margin: 0 });
+      slide.addText(detail, { x: x + 0.2, y: y + 1.08, w: w - 0.4, h: h - 1.2, fontSize: 10.5, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true, margin: 0 });
+    }
+
+    const range = reportingRange();
+    const caveat = partialMonthCaveat(range);
+    const countable = countableFailures();
+    const totalFailuresAll = countable.length;
+    const overdue = DATA.peSchedule.filter(r => r.status === 'OVERDUE').length;
+    const totalActiveFleet = DATA.peSchedule.filter(r => r.status !== 'INACTIVE').length;
+    const repeatOffenders = computeRepeatOffenders(countable);
+    const repeatTotal = repeatOffenders.reduce((a, b) => a + b.count, 0);
+    const biggestRepeat = computeRepeatOffenders(countable, 1)[0] || null;
+    const fourM = compute4MTotals(countable);
+    const totalCauses = Object.values(fourM).reduce((a, b) => a + b, 0);
+    const topCauseEntry = totalCauses ? topEntry(fourM) : null;
+    const materialPct = totalCauses ? Math.round(fourM.Material / totalCauses * 100) : 0;
+    const subTotalsAll = computeSubsystemTotals(countable);
+    const subEntriesAll = Object.entries(subTotalsAll).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    const topSub = totalFailuresAll ? topEntry(subTotalsAll) : null;
+    const dataGapCount = countReportsMissing4M(countable);
+    const peMonthTotals = computePeMonthTotals(range.months);
+    const peVals = range.months.map(m => peMonthTotals[m] || 0);
+    const peTotal = peVals.reduce((a, b) => a + b, 0);
+    const uswMonthTotals = {};
+    range.months.forEach(m => { uswMonthTotals[m] = countable.filter(f => monthKey(f.dateReceive) === m).length; });
+    const uswVals = range.months.map(m => uswMonthTotals[m] || 0);
+    const uswPeak = Object.entries(uswMonthTotals).reduce((a, b) => (b[1] > a[1] ? b : a));
+    const mkbfVals = range.months.map(m => ({ m, v: computeMkbfKm(m) })).filter(x => x.v !== null);
+    const mkbfPassCount = mkbfVals.filter(x => x.v >= MKBF_TARGET_KM).length;
+    const mkbfLowest = mkbfVals.length ? mkbfVals.reduce((a, b) => (b.v < a.v ? b : a)) : null;
+    const mkbfHighest = mkbfVals.length ? mkbfVals.reduce((a, b) => (b.v > a.v ? b : a)) : null;
+    const availVals = range.months.map(m => ({ m, v: computeDailyAvailabilityAverage(m), t: availabilityTargetForMonth(m) }));
+    const availMin = Math.min(...availVals.map(x => x.v));
+    const availMax = Math.max(...availVals.map(x => x.v));
+    const availBelowCount = availVals.filter(x => x.v < x.t).length;
+    const lowestAvail = availVals.reduce((a, b) => (b.v < a.v ? b : a));
+    const targetChange = (() => {
+      for (let i = 1; i < range.months.length; i++) {
+        const prev = availabilityTargetForMonth(range.months[i - 1]);
+        const curr = availabilityTargetForMonth(range.months[i]);
+        if (curr !== prev) return { month: range.months[i], from: prev, to: curr };
+      }
+      return null;
+    })();
+
+    // ---------- SLIDE 1: COVER ----------
+    let slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
+    slide.addText('LOKO · 16-TAL FLEET OPERATIONS', { x: 0.8, y: 2.5, w: 11.7, h: 0.4, fontSize: 14, bold: true, color: LOKO_LIGHT.navy, fontFace: 'Arial', charSpacing: 2, isTextBox: true });
+    slide.addText('Locomotive Fleet Performance Review', { x: 0.8, y: 3.0, w: 11.7, h: 1.0, fontSize: 38, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
+    slide.addText(`${range.rangeLabel} · Management Report`, { x: 0.8, y: 4.0, w: 11.7, h: 0.45, fontSize: 16, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
+    slide.addText(`Data as of ${monthLabelLong(todayMonthKey())}.${caveat ? ' ' + caveat + '.' : ''}`,
+      { x: 0.8, y: 6.7, w: 11.7, h: 0.35, fontSize: 10.5, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
+
+    // ---------- SLIDE 2: AT A GLANCE ----------
+    slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
+    addSlideHeader(slide, `AT A GLANCE · ${range.rangeLabelShort}`, atAGlanceHeadline({ overdue, repeatTotal }));
+    const runnerUp = subEntriesAll[1];
+    const tiles = [
+      { label: 'Reliability (MKBF)', stat: `${mkbfPassCount} of ${mkbfVals.length} months on target`,
+        detail: mkbfLowest ? `Lowest: ${fmtKm(mkbfLowest.v)} km in ${monthLabel(mkbfLowest.m)}.` : '—' },
+      { label: 'Availability', stat: `${fmtKm(availMin)}–${fmtKm(availMax)}`,
+        detail: `locomotives a day on average; ${availBelowCount === 0 ? 'on target every month' : `below target in ${availBelowCount} month${availBelowCount > 1 ? 's' : ''}`}.` },
+      { label: 'Periodic Examination', stat: `${peTotal} PE`,
+        detail: `completed, but ${overdue} of ${totalActiveFleet} locomotives are overdue for PE.` },
+      { label: 'Unscheduled Reports', stat: `${totalFailuresAll}`,
+        detail: `in total; peak of ${uswPeak[1]} in ${monthLabel(uswPeak[0])}.` },
+      { label: 'Top Sub-System', stat: topSub ? topSub.key : '—',
+        detail: topSub ? `${topSub.count} reports (${Math.round(topSub.count / totalFailuresAll * 100)}%), ahead of ${runnerUp ? runnerUp[0] : '—'} (${runnerUp ? runnerUp[1] : 0}).` : '—' },
+      { label: '4M Root Cause', stat: topCauseEntry ? `${Math.round(topCauseEntry.count / totalCauses * 100)}%` : '—',
+        detail: topCauseEntry ? `of failure causes are ${topCauseEntry.key} (${topCauseEntry.count} of ${totalCauses}).` : '—' },
+    ];
+    const kpiColW = 3.943, kpiGap = 0.25, kpiRowH = 2.675;
+    tiles.forEach((t, i) => {
+      const col = i % 3, row = Math.floor(i / 3);
+      addKpiTile(slide, 0.5 + col * (kpiColW + kpiGap), 1.5 + row * (kpiRowH + kpiGap), kpiColW, kpiRowH, t.label, t.stat, t.detail);
     });
 
-    // PERIODICAL EXAMINATION (PE)
-    const peMonthCounts = {};
-    DATA.peHistory.forEach(h => { if (h.date) { const k = monthKey(h.date); if (k) peMonthCounts[k] = (peMonthCounts[k] || 0) + 1; } });
-    slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
-    addSlideHeader(slide, 'MAINTAINABILITY', 'Periodical Examination (PE)');
-    addMonthlyBarChart(slide, fullYear.map(monthLabel), fullYear.map(m => peMonthCounts[m] || 0), { x: 0.6, y: 1.35, w: 12.1, h: 2.9, colors: ['2a78d6'], valAxisTitle: 'PE Completions' });
-    const { types: peTypes, byTypeMonth } = computePeTypeMonthTotals();
-    const peHeaderRow = ['PE Type', ...fullYear.map(m => monthLabel(m))].map(t => ({ text: t, options: headerOpts }));
-    const peTypeRows = peTypes.map(type => fullYear.map(m => byTypeMonth[type][m] || 0));
-    const peTotalsRow = fullYear.map((m, i) => peTypeRows.reduce((s, r) => s + r[i], 0));
-    slide.addTable([
-      peHeaderRow,
-      ...peTypes.map((type, ti) => [PE_LABELS[type] || type, ...peTypeRows[ti].map(String)].map(t => ({ text: t, options: cellOpts }))),
-      ['Total', ...peTotalsRow.map(String)].map(t => ({ text: t, options: { ...cellOpts, bold: true, fill: { color: '2C2C2A' } } })),
-    ], { x: 0.5, y: 4.55, w: 12.3, h: 2.5, colW: [1.5, ...Array(12).fill(0.9)], fontSize: 8.5 });
+    // ---------- SLIDE 3: 01 · RELIABILITY (MKBF) ----------
+    slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
+    addSlideHeader(slide, '01 · RELIABILITY (MKBF)', 'Running km per failure, against a 12,000 km target');
+    addTargetLineChart(slide, range.months.map(monthLabel), range.months.map(m => computeMkbfKm(m) || 0), range.months.map(() => MKBF_TARGET_KM),
+      { y: 1.5, h: 3.8, seriesName: 'MKBF (km/fail)', targetName: 'Target (12,000 km)', valAxisTitle: 'km / failure' });
+    slide.addText(`${mkbfPassCount} of ${mkbfVals.length} months on target`,
+      { x: 0.6, y: 5.45, w: 12.1, h: 0.4, fontSize: 16, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
+    slide.addText([
+      { text: mkbfLowest ? `Lowest: ${fmtKm(mkbfLowest.v)} km in ${monthLabel(mkbfLowest.m)}.` : 'No reliability data yet.', options: { bullet: true, breakLine: true } },
+      { text: mkbfHighest ? `Highest: ${fmtKm(mkbfHighest.v)} km in ${monthLabel(mkbfHighest.m)} (${failuresForMonth(mkbfHighest.m) ?? '—'} failures that month).` : '', options: { bullet: true, breakLine: false } },
+    ], { x: 0.6, y: 5.9, w: 12.1, h: 0.9, fontSize: 12, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
+    slide.addText(`MKBF = running km ÷ failures${caveat ? ' · ' + caveat : ''}`,
+      { x: 0.6, y: 7.0, w: 12.1, h: 0.3, fontSize: 9.5, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
 
-    // RELIABILITY
-    const rel = reliabilityTrackedMonths();
-    const latestTwo = rel.slice(-2);
-    slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
-    addSlideHeader(slide, 'RELIABILITY', 'Reliability');
-    const relHeaderRow = ['Month', ...latestTwo.map(monthLabel)].map(t => ({ text: t, options: headerOpts }));
-    const relMetricRows = [
-      ['Total Running (km)', ...latestTwo.map(m => String(dailyStatusFleetKmForMonth(m)))],
-      ['Total Failures', ...latestTwo.map(m => String(failuresForMonth(m) ?? '—'))],
-      ['Avg km/Failure (MKBF)', ...latestTwo.map(m => { const v = computeMkbfKm(m); return v === null ? '—' : String(v); })],
-      ['KPI Target (km)', ...latestTwo.map(() => String(MKBF_TARGET_KM))],
-    ].map(row => row.map(t => ({ text: t, options: cellOpts })));
-    slide.addTable([relHeaderRow, ...relMetricRows], { x: 0.5, y: 1.5, w: 6.0, colW: [2.4, ...latestTwo.map(() => 1.8)], fontSize: 10.5 });
+    // ---------- SLIDE 4: 02 · AVAILABILITY ----------
+    slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
+    addSlideHeader(slide, '02 · AVAILABILITY', 'Average locomotives available per day, against a monthly target');
+    addTargetLineChart(slide, range.months.map(monthLabel), availVals.map(x => x.v), availVals.map(x => x.t),
+      { y: 1.5, h: 3.8, seriesName: 'Availability', targetName: 'Target', valAxisTitle: 'locos / day' });
+    slide.addText(`${fmtKm(availMin)} to ${fmtKm(availMax)} locomotives a day ${availBelowCount === 0 ? 'above target' : 'vs target'}`,
+      { x: 0.6, y: 5.45, w: 12.1, h: 0.4, fontSize: 16, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
+    const availBullets = [{ text: `Lowest: ${fmtKm(lowestAvail.v)} locos/day in ${monthLabel(lowestAvail.m)}.`, options: { bullet: true, breakLine: !!targetChange } }];
+    if (targetChange) availBullets.push({ text: `Target raised from ${targetChange.from} to ${targetChange.to} in ${monthLabel(targetChange.month)}.`, options: { bullet: true, breakLine: false } });
+    slide.addText(availBullets, { x: 0.6, y: 5.9, w: 12.1, h: 0.9, fontSize: 12, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
 
-    addMonthlyBarChart(slide, rel.map(monthLabel), rel.map(m => computeMkbfKm(m) || 0), {
-      x: 6.9, y: 1.5, w: 5.9, h: 3.0,
-      colors: rel.map(m => (computeMkbfKm(m) || 0) >= MKBF_TARGET_KM ? '159253' : 'B0202F'),
-      valAxisTitle: 'MKBF (km/fail)',
+    // ---------- SLIDE 5: 03 · PERIODIC EXAMINATION (PE) ----------
+    slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
+    addSlideHeader(slide, '03 · PERIODIC EXAMINATION (PE)', 'Monthly PE completions');
+    addMonthlyBarChart(slide, range.months.map(monthLabel), peVals, { y: 1.5, h: 3.3, valAxisTitle: 'PE completions' });
+    slide.addText(`${peTotal} PE completed ${range.rangeLabel}; ${Math.min(...peVals)} to ${Math.max(...peVals)} in each month`,
+      { x: 0.6, y: 5.0, w: 12.1, h: 0.4, fontSize: 15, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
+    slide.addShape(pptx.ShapeType.roundRect, { x: 0.6, y: 5.5, w: 5.9, h: 0.9, fill: { color: LOKO_LIGHT.pink }, line: { color: LOKO_LIGHT.red, width: 1 } });
+    slide.addText(`ATTENTION: ${overdue} of ${totalActiveFleet} locomotives are overdue for PE`,
+      { x: 0.85, y: 5.65, w: 5.4, h: 0.6, fontSize: 12.5, bold: true, color: LOKO_LIGHT.red, fontFace: 'Arial', isTextBox: true });
+    const peAchievedPct = Math.round(PE_PLAN_SUMMARY.actual / PE_PLAN_SUMMARY.plan * 1000) / 10;
+    slide.addText(`Plan achievement: ${peAchievedPct}% (${PE_PLAN_SUMMARY.actual} of ${PE_PLAN_SUMMARY.plan} planned tasks)`,
+      { x: 6.8, y: 5.65, w: 5.9, h: 0.6, fontSize: 12.5, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
+
+    // ---------- SLIDE 6: 04 · UNSCHEDULED REPORTS ----------
+    slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
+    addSlideHeader(slide, '04 · UNSCHEDULED REPORTS', 'Monthly unscheduled failure reports');
+    addMonthlyBarChart(slide, range.months.map(monthLabel), uswVals, { y: 1.5, h: 3.6, colors: [LOKO_LIGHT.red], valAxisTitle: 'Reports' });
+    slide.addText(`${totalFailuresAll} unscheduled reports, ${range.rangeLabel}`,
+      { x: 0.6, y: 5.3, w: 12.1, h: 0.4, fontSize: 16, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
+    const peakSubTop = topEntry(computeSubsystemTotals(countable.filter(f => monthKey(f.dateReceive) === uswPeak[0])));
+    const lowestUsw = Object.entries(uswMonthTotals).reduce((a, b) => (b[1] < a[1] ? b : a));
+    const avgUsw = Math.round(uswVals.reduce((a, b) => a + b, 0) / uswVals.length * 10) / 10;
+    slide.addText([
+      { text: `Peak: ${uswPeak[1]} in ${monthLabel(uswPeak[0])}${peakSubTop ? ' — mostly ' + peakSubTop.key + ' (' + peakSubTop.count + ')' : ''}.`, options: { bullet: true, breakLine: true } },
+      { text: `Lowest: ${lowestUsw[1]} in ${monthLabel(lowestUsw[0])}.`, options: { bullet: true, breakLine: true } },
+      { text: `Average: ${avgUsw} reports a month.`, options: { bullet: true, breakLine: false } },
+    ], { x: 0.6, y: 5.75, w: 12.1, h: 1.3, fontSize: 12, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
+
+    // ---------- SLIDE 7: 05 · SUB-SYSTEM FAILURES ----------
+    slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
+    addSlideHeader(slide, '05 · SUB-SYSTEM FAILURES', 'Failures by sub-system, ranked');
+    const TOP_N = 9;
+    const top9 = subEntriesAll.slice(0, TOP_N);
+    const overflow = subEntriesAll.slice(TOP_N).sort((a, b) => a[1] - b[1]);
+    const overflowTotal = overflow.reduce((s, e) => s + e[1], 0);
+    const chartLabels = [...top9.map(e => e[0]), ...(overflow.length ? [`Others (${overflow.length} types)`] : [])];
+    const chartValues = [...top9.map(e => e[1]), ...(overflow.length ? [overflowTotal] : [])];
+    addMonthlyBarChart(slide, chartLabels, chartValues, { y: 1.5, h: 4.1, colors: [LOKO_LIGHT.navy], valAxisTitle: 'Reports' });
+    const top3 = subEntriesAll.slice(0, 3);
+    const sumTop3 = top3.reduce((s, e) => s + e[1], 0);
+    slide.addText(totalFailuresAll ? `${Math.round(sumTop3 / totalFailuresAll * 100)}% of reports are ${top3.map(e => e[0]).join(', ')} (${sumTop3} of ${totalFailuresAll})` : 'No failure data yet.',
+      { x: 0.6, y: 5.75, w: 12.1, h: 0.4, fontSize: 14, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
+    const concentration = topSub ? topAssetWithinSubsystem(topSub.key, countable) : null;
+    slide.addText(concentration
+      ? `${topSub.key} failures are concentrated: ${concentration.count} of ${concentration.bucketTotal} are on loco ${concentration.asset}.`
+      : '', { x: 0.6, y: 6.2, w: 12.1, h: 0.4, fontSize: 11.5, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
+    if (overflow.length) slide.addText(`Others includes: ${overflow.map(e => `${e[0]} (${e[1]})`).join(', ')}.`,
+      { x: 0.6, y: 6.65, w: 12.1, h: 0.4, fontSize: 9.5, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
+
+    // ---------- SLIDE 8: 06 · 4M ROOT CAUSE ----------
+    slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
+    addSlideHeader(slide, '06 · 4M ROOT CAUSE', 'Material · Method · Machine · Manpower, by month');
+    const { series: causeSeries } = compute4MMonthlyTotals(range.months, countable);
+    addStackedCauseChart(slide, range.months.map(monthLabel), causeSeries, { x: 0.5, y: 1.5, w: 7.9, h: 5.0 });
+    causeSeries.forEach((s, i) => {
+      const total = fourM[s.name], pct = totalCauses ? Math.round(total / totalCauses * 100) : 0;
+      addKpiTile(slide, 8.65, 1.5 + i * 1.35, 4.2, 1.2, s.name, `${total}`, `${pct}% of causes`);
     });
+    let mostChanged = null;
+    causeSeries.forEach(s => {
+      const delta = s.values[s.values.length - 1] - s.values[0];
+      if (!mostChanged || Math.abs(delta) > Math.abs(mostChanged.delta)) mostChanged = { cause: s.name, firstVal: s.values[0], lastVal: s.values[s.values.length - 1], delta };
+    });
+    slide.addText(mostChanged
+      ? `${mostChanged.cause} causes ${mostChanged.delta >= 0 ? 'rose' : 'fell'} from ${mostChanged.firstVal} in ${monthLabel(range.months[0])} to ${mostChanged.lastVal} in ${monthLabel(range.months[range.months.length - 1])}.`
+      : '', { x: 0.5, y: 6.7, w: 7.9, h: 0.4, fontSize: 11, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
+    slide.addText(`${dataGapCount} reports have no 4M cause recorded.`,
+      { x: 8.65, y: 6.7, w: 4.2, h: 0.4, fontSize: 9.5, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
 
-    const notable = notableFailuresForMonth(scopeMonth);
-    slide.addText(`Notable failures — ${scopeLabel}`, { x: 0.5, y: 4.75, w: 11.5, h: 0.3, fontSize: 11, bold: true, color: '898781', fontFace: 'Arial', isTextBox: true });
+    // ---------- SLIDE 9: 07 · FAILURE ANALYSIS ----------
+    slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
+    addSlideHeader(slide, '07 · FAILURE ANALYSIS', 'Repeat locomotives, parts, and depots');
+    const assetTotalsAll = computeAssetTotals(countable);
+    const top5Assets = Object.entries(assetTotalsAll).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const repeatRows = [['Loco', 'Qty', 'Main issue'].map(t => ({ text: t, options: headerOpts })),
+      ...top5Assets.map(([asset, qty]) => {
+        const main = computeAssetTopSubsystem(asset, countable);
+        return [String(asset), String(qty), main ? `${main.key} (${main.count})` : '—'].map(t => ({ text: t, options: cellOpts }));
+      })];
+    slide.addTable(repeatRows, { x: 0.4, y: 1.55, w: 4.0, colW: [1.1, 0.8, 2.1], fontSize: 10 });
+    const defectTotals = computeDefectTotals(countable);
+    const defectRows = [['Defect type', 'Parts'].map(t => ({ text: t, options: headerOpts })),
+      ...Object.entries(defectTotals).sort((a, b) => b[1] - a[1]).map(([t, c]) => [t, String(c)].map(x => ({ text: x, options: cellOpts })))];
+    slide.addTable(defectRows, { x: 4.65, y: 1.55, w: 3.9, colW: [2.6, 1.3], fontSize: 10 });
+    const depotTotalsAll = computeDepotTotals(countable);
+    const top5Depots = Object.entries(depotTotalsAll).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const depotRows = [['Depot', 'Reports'].map(t => ({ text: t, options: headerOpts })),
+      ...top5Depots.map(([d, c]) => [d, String(c)].map(x => ({ text: x, options: cellOpts })))];
+    slide.addTable(depotRows, { x: 8.8, y: 1.55, w: 3.9, colW: [2.6, 1.3], fontSize: 10 });
+    const sumTop5 = top5Assets.reduce((s, [, c]) => s + c, 0);
     slide.addText(
-      notable.length
-        ? notable.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < notable.length - 1 } }))
-        : [{ text: 'No failures recorded for this period.' }],
-      { x: 0.5, y: 5.1, w: 11.8, h: 1.9, fontSize: 12, color: 'F0EFEC', fontFace: 'Arial', isTextBox: true }
+      (totalFailuresAll ? `${Math.round(sumTop5 / totalFailuresAll * 100)}% of all reports come from these ${top5Assets.length} locomotives (${sumTop5} of ${totalFailuresAll}).` : '') +
+      (biggestRepeat ? ` Loco ${biggestRepeat.asset}'s ${biggestRepeat.subsystem}, with ${biggestRepeat.count} failures, is the biggest single repeat issue.` : ''),
+      { x: 0.4, y: 6.6, w: 12.5, h: 0.6, fontSize: 11.5, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true }
     );
 
-    // UNSCHEDULED / FAILURES BY MONTH
-    const uswMonthCounts = {};
-    countableFailures().forEach(f => { const k = monthKey(f.dateReceive); if (k) uswMonthCounts[k] = (uswMonthCounts[k] || 0) + 1; });
-    slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
-    addSlideHeader(slide, 'RELIABILITY', 'Unscheduled / Failures by Month');
-    const uswHeaderRow = ['Month', ...fullYear.map(m => monthLabel(m))].map(t => ({ text: t, options: headerOpts }));
-    const uswDataRow = ['Failures', ...fullYear.map(m => uswMonthCounts[m] != null ? String(uswMonthCounts[m]) : '—')].map(t => ({ text: t, options: cellOpts }));
-    slide.addTable([uswHeaderRow, uswDataRow], { x: 0.5, y: 2.8, w: 12.3, h: 1.3, colW: [1.5, ...Array(12).fill(0.9)], fontSize: 11 });
-
-    // FAILURES BY SUB-SYSTEM
-    const scopedRows = scopeMonth === 'all' ? countableFailures() : countableFailures().filter(f => monthKey(f.dateReceive) === scopeMonth);
-    const subEntries = Object.entries(computeSubsystemTotals(scopedRows)).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-    slide = pptx.addSlide(); slide.background = { color: '0B0B0B' };
-    addSlideHeader(slide, 'RELIABILITY', `Failures by Sub-System — ${scopeLabel}`);
-    const subHeaderRow = ['Sub-System', ...subEntries.map(e => e[0])].map(t => ({ text: t, options: headerOpts }));
-    const subDataRow = ['Failures', ...subEntries.map(e => String(e[1]))].map(t => ({ text: t, options: cellOpts }));
-    const subColCount = Math.max(subEntries.length, 1);
-    const subColW = [1.8, ...subEntries.map(() => (12.3 - 1.8) / subColCount)];
-    slide.addTable([subHeaderRow, subDataRow], { x: 0.5, y: 2.8, w: 12.3, h: 1.3, colW: subColW, fontSize: 10 });
+    // ---------- SLIDE 10: SUMMARY & NEXT STEPS ----------
+    slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
+    addSlideHeader(slide, 'SUMMARY', 'On track, and what needs attention');
+    slide.addText('ON TRACK', { x: 0.5, y: 1.2, w: 5.8, h: 0.3, fontSize: 11, bold: true, color: LOKO_LIGHT.navy, fontFace: 'Arial', charSpacing: 2, isTextBox: true });
+    slide.addText([
+      { text: `MKBF above target, ${mkbfPassCount} of ${mkbfVals.length} months.`, options: { bullet: true, breakLine: true } },
+      { text: `Availability above target, ${availVals.length - availBelowCount} of ${availVals.length} months.`, options: { bullet: true, breakLine: true } },
+      { text: `Steady PE output of ${Math.min(...peVals)}–${Math.max(...peVals)} a month.`, options: { bullet: true, breakLine: false } },
+    ], { x: 0.5, y: 1.55, w: 5.8, h: 2.2, fontSize: 13, color: LOKO_LIGHT.text, fontFace: 'Arial', paraSpaceAfter: 10, isTextBox: true });
+    const needsRows = buildNeedsAttentionRows({
+      overdue, totalActiveFleet, repeatTotal, materialPct,
+      topSubsystem: topSub ? { name: topSub.key, pct: totalFailuresAll ? Math.round(topSub.count / totalFailuresAll * 100) : 0 } : null,
+      dataGapCount,
+    });
+    if (needsRows.length) {
+      slide.addText('NEEDS ATTENTION / PROPOSED ACTION', { x: 6.6, y: 1.2, w: 6.2, h: 0.3, fontSize: 11, bold: true, color: LOKO_LIGHT.red, fontFace: 'Arial', charSpacing: 1.5, isTextBox: true });
+      slide.addTable([
+        ['Needs attention', 'Proposed action'].map(t => ({ text: t, options: headerOpts })),
+        ...needsRows.map(r => r.map(t => ({ text: t, options: cellOpts }))),
+      ], { x: 6.6, y: 1.55, w: 6.2, colW: [2.8, 3.4], fontSize: 10.5 });
+    }
 
     await pptx.writeFile({ fileName: 'LOKO-Performance-Slideshow.pptx' });
     toast('Exported performance slideshow.');
-    closeModal();
   } catch (err) {
     console.error(err);
     toast('Export failed — check the console.', true);
