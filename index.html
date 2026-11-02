@@ -5607,6 +5607,27 @@ async function exportPerformanceSlides() {
         valAxisTitle: opts.valAxisTitle, showValAxisTitle: !!opts.valAxisTitle, valAxisTitleColor: LOKO_LIGHT.muted, valAxisTitleFontSize: 10,
       });
     }
+    function addMkbfComboChart(slide, labels, runningKmScaled, failureVals, mkbfScaled, targetScaled, opts = {}) {
+      slide.addChart([
+        { type: pptx.ChartType.bar, data: [{ name: "Running (’000 km)", labels, values: runningKmScaled }],
+          options: { chartColors: [LOKO_LIGHT.lightBlue2] } },
+        { type: pptx.ChartType.line, data: [{ name: 'Failures', labels, values: failureVals }],
+          options: { chartColors: [LOKO_LIGHT.orange], lineSize: 2, lineDataSymbol: 'circle', lineDataSymbolSize: 5 } },
+        { type: pptx.ChartType.line, data: [{ name: "MKBF (’000 km)", labels, values: mkbfScaled }],
+          options: { chartColors: [LOKO_LIGHT.navy], lineSize: 2, dashType: 'dash', lineDataSymbol: 'diamond', lineDataSymbolSize: 5 } },
+        { type: pptx.ChartType.line, data: [{ name: "Target (’000 km)", labels, values: targetScaled }],
+          options: { chartColors: [LOKO_LIGHT.red], lineSize: 1.5, lineDataSymbol: 'none' } },
+      ], {
+        x: opts.x ?? 0.6, y: opts.y ?? 1.5, w: opts.w ?? 12.1, h: opts.h ?? 3.3,
+        barDir: 'col', showLegend: true, legendPos: 'b', legendColor: LOKO_LIGHT.muted, legendFontSize: 9,
+        showTitle: false, showValue: false,
+        catAxisLabelColor: LOKO_LIGHT.muted, catAxisLabelFontSize: 9,
+        valAxisLabelColor: LOKO_LIGHT.muted, valAxisLabelFontSize: 9,
+        catAxisLineColor: LOKO_LIGHT.line, valAxisLineColor: LOKO_LIGHT.line,
+        valGridLine: { color: LOKO_LIGHT.line }, catGridLine: { style: 'none' },
+        valAxisTitle: "Running / MKBF / Target (’000 km) · Failures (count)", showValAxisTitle: true, valAxisTitleColor: LOKO_LIGHT.muted, valAxisTitleFontSize: 9,
+      });
+    }
     function addStackedCauseChart(slide, labels, series, opts = {}) {
       slide.addChart(pptx.ChartType.bar, series.map(s => ({ name: s.name, labels, values: s.values })), {
         x: opts.x ?? 0.5, y: opts.y ?? 1.5, w: opts.w ?? 7.9, h: opts.h ?? 5.0,
@@ -5703,17 +5724,27 @@ async function exportPerformanceSlides() {
 
     // ---------- SLIDE 3: 01 · RELIABILITY (MKBF) ----------
     slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
-    addSlideHeader(slide, '01 · RELIABILITY (MKBF)', 'Running km per failure, against a 12,000 km target');
-    addTargetLineChart(slide, range.months.map(monthLabel), range.months.map(m => computeMkbfKm(m) || 0), range.months.map(() => MKBF_TARGET_KM),
-      { y: 1.5, h: 3.8, seriesName: 'MKBF (km/fail)', targetName: 'Target (12,000 km)', valAxisTitle: 'km / failure' });
-    slide.addText(`${mkbfPassCount} of ${mkbfVals.length} months on target`,
-      { x: 0.6, y: 5.45, w: 12.1, h: 0.4, fontSize: 16, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
+    addSlideHeader(slide, '01 · RELIABILITY (MKBF)', 'Running km, failures, and MKBF vs a 12,000 km target');
+    const runningKmScaled = range.months.map(m => dailyStatusFleetKmForMonth(m) / 1000);
+    const failureValsRaw = range.months.map(m => failuresForMonth(m) ?? 0);
+    const mkbfScaled = range.months.map(m => (computeMkbfKm(m) || 0) / 1000);
+    const targetScaled = range.months.map(() => MKBF_TARGET_KM / 1000);
+    addMkbfComboChart(slide, range.months.map(monthLabel), runningKmScaled, failureValsRaw, mkbfScaled, targetScaled, { y: 1.5, h: 3.3 });
+    slide.addText(`${mkbfPassCount} of ${mkbfVals.length} months on target${caveat ? ' (' + caveat + ')' : ''}`,
+      { x: 0.6, y: 5.0, w: 12.1, h: 0.4, fontSize: 15, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
     slide.addText([
       { text: mkbfLowest ? `Lowest: ${fmtKm(mkbfLowest.v)} km in ${monthLabel(mkbfLowest.m)}.` : 'No reliability data yet.', options: { bullet: true, breakLine: true } },
       { text: mkbfHighest ? `Highest: ${fmtKm(mkbfHighest.v)} km in ${monthLabel(mkbfHighest.m)} (${failuresForMonth(mkbfHighest.m) ?? '—'} failures that month).` : '', options: { bullet: true, breakLine: false } },
-    ], { x: 0.6, y: 5.9, w: 12.1, h: 0.9, fontSize: 12, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
-    slide.addText(`MKBF = running km ÷ failures${caveat ? ' · ' + caveat : ''}`,
-      { x: 0.6, y: 7.0, w: 12.1, h: 0.3, fontSize: 9.5, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
+    ], { x: 0.6, y: 5.4, w: 12.1, h: 0.55, fontSize: 11.5, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
+
+    const mkbfColW = [1.6, ...range.months.map(() => (12.3 - 1.6) / range.months.length)];
+    slide.addTable([
+      ['Metric', ...range.months.map(monthLabel)].map(t => ({ text: t, options: headerOpts })),
+      ['Running (km)', ...range.months.map(m => fmtKm(dailyStatusFleetKmForMonth(m)))].map(t => ({ text: t, options: cellOpts })),
+      ['Failures', ...range.months.map(m => String(failuresForMonth(m) ?? 0))].map(t => ({ text: t, options: cellOpts })),
+      ['MKBF (km/fail)', ...range.months.map(m => { const v = computeMkbfKm(m); return v === null ? '—' : fmtKm(v); })].map(t => ({ text: t, options: cellOpts })),
+      ['Target (km)', ...range.months.map(() => fmtKm(MKBF_TARGET_KM))].map(t => ({ text: t, options: { ...cellOpts, color: LOKO_LIGHT.muted } })),
+    ], { x: 0.5, y: 6.1, w: 12.3, colW: mkbfColW, fontSize: 9.5 });
 
     // ---------- SLIDE 4: 02 · AVAILABILITY ----------
     slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
