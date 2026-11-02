@@ -3561,9 +3561,9 @@ function availDayTotal(rec) {
   if (!rec) return 0;
   return (rec.c19 || 0) + (rec.c23 || 0) + (rec.c24 || 0) + (rec.c25 || 0);
 }
-function isAvailableStatusValue(raw, classPrefix) {
+function isAvailableStatusValue(raw, classPrefix, strictBlank) {
   const v = (raw || '').trim();
-  if (!v) return classPrefix !== '19'; // blank = available, except 19c which counts as unavailable
+  if (!v) return strictBlank ? false : (classPrefix !== '19'); // blank = available, except 19c (or every class, from today onward)
   const u = v.toUpperCase();
   if (u === 'FAILED') return false;
   if (/^PE\s?\d/.test(u) || u === 'PE') return false;
@@ -3638,12 +3638,13 @@ function effectiveDailyValue(asset, dateStr) {
 function computeAvailabilityFromStatus(dateStr) {
   const counts = { c19: 0, c23: 0, c24: 0, c25: 0 };
   let anyData = false;
+  const strictBlank = dateStr >= todayDateStr();
   DATA.locoPerf.forEach(loco => {
     const prefix = locoClassPrefix(loco);
     const key = 'c' + prefix;
     if (!(key in counts)) return;
     const raw = effectiveDailyValue(loco.asset, dateStr);
-    const avail = isAvailableStatusValue(raw, prefix);
+    const avail = isAvailableStatusValue(raw, prefix, strictBlank);
     if (avail !== null) anyData = true;
     if (avail === true) counts[key]++;
   });
@@ -3758,17 +3759,8 @@ function renderDailyAvailabilityGrid() {
   const avg = computeDailyAvailabilityAverage(dailyAvailabilityMonth);
   const target = availabilityTargetForMonth(dailyAvailabilityMonth);
   return `
-    <div class="panel">
-      <div class="table-scroll compact">
-        <table class="daily-table avail-daily-table" style="min-width:0;">
-          <thead><tr><th>Day</th><th class="cls-col">19c</th><th class="cls-col">23c</th><th class="cls-col">24c</th><th class="cls-col">25c</th><th>Total</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-      <div class="row-count">Auto-computed from the Daily Status table &mdash; a locomotive counts as available that day unless its status cell is FAILED, PE (periodic exam), REPAIR, REPAINT, or OH (overhaul). Edit a locomotive's daily status on the Daily Status tab to change its availability here.</div>
-    </div>
-    <div class="panel" style="margin-top:14px;" id="availDailyGridPanel">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow-x:auto;">
+    <div class="panel" id="availDailyGridPanel">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow-x:auto;margin-bottom:10px;">
         <button class="btn btn-ghost" id="daPrevMonth" style="flex-shrink:0;white-space:nowrap;">&lsaquo; Prev</button>
         <div style="font-weight:700;font-size:14px;flex-shrink:0;white-space:nowrap;">${monthLabelLong(dailyAvailabilityMonth)}</div>
         <button class="btn btn-ghost" id="daNextMonth" style="flex-shrink:0;white-space:nowrap;">Next &rsaquo;</button>
@@ -3776,6 +3768,13 @@ function renderDailyAvailabilityGrid() {
         ${availabilityMonthYearControlHtml()}
         <div style="font-size:12px;font-weight:700;color:var(--amber);flex-shrink:0;white-space:nowrap;">Avg: ${avg}<span class="dim" style="font-weight:400;"> / ${target}</span></div>
       </div>
+      <div class="table-scroll compact">
+        <table class="daily-table avail-daily-table" style="min-width:0;">
+          <thead><tr><th>Day</th><th class="cls-col">19c</th><th class="cls-col">23c</th><th class="cls-col">24c</th><th class="cls-col">25c</th><th>Total</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="row-count">Auto-computed from the Daily Status table &mdash; a locomotive counts as available that day unless its status cell is FAILED, PE (periodic exam), REPAIR, REPAINT, or OH (overhaul). Edit a locomotive's daily status on the Daily Status tab to change its availability here.</div>
     </div>
   `;
 }
