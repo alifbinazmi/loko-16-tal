@@ -1897,7 +1897,12 @@ function wireLanggarMonthControl() {
 }
 function renderTopbarActions() {
   const el = document.getElementById('topbarActions');
-  if (currentView === 'dashboard' || currentView === 'subsystem' || currentView === 'reliability' || currentView === 'availability' || currentView === 'dailyStatus' || currentView === 'masterplan' || currentView === 'peAnnualPlan2026') { el.innerHTML = ''; return; }
+  if (currentView === 'dashboard') {
+    el.innerHTML = `<button type="button" class="btn btn-ghost" id="dashSlidesBtn">Export Performance Slideshow</button>`;
+    document.getElementById('dashSlidesBtn').addEventListener('click', openPerformanceSlidesModal);
+    return;
+  }
+  if (currentView === 'subsystem' || currentView === 'reliability' || currentView === 'availability' || currentView === 'dailyStatus' || currentView === 'masterplan' || currentView === 'peAnnualPlan2026') { el.innerHTML = ''; return; }
   const labelMap = { failures: 'Unscheduled Report', incidents: '16-TAL Incident', langgar: '16-TAL Accident' };
   const activeFilterCount = ['failures','failuresCwbg','incidents','langgar'].includes(currentView) ? countActiveFilters(currentView) : 0;
   el.innerHTML = `
@@ -2322,7 +2327,6 @@ function renderDashboard() {
 
     <div class="section-eyebrow">Monthly Trends</div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;">
-      <button type="button" class="btn btn-ghost" id="dashSlidesBtn">Export Performance Slideshow</button>
       <button type="button" class="btn btn-ghost" id="dashExportBtn">Export Dashboard to Excel</button>
     </div>
     <div class="chart-grid">
@@ -2344,8 +2348,6 @@ function renderDashboard() {
   drawDashboardCharts(ssTotals, assetTotals);
   const dashExportBtn = document.getElementById('dashExportBtn');
   if (dashExportBtn) dashExportBtn.addEventListener('click', exportDashboardToExcel);
-  const dashSlidesBtn = document.getElementById('dashSlidesBtn');
-  if (dashSlidesBtn) dashSlidesBtn.addEventListener('click', openPerformanceSlidesModal);
 }
 
 function destroyCharts() { /* canvas charts are redrawn fresh each time; nothing to tear down */ }
