@@ -5857,21 +5857,21 @@ async function exportPerformanceSlides(selectedMonth) {
 
     // ---------- SLIDE 7: 05 · SUB-SYSTEM FAILURES ----------
     slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
-    addSlideHeader(slide, '05 · SUB-SYSTEM FAILURES', 'Failures by sub-system, ranked');
+    addSlideHeader(slide, '05 · SUB-SYSTEM FAILURES', `Failures by sub-system, ranked — ${monthLabel(selectedMonth)}`);
     const TOP_N = 9;
-    const top9 = subEntriesAll.slice(0, TOP_N);
-    const overflow = subEntriesAll.slice(TOP_N).sort((a, b) => a[1] - b[1]);
+    const top9 = subEntriesMonth.slice(0, TOP_N);
+    const overflow = subEntriesMonth.slice(TOP_N).sort((a, b) => a[1] - b[1]);
     const overflowTotal = overflow.reduce((s, e) => s + e[1], 0);
     const chartLabels = [...top9.map(e => e[0]), ...(overflow.length ? [`Others (${overflow.length} types)`] : [])];
     const chartValues = [...top9.map(e => e[1]), ...(overflow.length ? [overflowTotal] : [])];
     addMonthlyBarChart(slide, chartLabels, chartValues, { y: 1.5, h: 4.1, colors: [LOKO_LIGHT.navy], valAxisTitle: 'Reports' });
-    const top3 = subEntriesAll.slice(0, 3);
+    const top3 = subEntriesMonth.slice(0, 3);
     const sumTop3 = top3.reduce((s, e) => s + e[1], 0);
-    slide.addText(totalFailuresAll ? `${Math.round(sumTop3 / totalFailuresAll * 100)}% of reports are ${top3.map(e => e[0]).join(', ')} (${sumTop3} of ${totalFailuresAll})` : 'No failure data yet.',
+    slide.addText(countableMonth.length ? `${Math.round(sumTop3 / countableMonth.length * 100)}% of reports are ${top3.map(e => e[0]).join(', ')} (${sumTop3} of ${countableMonth.length})` : 'No failure data this month.',
       { x: 0.6, y: 5.75, w: 12.1, h: 0.4, fontSize: 14, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
-    const concentration = topSub ? topAssetWithinSubsystem(topSub.key, countable) : null;
+    const concentration = topSubMonth ? topAssetWithinSubsystem(topSubMonth.key, countableMonth) : null;
     slide.addText(concentration
-      ? `${topSub.key} failures are concentrated: ${concentration.count} of ${concentration.bucketTotal} are on loco ${concentration.asset}.`
+      ? `${topSubMonth.key} failures are concentrated: ${concentration.count} of ${concentration.bucketTotal} are on loco ${concentration.asset}.`
       : '', { x: 0.6, y: 6.2, w: 12.1, h: 0.4, fontSize: 11.5, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
     if (overflow.length) slide.addText(`Others includes: ${overflow.map(e => `${e[0]} (${e[1]})`).join(', ')}.`,
       { x: 0.6, y: 6.65, w: 12.1, h: 0.4, fontSize: 9.5, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
@@ -5882,8 +5882,8 @@ async function exportPerformanceSlides(selectedMonth) {
     const { series: causeSeries } = compute4MMonthlyTotals(range.months, countable);
     addStackedCauseChart(slide, range.months.map(monthLabel), causeSeries, { x: 0.5, y: 1.5, w: 7.9, h: 5.0 });
     causeSeries.forEach((s, i) => {
-      const total = fourM[s.name], pct = totalCauses ? Math.round(total / totalCauses * 100) : 0;
-      addKpiTile(slide, 8.65, 1.5 + i * 1.35, 4.2, 1.2, s.name, `${total}`, `${pct}% of causes`);
+      const total = fourMMonth[s.name], pct = totalCausesMonth ? Math.round(total / totalCausesMonth * 100) : 0;
+      addKpiTile(slide, 8.65, 1.5 + i * 1.35, 4.2, 1.2, s.name, `${total}`, `${pct}% of causes this month`);
     });
     let mostChanged = null;
     causeSeries.forEach(s => {
@@ -5893,33 +5893,35 @@ async function exportPerformanceSlides(selectedMonth) {
     slide.addText(mostChanged
       ? `${mostChanged.cause} causes ${mostChanged.delta >= 0 ? 'rose' : 'fell'} from ${mostChanged.firstVal} in ${monthLabel(range.months[0])} to ${mostChanged.lastVal} in ${monthLabel(range.months[range.months.length - 1])}.`
       : '', { x: 0.5, y: 6.7, w: 7.9, h: 0.4, fontSize: 11, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
-    slide.addText(`${dataGapCount} reports have no 4M cause recorded.`,
+    const dataGapCountMonth = countReportsMissing4M(countableMonth);
+    slide.addText(`${dataGapCountMonth} reports have no 4M cause recorded this month.`,
       { x: 8.65, y: 6.7, w: 4.2, h: 0.4, fontSize: 9.5, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
 
     // ---------- SLIDE 9: 07 · FAILURE ANALYSIS ----------
     slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
-    addSlideHeader(slide, '07 · FAILURE ANALYSIS', 'Repeat locomotives, parts, and depots');
-    const assetTotalsAll = computeAssetTotals(countable);
-    const top5Assets = Object.entries(assetTotalsAll).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    addSlideHeader(slide, '07 · FAILURE ANALYSIS', `Repeat locomotives, parts, and depots — ${monthLabel(selectedMonth)}`);
+    const assetTotalsMonth = computeAssetTotals(countableMonth);
+    const top5AssetsMonth = Object.entries(assetTotalsMonth).sort((a, b) => b[1] - a[1]).slice(0, 5);
     const repeatRows = [['Loco', 'Qty', 'Main issue'].map(t => ({ text: t, options: headerOpts })),
-      ...top5Assets.map(([asset, qty]) => {
-        const main = computeAssetTopSubsystem(asset, countable);
+      ...top5AssetsMonth.map(([asset, qty]) => {
+        const main = computeAssetTopSubsystem(asset, countableMonth);
         return [String(asset), String(qty), main ? `${main.key} (${main.count})` : '—'].map(t => ({ text: t, options: cellOpts }));
       })];
     slide.addTable(repeatRows, { x: 0.4, y: 1.55, w: 4.0, colW: [1.1, 0.8, 2.1], fontSize: 10 });
-    const defectTotals = computeDefectTotals(countable);
+    const defectTotalsMonth = computeDefectTotals(countableMonth);
     const defectRows = [['Defect type', 'Parts'].map(t => ({ text: t, options: headerOpts })),
-      ...Object.entries(defectTotals).sort((a, b) => b[1] - a[1]).map(([t, c]) => [t, String(c)].map(x => ({ text: x, options: cellOpts })))];
+      ...Object.entries(defectTotalsMonth).sort((a, b) => b[1] - a[1]).map(([t, c]) => [t, String(c)].map(x => ({ text: x, options: cellOpts })))];
     slide.addTable(defectRows, { x: 4.65, y: 1.55, w: 3.9, colW: [2.6, 1.3], fontSize: 10 });
-    const depotTotalsAll = computeDepotTotals(countable);
-    const top5Depots = Object.entries(depotTotalsAll).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const depotTotalsMonth = computeDepotTotals(countableMonth);
+    const top5DepotsMonth = Object.entries(depotTotalsMonth).sort((a, b) => b[1] - a[1]).slice(0, 5);
     const depotRows = [['Depot', 'Reports'].map(t => ({ text: t, options: headerOpts })),
-      ...top5Depots.map(([d, c]) => [d, String(c)].map(x => ({ text: x, options: cellOpts })))];
+      ...top5DepotsMonth.map(([d, c]) => [d, String(c)].map(x => ({ text: x, options: cellOpts })))];
     slide.addTable(depotRows, { x: 8.8, y: 1.55, w: 3.9, colW: [2.6, 1.3], fontSize: 10 });
-    const sumTop5 = top5Assets.reduce((s, [, c]) => s + c, 0);
+    const biggestRepeatMonth = computeRepeatOffenders(countableMonth, 1)[0] || null;
+    const sumTop5Month = top5AssetsMonth.reduce((s, [, c]) => s + c, 0);
     slide.addText(
-      (totalFailuresAll ? `${Math.round(sumTop5 / totalFailuresAll * 100)}% of all reports come from these ${top5Assets.length} locomotives (${sumTop5} of ${totalFailuresAll}).` : '') +
-      (biggestRepeat ? ` Loco ${biggestRepeat.asset}'s ${biggestRepeat.subsystem}, with ${biggestRepeat.count} failures, is the biggest single repeat issue.` : ''),
+      (countableMonth.length ? `${Math.round(sumTop5Month / countableMonth.length * 100)}% of this month's reports come from these ${top5AssetsMonth.length} locomotives (${sumTop5Month} of ${countableMonth.length}).` : '') +
+      (biggestRepeatMonth ? ` Loco ${biggestRepeatMonth.asset}'s ${biggestRepeatMonth.subsystem}, with ${biggestRepeatMonth.count} failures, is the biggest single repeat issue this month.` : ''),
       { x: 0.4, y: 6.6, w: 12.5, h: 0.6, fontSize: 11.5, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true }
     );
 
