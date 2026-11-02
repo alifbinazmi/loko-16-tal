@@ -1898,7 +1898,7 @@ function wireLanggarMonthControl() {
 function renderTopbarActions() {
   const el = document.getElementById('topbarActions');
   if (currentView === 'dashboard') {
-    el.innerHTML = `<button type="button" class="btn btn-ghost" id="dashSlidesBtn">Export Performance Slideshow</button>`;
+    el.innerHTML = `<button type="button" class="btn btn-ghost" id="dashSlidesBtn">Convert to Slide</button>`;
     document.getElementById('dashSlidesBtn').addEventListener('click', openPerformanceSlidesModal);
     return;
   }
@@ -5586,7 +5586,7 @@ function openPerformanceSlidesModal() {
   const modal = document.getElementById('modal');
   modal.innerHTML = `
     <div class="modal-head">
-      <h2>Export Performance Slideshow</h2>
+      <h2>Convert to Slide</h2>
       <button class="modal-close" id="modalCloseBtn">${ICONS.close}</button>
     </div>
     <div class="modal-body">
