@@ -5831,12 +5831,11 @@ async function exportPerformanceSlides(selectedMonth) {
     slide.addText(`Average by class — ${monthLabelLong(selectedMonth)}`,
       { x: 0.6, y: 5.75, w: 12.1, h: 0.3, fontSize: 11, bold: true, color: LOKO_LIGHT.navy, fontFace: 'Arial', charSpacing: 1.5, isTextBox: true });
     const availByClassMonth = computeDailyAvailabilityAverageByClass(selectedMonth);
-    const todayStr = todayDateStr();
     const classTotals = { c23: 0, c24: 0, c25: 0 };
     DATA.locoPerf.forEach(l => {
       const key = 'c' + locoClassPrefix(l);
       if (!(key in classTotals)) return;
-      if (effectiveDailyValue(l.asset, todayStr) === 'INACTIVE') return;
+      if (DATA.inactiveRanges[l.asset]) return;
       classTotals[key]++;
     });
     const classTileW = 3.867, classTileGap = 0.25;
