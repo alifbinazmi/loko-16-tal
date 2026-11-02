@@ -5729,15 +5729,20 @@ async function exportPerformanceSlides() {
     // ---------- SLIDE 5: 03 · PERIODIC EXAMINATION (PE) ----------
     slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
     addSlideHeader(slide, '03 · PERIODIC EXAMINATION (PE)', 'Monthly PE completions');
-    addMonthlyBarChart(slide, range.months.map(monthLabel), peVals, { y: 1.5, h: 3.3, valAxisTitle: 'PE completions' });
+    addMonthlyBarChart(slide, range.months.map(monthLabel), peVals, { y: 1.5, h: 3.0, valAxisTitle: 'PE completions' });
     slide.addText(`${peTotal} PE completed ${range.rangeLabel}; ${Math.min(...peVals)} to ${Math.max(...peVals)} in each month`,
-      { x: 0.6, y: 5.0, w: 12.1, h: 0.4, fontSize: 15, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
-    slide.addShape(pptx.ShapeType.roundRect, { x: 0.6, y: 5.5, w: 5.9, h: 0.9, fill: { color: LOKO_LIGHT.pink }, line: { color: LOKO_LIGHT.red, width: 1 } });
-    slide.addText(`ATTENTION: ${overdue} of ${totalActiveFleet} locomotives are overdue for PE`,
-      { x: 0.85, y: 5.65, w: 5.4, h: 0.6, fontSize: 12.5, bold: true, color: LOKO_LIGHT.red, fontFace: 'Arial', isTextBox: true });
-    const peAchievedPct = Math.round(PE_PLAN_SUMMARY.actual / PE_PLAN_SUMMARY.plan * 1000) / 10;
-    slide.addText(`Plan achievement: ${peAchievedPct}% (${PE_PLAN_SUMMARY.actual} of ${PE_PLAN_SUMMARY.plan} planned tasks)`,
-      { x: 6.8, y: 5.65, w: 5.9, h: 0.6, fontSize: 12.5, color: LOKO_LIGHT.muted, fontFace: 'Arial', isTextBox: true });
+      { x: 0.6, y: 4.7, w: 12.1, h: 0.4, fontSize: 15, bold: true, color: LOKO_LIGHT.text, fontFace: 'Arial', isTextBox: true });
+
+    const PE_TYPE_LABELS = { PE15: 'PE15', PE30: 'PE30', PE45: 'PE45', PE45S: 'PE45-S', PE180: 'PE180', PE360: 'PE360' };
+    const { types: peTypesAll, byTypeMonth } = computePeTypeMonthTotals();
+    const peTypeRows = peTypesAll.map(type => range.months.map(m => byTypeMonth[type][m] || 0));
+    const peTypeTotalsRow = range.months.map((m, i) => peTypeRows.reduce((s, r) => s + r[i], 0));
+    const peColW = [1.5, ...range.months.map(() => (12.3 - 1.5) / range.months.length)];
+    slide.addTable([
+      ['PE Type', ...range.months.map(monthLabel)].map(t => ({ text: t, options: headerOpts })),
+      ...peTypesAll.map((type, ti) => [PE_TYPE_LABELS[type] || type, ...peTypeRows[ti].map(String)].map(t => ({ text: t, options: cellOpts }))),
+      ['Total', ...peTypeTotalsRow.map(String)].map(t => ({ text: t, options: { ...cellOpts, bold: true, fill: { color: LOKO_LIGHT.line } } })),
+    ], { x: 0.5, y: 5.2, w: 12.3, colW: peColW, fontSize: 9.5 });
 
     // ---------- SLIDE 6: 04 · UNSCHEDULED REPORTS ----------
     slide = pptx.addSlide(); slide.background = { color: LOKO_LIGHT.bg };
