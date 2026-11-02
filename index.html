@@ -177,6 +177,8 @@
   .btn-success:hover{background:#1cb868;border-color:#1cb868;}
   .btn-ghost{background:transparent;}
   .btn svg{width:14px;height:14px;}
+  #dashSlidesBtn{background:linear-gradient(135deg,#2F7EE0,#3D4F91);color:#FFFFFF;border-color:transparent;}
+  #dashSlidesBtn:hover{background:linear-gradient(135deg,#4A91EE,#4A5FA8);border-color:transparent;}
 
   .content{flex:1;padding:22px 26px 40px 26px;overflow-x:hidden;}
   .view{display:none;}
@@ -1898,7 +1900,7 @@ function wireLanggarMonthControl() {
 function renderTopbarActions() {
   const el = document.getElementById('topbarActions');
   if (currentView === 'dashboard') {
-    el.innerHTML = `<button type="button" class="btn btn-primary" id="dashSlidesBtn">Convert to Slide</button>`;
+    el.innerHTML = `<button type="button" class="btn" id="dashSlidesBtn">Convert to Slide</button>`;
     document.getElementById('dashSlidesBtn').addEventListener('click', openPerformanceSlidesModal);
     return;
   }
