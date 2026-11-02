@@ -239,7 +239,7 @@
   .stat-card .val .n{font-family:var(--mono);color:var(--indigo);}
 
   .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-  .reliability-split{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
+  .reliability-split{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;}
   .chart-panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px 18px 14px 18px;box-shadow:0 1px 2px rgba(23,27,39,.04), 0 6px 16px -10px rgba(23,27,39,.12);}
   .section-eyebrow{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);margin:18px 0 10px 2px;display:flex;align-items:center;gap:8px;}
   .section-eyebrow::after{content:"";flex:1;height:1px;background:var(--border-soft);}
@@ -3761,7 +3761,7 @@ function renderDailyAvailabilityGrid() {
   const avg = computeDailyAvailabilityAverage(dailyAvailabilityMonth);
   const target = availabilityTargetForMonth(dailyAvailabilityMonth);
   return `
-    <div class="panel" id="availDailyGridPanel">
+    <div class="panel" id="availDailyGridPanel" style="display:flex;flex-direction:column;height:100%;">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow-x:auto;margin-bottom:10px;">
         <button class="btn btn-ghost" id="daPrevMonth" style="flex-shrink:0;white-space:nowrap;">&lsaquo; Prev</button>
         <div style="font-weight:700;font-size:14px;flex-shrink:0;white-space:nowrap;">${monthLabelLong(dailyAvailabilityMonth)}</div>
@@ -3770,7 +3770,7 @@ function renderDailyAvailabilityGrid() {
         ${availabilityMonthYearControlHtml()}
         <div style="font-size:12px;font-weight:700;color:var(--amber);flex-shrink:0;white-space:nowrap;">Avg: ${avg}<span class="dim" style="font-weight:400;"> / ${target}</span></div>
       </div>
-      <div class="table-scroll compact">
+      <div class="table-scroll compact" style="flex:1;height:auto;">
         <table class="daily-table avail-daily-table" style="min-width:0;">
           <thead><tr><th>Day</th><th class="cls-col">19c</th><th class="cls-col">23c</th><th class="cls-col">24c</th><th class="cls-col">25c</th><th>Total</th></tr></thead>
           <tbody>${rows}</tbody>
@@ -3827,9 +3827,9 @@ function renderAvailability() {
 
     <div class="reliability-split" style="margin-top:14px;margin-bottom:14px;">
       <div>
-        <div class="panel">
+        <div class="panel" style="display:flex;flex-direction:column;height:100%;">
           <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:0 0 10px;">Availability 2026</div>
-          <div class="table-scroll compact">
+          <div class="table-scroll compact" style="flex:1;height:auto;">
             <table>
               <thead><tr>
                 <th>Month</th><th>Availability (avg locos/day)</th><th>Target</th><th>Variance</th><th>Status</th>
