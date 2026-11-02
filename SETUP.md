@@ -185,6 +185,25 @@ update login_credentials set password = 'yournewpassword' where username = 'loko
 
 Both `dashboard_store` and `login_credentials` have `using (true)` read policies — anyone holding the publishable key embedded in `index.html` can query them directly through Supabase's API, logged in or not, including reading the password straight out of the table (it's stored in plain text). The login screen stops people from casually opening the dashboard; it does **not** stop direct API access. Real access control would require a proper backend or Supabase Auth with authenticated-only RLS policies, which is a bigger change than this login screen.
 
+### Giving someone view-only access (e.g. a manager who shouldn't edit)
+
+The `login_credentials` table has a `role` column (`'admin'` or `'viewer'`, defaults to `'admin'`). A `viewer` login can open every tab and read every record, but every Save/Delete/New Report/Daily Status edit/etc. control is hidden or disabled — this is still just a **UI-level** restriction (same caveat as above: it doesn't stop direct API access).
+
+Add the column once (existing rows default to `'admin'`, so nothing else changes):
+```sql
+alter table login_credentials add column if not exists role text not null default 'admin';
+```
+
+Add a view-only login, picking your own username/password:
+```sql
+insert into login_credentials (username, password, role) values ('viewername', 'viewerpassword', 'viewer');
+```
+
+To change an existing account's role:
+```sql
+update login_credentials set role = 'viewer' where username = 'someusername';
+```
+
 ---
 
 ## Daily & Weekly Failure Report Emails

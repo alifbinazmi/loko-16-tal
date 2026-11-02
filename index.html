@@ -536,6 +536,23 @@
   .modal-body{padding:18px 20px;max-height:60vh;overflow:auto;}
   .modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-soft);}
 
+  /* ---------- Viewer role: hide/disable every edit affordance ---------- */
+  body.viewer-mode #newReportBtn,
+  body.viewer-mode #addPeRecordBtn,
+  body.viewer-mode #saveNowBtn,
+  body.viewer-mode #dsFillInactive,
+  body.viewer-mode #modalSaveBtn,
+  body.viewer-mode #modalDeleteBtn,
+  body.viewer-mode #modalSendCwbgBtn,
+  body.viewer-mode #modalUndoCwbgBtn,
+  body.viewer-mode #eiaMarkBtn,
+  body.viewer-mode #eiaClearBtn,
+  body.viewer-mode #assetFlagSaveBtn,
+  body.viewer-mode .asset-flag-btn{display:none !important;}
+  body.viewer-mode #assetFlagPopup textarea,
+  body.viewer-mode #assetFlagPopup input{pointer-events:none;background:var(--panel-2);}
+  body.viewer-mode #viewerModeBadge{display:inline;}
+
   /* ---------- Login screen ---------- */
   body:not(.authed) .sidebar, body:not(.authed) .main{display:none;}
   .login-screen{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:20px;}
@@ -697,6 +714,7 @@
     <button type="button" class="btn btn-ghost" id="saveNowBtn" style="width:100%;justify-content:center;margin-top:8px;font-size:11px;" title="Force-save everything to the cloud right now">Save Now</button>
     <div class="sidebar-stats" id="sidebarStats"></div>
     <button type="button" class="btn btn-ghost" id="logoutBtn" style="width:100%;justify-content:center;margin-top:10px;font-size:11px;">Log out</button>
+    <div id="viewerModeBadge" class="dim" style="display:none;text-align:center;margin-top:8px;font-size:10.5px;">View only</div>
   </div>
 </aside>
 
@@ -1338,14 +1356,16 @@ async function loadData() {
     console.error('loadData failed, using seed', e);
     keys.forEach(k => { DATA[k] = getSeed()[k] || {}; });
   }
-  if (purgeStaleInactiveDailyStatus()) await saveKey('dailyStatus');
-  if (backfillNewAssetInactiveRanges()) {
-    await saveKey('inactiveRanges');
-    toast(`Marked ${NEW_INACTIVE_ASSETS.length} new assets inactive since ${DAILY_STATUS_MIN_MONTH}-01`);
+  if (!isViewer()) {
+    if (purgeStaleInactiveDailyStatus()) await saveKey('dailyStatus');
+    if (backfillNewAssetInactiveRanges()) {
+      await saveKey('inactiveRanges');
+      toast(`Marked ${NEW_INACTIVE_ASSETS.length} new assets inactive since ${DAILY_STATUS_MIN_MONTH}-01`);
+    }
+    if (normalizeFailureDepots()) await saveKey('failures');
+    if (normalizePeHistoryDepots()) await saveKey('peHistory');
+    if (backfillFailureRids()) await saveKey('failures');
   }
-  if (normalizeFailureDepots()) await saveKey('failures');
-  if (normalizePeHistoryDepots()) await saveKey('peHistory');
-  if (backfillFailureRids()) await saveKey('failures');
 }
 /* Every failures record needs a stable rid so a save can re-locate it in a
    freshly-fetched copy of the list (see fetchFreshKey) instead of relying on
@@ -3665,7 +3685,7 @@ function renderAvailability() {
     return `<tr>
       <td class="dim">${monthLabel(a.month)}</td>
       <td class="num">${a.value}</td>
-      <td class="num"><input type="number" step="0.1" class="avail-target-input" data-month="${a.month}" value="${a.target}" style="width:60px;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:3px;padding:4px 6px;font-size:12px;color:var(--text);text-align:right;"></td>
+      <td class="num"><input type="number" step="0.1" class="avail-target-input" data-month="${a.month}" value="${a.target}" ${isViewer() ? 'readonly' : ''} style="width:60px;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:3px;padding:4px 6px;font-size:12px;color:var(--text);text-align:right;"></td>
       <td class="num">${(a.value - a.target >= 0 ? '+' : '') + (Math.round((a.value - a.target) * 10) / 10)}</td>
       <td>${reliabilityStatusPill(pass)}</td>
     </tr>`;
@@ -3677,7 +3697,7 @@ function renderAvailability() {
     return `<tr>
       <td class="dim">${monthLabel(m)}</td>
       <td class="num dim">&mdash;</td>
-      <td class="num"><input type="number" step="0.1" class="avail-target-input" data-month="${m}" value="${target}" style="width:60px;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:3px;padding:4px 6px;font-size:12px;color:var(--text);text-align:right;"></td>
+      <td class="num"><input type="number" step="0.1" class="avail-target-input" data-month="${m}" value="${target}" ${isViewer() ? 'readonly' : ''} style="width:60px;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:3px;padding:4px 6px;font-size:12px;color:var(--text);text-align:right;"></td>
       <td class="num dim">&mdash;</td>
       <td><span class="dim">Pending</span></td>
     </tr>`;
@@ -5180,7 +5200,7 @@ function deploymentSummaryPanelHtml() {
       const overrideKey = `${row.asset}|${dateStr}`;
       const carryNote = [1, 3].includes(maintenancePriority(row.value)) ? DATA.dsMaintenanceNotes[row.asset] : null;
       const displayVal = DATA.dsLabelOverrides[overrideKey] || carryNote || labelForDailyValue(row.value);
-      return `<td class="num"${divCls}>${esc(row.asset)}</td><td><input type="text" class="dsdep-label-input" data-asset="${esc(row.asset)}" data-date="${esc(dateStr)}" value="${esc(displayVal)}"></td>`;
+      return `<td class="num"${divCls}>${esc(row.asset)}</td><td><input type="text" class="dsdep-label-input" data-asset="${esc(row.asset)}" data-date="${esc(dateStr)}" value="${esc(displayVal)}" ${isViewer() ? 'readonly' : ''}></td>`;
     }).join('');
     return `<tr><td class="num">${i + 1}</td>${cells}</tr>`;
   }).join('');
@@ -5377,12 +5397,12 @@ function renderDailyStatus() {
       const missingKm = dailyCellMissingKm(val);
       const style = dailyValueStyle(val);
       const todayCls = dateStr === todayStr ? ' today-col' : '';
-      return `<td class="day-cell${todayCls}"><input type="text" autocomplete="off" class="daily-cell-input${val ? ' has-value' : ''}${isFail ? ' fail-value' : ''}${missingKm ? ' km-flag' : ''}"${style ? ` style="${style}"` : ''} data-asset="${loco.asset}" data-date="${dateStr}" value="${esc(val)}" title="${esc(val)}${missingKm ? ' — not counted toward KM' : ''}"></td>`;
+      return `<td class="day-cell${todayCls}"><input type="text" autocomplete="off" class="daily-cell-input${val ? ' has-value' : ''}${isFail ? ' fail-value' : ''}${missingKm ? ' km-flag' : ''}"${style ? ` style="${style}"` : ''} data-asset="${loco.asset}" data-date="${dateStr}" value="${esc(val)}" title="${esc(val)}${missingKm ? ' — not counted toward KM' : ''}" ${isViewer() ? 'readonly' : ''}></td>`;
     }).join('');
     const rowKm = computeMonthlyKm(loco.asset, dailyStatusMonth);
     const addKm = getAdditionalKm(loco.asset, dailyStatusMonth);
     const finalKm = computeFinalKm(loco.asset, dailyStatusMonth);
-    return `<tr><td>${showClass ? esc(loco.class) : ''}</td>${assetFlagCellHtml(loco, isCurrentlyInactive)}${dayCells}<td class="num km-cell" id="dsKm-${loco.asset}">${fmtKm(rowKm)}</td><td class="day-cell additional-km-cell"><input type="number" step="0.1" class="additional-km-input${addKm ? ' has-value' : ''}" data-asset="${loco.asset}" value="${addKm || ''}" placeholder="0"></td><td class="num final-km-cell" id="dsFinalKm-${loco.asset}">${fmtKm(finalKm)}</td></tr>`;
+    return `<tr><td>${showClass ? esc(loco.class) : ''}</td>${assetFlagCellHtml(loco, isCurrentlyInactive)}${dayCells}<td class="num km-cell" id="dsKm-${loco.asset}">${fmtKm(rowKm)}</td><td class="day-cell additional-km-cell"><input type="number" step="0.1" class="additional-km-input${addKm ? ' has-value' : ''}" data-asset="${loco.asset}" value="${addKm || ''}" placeholder="0" ${isViewer() ? 'readonly' : ''}></td><td class="num final-km-cell" id="dsFinalKm-${loco.asset}">${fmtKm(finalKm)}</td></tr>`;
   }).join('');
   const monthFilled = countFilledForMonth(dailyStatusMonth);
   const optionsHtml = collectDailyStatusOptions().map(v => `<option value="${esc(v)}">`).join('');
@@ -5873,6 +5893,10 @@ function openModal(view, editIdx = null, prefill = null) {
     </div>
   `;
 
+  if (isViewer()) {
+    document.querySelectorAll('#modal input, #modal select, #modal textarea').forEach(el => el.disabled = true);
+  }
+
   document.getElementById('modalBackdrop').classList.add('open');
   document.getElementById('modalBackdrop').scrollTop = 0;
   document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
@@ -6121,6 +6145,12 @@ async function startApp() {
 
 /* ---------- auth gate ---------- */
 const IDLE_LIMIT_MS = 3 * 60 * 60 * 1000;
+let CURRENT_ROLE = 'admin';
+function isViewer() { return CURRENT_ROLE === 'viewer'; }
+function applyRoleState() {
+  CURRENT_ROLE = localStorage.getItem('loko_role') || 'admin';
+  document.body.classList.toggle('viewer-mode', isViewer());
+}
 function showLoginScreen(message) {
   document.body.classList.remove('authed');
   document.getElementById('loginScreen').style.display = 'flex';
@@ -6134,6 +6164,7 @@ function hideLoginScreen() {
 function performLogout() {
   localStorage.removeItem('loko_authed');
   localStorage.removeItem('loko_last_activity');
+  localStorage.removeItem('loko_role');
   location.reload();
 }
 function isSessionExpired() {
@@ -6157,12 +6188,14 @@ async function handleLoginSubmit(e) {
   btn.textContent = 'Signing in…';
   const username = document.getElementById('loginUsername').value.trim();
   const password = document.getElementById('loginPassword').value;
-  const { data } = await _db.from('login_credentials').select('password').eq('username', username).maybeSingle();
+  const { data } = await _db.from('login_credentials').select('password, role').eq('username', username).maybeSingle();
   btn.disabled = false;
   btn.textContent = 'Sign in';
   if (!data || data.password !== password) { showLoginScreen('Invalid username or password'); return; }
   localStorage.setItem('loko_authed', '1');
   localStorage.setItem('loko_last_activity', String(Date.now()));
+  localStorage.setItem('loko_role', data.role || 'admin');
+  applyRoleState();
   hideLoginScreen();
   startApp();
 }
@@ -6179,11 +6212,13 @@ async function handleLoginSubmit(e) {
   if (!isSessionExpired()) {
     localStorage.setItem('loko_last_activity', String(Date.now()));
     _lastActivityWrite = Date.now();
+    applyRoleState();
     hideLoginScreen();
     startApp();
   } else {
     localStorage.removeItem('loko_authed');
     localStorage.removeItem('loko_last_activity');
+    localStorage.removeItem('loko_role');
     showLoginScreen();
   }
 })();
