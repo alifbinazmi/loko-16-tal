@@ -4385,8 +4385,11 @@ async function saveDailyCellValue(inp) {
   }
 
   if (PE_TRIGGER_CODES.includes(newPeCode)) {
-    hideDailyDropdown();
-    openModal('peHistory', null, { asset: Number(asset), date, type: newPeCode });
+    const prevDayPeCode = (DATA.dailyStatus[`${asset}|${shiftDateStr(date, -1)}`] || '').replace(/\s+/g, '').toUpperCase();
+    if (prevDayPeCode !== newPeCode) {
+      hideDailyDropdown();
+      openModal('peHistory', null, { asset: Number(asset), date, type: newPeCode });
+    }
   } else if (newIsRepair) {
     const prevDayVal = DATA.dailyStatus[`${asset}|${shiftDateStr(date, -1)}`];
     if (!isRepairOrFailed(prevDayVal)) {
