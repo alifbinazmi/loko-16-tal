@@ -5140,6 +5140,22 @@ function renderPeAnnualPlan2026() {
     return `<td${style ? ` style="${style}"` : ''}>${type ? esc(type) + 'D' : ''}</td>`;
   };
 
+  function computeMissedPeEntries(groupMap, currentWeek) {
+    const missed = [];
+    groupMap.forEach(group => group.forEach(r => {
+      Object.entries(r.weeks).forEach(([wn, type]) => {
+        const weekNum = Number(wn);
+        if (weekNum > currentWeek) return;
+        let done = false;
+        for (let w = weekNum; w <= currentWeek; w++) {
+          if (r.actualWeeks[w] === type) { done = true; break; }
+        }
+        if (!done) missed.push({ asset: r.asset, class: r.class, weekNum, type });
+      });
+    }));
+    return missed.sort((a, b) => a.weekNum - b.weekNum || a.asset - b.asset);
+  }
+
   const monthHeaderHtml = monthGroups.map((g, gi) => {
     const sep = gi < monthGroups.length - 1 ? sepCellHtml('th') : '';
     return `<th colspan="4">${PE_ANNUAL_MONTH_NAMES[g.month - 1]}</th>${sep}`;
@@ -5223,7 +5239,31 @@ function renderPeAnnualPlan2026() {
   const actualHtml = buildWallChartSection('Actual PE Completion (from PE Completion History)', 'actualWeeks', 'PE ACTUAL',
     `${DATA.peHistory.length} completed PE record(s) &middot; source: PE Completion History (per locomotive, from the weekly Masterplan log) &middot; read-only reference view`);
 
-  document.getElementById('content').innerHTML = actualHtml + planHtml;
+  const currentWeek = weekLookup[todayStr] || 0;
+  const missedEntries = computeMissedPeEntries(peGroupMap, currentWeek);
+  const missedByWeek = new Map();
+  missedEntries.forEach(m => {
+    if (!missedByWeek.has(m.weekNum)) missedByWeek.set(m.weekNum, []);
+    missedByWeek.get(m.weekNum).push(m);
+  });
+  const reminderRowsHtml = [...missedByWeek.keys()].sort((a, b) => a - b).map(wn => {
+    const entries = missedByWeek.get(wn);
+    const badges = entries.map(e => `<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 7px;border-radius:4px;background:${PE_ANNUAL_TYPE_BG[e.type] || 'var(--panel-3)'};color:#0B1220;font-weight:700;font-size:11px;">${esc(e.asset)} &middot; ${esc(e.type)}</span>`).join('');
+    return `<tr><td style="font-weight:700;">WEEK-${wn}</td><td>${badges}</td><td class="num">${entries.length}</td></tr>`;
+  }).join('');
+  const reminderHtml = `
+  <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:20px 0 10px;">PE Reminder &mdash; Not Yet Done</div>
+  <div class="panel">
+    <div class="matrix-scroll">
+      <table class="matrix pe-excel">
+        <thead><tr><th>Week</th><th>Asset &middot; PE Type</th><th>Count</th></tr></thead>
+        <tbody>${reminderRowsHtml || '<tr><td colspan="3" class="dim">Nothing outstanding — every due PE up to this week has been logged.</td></tr>'}</tbody>
+      </table>
+    </div>
+    <div class="row-count">${missedEntries.length} outstanding PE record(s) across ${missedByWeek.size} week(s) &middot; compares the Annual PE Plan against PE Completion History &middot; read-only reference view</div>
+  </div>`;
+
+  document.getElementById('content').innerHTML = reminderHtml + actualHtml + planHtml;
 }
 
 /* ---------- Daily Fleet Deployment Summary ---------- */
