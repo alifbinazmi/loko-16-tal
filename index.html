@@ -1382,6 +1382,8 @@ async function loadData() {
     if (normalizeFailureDepots()) await saveKey('failures');
     if (normalizePeHistoryDepots()) await saveKey('peHistory');
     if (backfillFailureRids()) await saveKey('failures');
+    if (backfillIncidentIids()) await saveKey('incidents');
+    if (backfillPeHistoryIds()) await saveKey('peHistory');
   }
 }
 /* Every failures record needs a stable rid so a save can re-locate it in a
@@ -1393,6 +1395,26 @@ function backfillFailureRids() {
   let changed = false;
   DATA.failures.forEach(f => {
     if (f.rid == null) { f.rid = nextId(DATA.failures, 'rid'); changed = true; }
+  });
+  return changed;
+}
+/* Same stable-id need as failures.rid, for incidents (which never had an id
+   field at all) and PE history (whose id used to be "array length at push
+   time" — unstable once a record was deleted, since a later push could reuse
+   an id still referenced elsewhere). */
+function backfillIncidentIids() {
+  let changed = false;
+  DATA.incidents.forEach(inc => {
+    if (inc.iid == null) { inc.iid = nextId(DATA.incidents, 'iid'); changed = true; }
+  });
+  return changed;
+}
+function backfillPeHistoryIds() {
+  let changed = false;
+  const seen = new Set();
+  DATA.peHistory.forEach(h => {
+    if (h.id == null || seen.has(h.id)) { h.id = nextId(DATA.peHistory, 'id'); changed = true; }
+    seen.add(h.id);
   });
   return changed;
 }
@@ -1514,6 +1536,17 @@ async function fetchFreshKey(key) {
     console.error('fetch latest ' + key + ' failed, using local copy', e);
   }
   return null;
+}
+/* For a {compositeKey: value} map, re-pull the server's current copy and apply
+   just this one set/delete on top of it, instead of saving the whole map as it
+   sat in this browser's memory — otherwise two people editing different keys of
+   the same map around the same time would have the second save erase the
+   first person's change. */
+async function saveMapKeyChange(key, applyFn) {
+  const fresh = await fetchFreshKey(key);
+  if (fresh) DATA[key] = fresh;
+  applyFn(DATA[key]);
+  await saveKey(key);
 }
 
 /* ---------- helpers ---------- */
@@ -3826,9 +3859,9 @@ function renderDailyAvailabilityGrid() {
 async function saveAvailabilityTargetOverride(inp) {
   const month = inp.dataset.month;
   const val = parseFloat(inp.value);
-  if (isNaN(val)) delete DATA.availabilityTargetOverrides[month];
-  else DATA.availabilityTargetOverrides[month] = val;
-  await saveKey('availabilityTargetOverrides');
+  await saveMapKeyChange('availabilityTargetOverrides', map => {
+    if (isNaN(val)) delete map[month]; else map[month] = val;
+  });
   renderAvailability();
 }
 function wireAvailabilityTargetInputs() {
@@ -4517,10 +4550,13 @@ async function saveDailyCellValue(inp) {
   const asset = inp.dataset.asset;
   const date = inp.dataset.date;
   const key = `${asset}|${date}`;
-  const oldVal = DATA.dailyStatus[key];
   const val = canonicalizeDailyStatusValue(inp.value.trim());
   inp.value = val;
-  if (val) DATA.dailyStatus[key] = val; else delete DATA.dailyStatus[key];
+  let oldVal;
+  await saveMapKeyChange('dailyStatus', map => {
+    oldVal = map[key];
+    if (val) map[key] = val; else delete map[key];
+  });
   invalidateAvailabilityCache();
   const isFail = /fail/i.test(val);
   const missingKm = dailyCellMissingKm(val);
@@ -4529,10 +4565,8 @@ async function saveDailyCellValue(inp) {
   inp.classList.toggle('km-flag', missingKm);
   inp.title = val + (missingKm ? ' — not counted toward KM' : '');
   inp.style.cssText = dailyValueStyle(val);
-  await saveKey('dailyStatus');
   if (![1, 3].includes(maintenancePriority(val)) && DATA.dsMaintenanceNotes[asset]) {
-    delete DATA.dsMaintenanceNotes[asset];
-    await saveKey('dsMaintenanceNotes');
+    await saveMapKeyChange('dsMaintenanceNotes', map => { delete map[asset]; });
   }
   const counter = document.getElementById('dsFilledCount');
   if (counter) counter.textContent = countFilledForMonth(dailyStatusMonth);
@@ -4543,6 +4577,8 @@ async function saveDailyCellValue(inp) {
   const oldPeCode = (oldVal || '').replace(/\s+/g, '').toUpperCase();
   const newPeCode = val.replace(/\s+/g, '').toUpperCase();
   if (PE_TRIGGER_CODES.includes(oldPeCode) && oldPeCode !== newPeCode) {
+    const freshPe = await fetchFreshKey('peHistory');
+    if (freshPe) DATA.peHistory = freshPe;
     const before = DATA.peHistory.length;
     DATA.peHistory = DATA.peHistory.filter(r => !(r.asset === Number(asset) && r.date === date && r.type === oldPeCode));
     if (DATA.peHistory.length !== before) {
@@ -4556,6 +4592,8 @@ async function saveDailyCellValue(inp) {
   const oldIsRepair = isRepairOrFailed(oldVal);
   const newIsRepair = isRepairOrFailed(val);
   if (oldIsRepair && (oldVal || '').trim().toUpperCase() !== val.toUpperCase()) {
+    const freshFailures = await fetchFreshKey('failures');
+    if (freshFailures) DATA.failures = freshFailures;
     const before = DATA.failures.length;
     DATA.failures = DATA.failures.filter(r => r.dsKey !== key);
     if (DATA.failures.length !== before) {
@@ -4642,12 +4680,13 @@ function wireDailyStatusCells() {
       const key = additionalKmKey(asset, dailyStatusMonth);
       const raw = inp.value.trim();
       const num = raw === '' ? 0 : parseFloat(raw);
-      if (raw === '' || isNaN(num) || num === 0) delete DATA.additionalKm[key];
-      else DATA.additionalKm[key] = Math.round(num * 10) / 10;
+      await saveMapKeyChange('additionalKm', map => {
+        if (raw === '' || isNaN(num) || num === 0) delete map[key];
+        else map[key] = Math.round(num * 10) / 10;
+      });
       inp.value = DATA.additionalKm[key] || '';
       inp.classList.toggle('has-value', !!DATA.additionalKm[key]);
       invalidateAvailabilityCache();
-      await saveKey('additionalKm');
       refreshRowKmCells(asset);
     });
   });
@@ -5370,15 +5409,15 @@ async function saveDeploymentLabelOverride(inp) {
   const rawCode = DATA.dailyStatus[key] || '';
   const autoLabel = labelForDailyValue(rawCode);
   const val = inp.value.trim();
-  if (!val || val === autoLabel) delete DATA.dsLabelOverrides[key];
-  else DATA.dsLabelOverrides[key] = val;
+  await saveMapKeyChange('dsLabelOverrides', map => {
+    if (!val || val === autoLabel) delete map[key]; else map[key] = val;
+  });
   inp.value = val || autoLabel;
-  await saveKey('dsLabelOverrides');
 
   if ([1, 3].includes(maintenancePriority(rawCode))) {
-    if (val && val !== autoLabel) DATA.dsMaintenanceNotes[asset] = val;
-    else delete DATA.dsMaintenanceNotes[asset];
-    await saveKey('dsMaintenanceNotes');
+    await saveMapKeyChange('dsMaintenanceNotes', map => {
+      if (val && val !== autoLabel) map[asset] = val; else delete map[asset];
+    });
   }
 }
 function wireDeploymentSummaryInputs() {
@@ -5495,12 +5534,13 @@ async function saveAssetFlag() {
   const note = document.getElementById('assetFlagPopupNote').value.trim();
   const lastOverhaul = document.getElementById('assetFlagLastOverhaul').value.trim();
   const nextOverhaul = document.getElementById('assetFlagNextOverhaul').value.trim();
-  if (assetFlagPending || note || lastOverhaul || nextOverhaul) {
-    DATA.assetFlags[asset] = { flag: assetFlagPending || null, note, lastOverhaul, nextOverhaul };
-  } else {
-    delete DATA.assetFlags[asset];
-  }
-  await saveKey('assetFlags');
+  await saveMapKeyChange('assetFlags', map => {
+    if (assetFlagPending || note || lastOverhaul || nextOverhaul) {
+      map[asset] = { flag: assetFlagPending || null, note, lastOverhaul, nextOverhaul };
+    } else {
+      delete map[asset];
+    }
+  });
   const cell = document.getElementById(`assetCell-${asset}`);
   if (cell) {
     const isCurrentlyInactive = effectiveDailyValue(asset, todayDateStr()) === 'INACTIVE';
@@ -6103,9 +6143,10 @@ function openInactiveRangeModal() {
 async function markInactiveAssetInactive() {
   const asset = document.getElementById('eiaAsset').value;
   if (!asset) return;
-  DATA.inactiveRanges[asset] = { from: todayDateStr(), to: null };
+  await saveMapKeyChange('inactiveRanges', map => {
+    map[asset] = { from: todayDateStr(), to: null };
+  });
   invalidateAvailabilityCache();
-  await saveKey('inactiveRanges');
   recomputePeSchedule();
   closeModal();
   renderContent();
@@ -6114,6 +6155,8 @@ async function markInactiveAssetInactive() {
 async function markInactiveAssetActiveNow() {
   const asset = document.getElementById('eiaAsset').value;
   if (!asset) return;
+  const fresh = await fetchFreshKey('inactiveRanges');
+  if (fresh) DATA.inactiveRanges = fresh;
   if (!DATA.inactiveRanges[asset]) { toast(`Asset ${asset} has no inactive range set`); return; }
   const d = new Date(todayDateStr() + 'T00:00:00');
   d.setDate(d.getDate() - 1);
@@ -6329,42 +6372,32 @@ function readPeHistoryForm() {
   };
 }
 
+/* The stable per-record id field for each array-backed DATA_KEY, used to
+   re-locate a record inside a freshly-pulled copy of the array instead of
+   trusting this browser's own (possibly stale) array index — see
+   fetchFreshKey. Every array record type now has one of these. */
+const RECORD_ID_FIELD = { failures: 'rid', incidents: 'iid', langgar: 'bilKes', peHistory: 'id' };
+const NEW_REPORT_TOAST = { failures: 'Unscheduled report added', incidents: 'Incident added', langgar: '16-TAL Accident added', peHistory: 'PE record added' };
+
 async function saveNewReport(view) {
-  if (view === 'failures') {
-    const rec = readFailureForm();
-    if (!rec) return;
-    const fresh = await fetchFreshKey('failures');
-    if (fresh) DATA.failures = fresh;
-    rec.rid = nextId(DATA.failures, 'rid');
-    DATA.failures.push(rec);
-    if (rec.parentRid) {
-      const parent = DATA.failures.find(r => r.rid === rec.parentRid);
-      if (parent) parent.cwbgChildRid = rec.rid;
-    }
-    await saveKey('failures');
-    toast('Unscheduled report added');
-  } else if (view === 'incidents') {
-    const rec = readIncidentForm();
-    if (!rec) return;
-    DATA.incidents.push(rec);
-    await saveKey('incidents');
-    toast('Incident added');
-  } else if (view === 'langgar') {
-    const rec = readLanggarForm();
-    if (!rec) return;
-    rec.bilKes = nextId(DATA.langgar, 'bilKes');
-    DATA.langgar.push(rec);
-    await saveKey('langgar');
-    toast('16-TAL Accident added');
-  } else if (view === 'peHistory') {
-    const rec = readPeHistoryForm();
-    if (!rec) return;
-    rec.id = DATA.peHistory.length;
-    DATA.peHistory.push(rec);
-    await saveKey('peHistory');
-    recomputePeSchedule();
-    toast('PE record added');
+  let rec;
+  if (view === 'failures') rec = readFailureForm();
+  else if (view === 'incidents') rec = readIncidentForm();
+  else if (view === 'langgar') rec = readLanggarForm();
+  else if (view === 'peHistory') rec = readPeHistoryForm();
+  if (!rec) return;
+  const fresh = await fetchFreshKey(view);
+  if (fresh) DATA[view] = fresh;
+  const idField = RECORD_ID_FIELD[view];
+  rec[idField] = nextId(DATA[view], idField);
+  DATA[view].push(rec);
+  if (view === 'failures' && rec.parentRid) {
+    const parent = DATA.failures.find(r => r.rid === rec.parentRid);
+    if (parent) parent.cwbgChildRid = rec.rid;
   }
+  await saveKey(view);
+  if (view === 'peHistory') recomputePeSchedule();
+  toast(NEW_REPORT_TOAST[view]);
   closeModal();
   renderNav();
   renderContent();
@@ -6380,12 +6413,14 @@ async function updateReport(view, idx) {
   else if (view === 'peHistory') rec = readPeHistoryForm();
   if (!rec) return;
   let target = existing;
-  if (view === 'failures' && existing.rid != null) {
-    const fresh = await fetchFreshKey('failures');
+  const idField = RECORD_ID_FIELD[view];
+  const existingId = existing[idField];
+  if (existingId != null) {
+    const fresh = await fetchFreshKey(view);
     if (fresh) {
-      DATA.failures = fresh;
-      target = DATA.failures.find(r => r.rid === existing.rid);
-      if (!target) { target = existing; DATA.failures.push(target); }
+      DATA[view] = fresh;
+      target = DATA[view].find(r => r[idField] === existingId);
+      if (!target) { target = existing; DATA[view].push(target); }
     }
   }
   Object.assign(target, rec);
@@ -6399,9 +6434,15 @@ async function updateReport(view, idx) {
 }
 
 async function sendToCwbg(view, idx) {
-  const parent = DATA[view][idx];
+  let parent = DATA[view][idx];
   if (!parent) return;
-  if (!parent.rid) { parent.rid = nextId(DATA[view], 'rid'); await saveKey(view); }
+  if (!parent.rid) {
+    const fresh = await fetchFreshKey(view);
+    if (fresh) DATA[view] = fresh;
+    parent = DATA[view][idx] || parent;
+    parent.rid = nextId(DATA[view], 'rid');
+    await saveKey(view);
+  }
   const ok = await updateReport(view, idx);
   if (!ok) return;
   openModal(view, null, { asset: parent.asset, depoh: parent.depoh, parentRid: parent.rid });
@@ -6411,9 +6452,14 @@ async function undoSendToCwbg(view, idx) {
   const parent = DATA[view][idx];
   if (!parent || !parent.cwbgChildRid) return;
   if (!confirm('Undo Send to CWBG? The linked CWBG record will be deleted. This cannot be undone.')) return;
-  const childIdx = DATA.failures.findIndex(r => r.rid === parent.cwbgChildRid);
+  const parentRid = parent.rid;
+  const childRid = parent.cwbgChildRid;
+  const fresh = await fetchFreshKey('failures');
+  if (fresh) DATA.failures = fresh;
+  const childIdx = DATA.failures.findIndex(r => r.rid === childRid);
   if (childIdx > -1) DATA.failures.splice(childIdx, 1);
-  delete parent.cwbgChildRid;
+  const freshParent = DATA.failures.find(r => r.rid === parentRid);
+  if (freshParent) delete freshParent.cwbgChildRid;
   await saveKey('failures');
   toast('Removed from CWBG');
   closeModal();
@@ -6423,8 +6469,15 @@ async function undoSendToCwbg(view, idx) {
 
 async function deleteReport(view, idx) {
   if (!confirm('Delete this record? This cannot be undone.')) return;
-  const deletedRid = view === 'failures' && DATA.failures[idx] ? DATA.failures[idx].rid : null;
-  DATA[view].splice(idx, 1);
+  const existing = DATA[view][idx];
+  if (!existing) { toast('Record not found'); return; }
+  const idField = RECORD_ID_FIELD[view];
+  const existingId = existing[idField];
+  const deletedRid = view === 'failures' ? existing.rid : null;
+  const fresh = await fetchFreshKey(view);
+  if (fresh) DATA[view] = fresh;
+  const targetIdx = existingId != null ? DATA[view].findIndex(r => r[idField] === existingId) : idx;
+  if (targetIdx > -1) DATA[view].splice(targetIdx, 1);
   if (deletedRid) DATA.failures.forEach(r => { if (r.cwbgChildRid === deletedRid) delete r.cwbgChildRid; });
   await saveKey(view);
   if (view === 'peHistory') recomputePeSchedule();
