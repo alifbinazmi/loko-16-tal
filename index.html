@@ -4937,16 +4937,16 @@ function renderMasterplan() {
 
   const missedEntries = isViewer() ? [] : buildPeReminderEntries();
   const PE_REMINDER_STATUS = {
-    green: { color: '#2F7EE0', glyph: '○' },
-    orange: { color: '#2F9E44', glyph: '△' },
-    red: { color: '#E64980', glyph: '□' },
-    grey: { color: '#E03131', glyph: '✕' },
+    green: { color: '#2F7EE0', glyph: '○', size: 18 },
+    orange: { color: '#2F9E44', glyph: '△', size: 18 },
+    red: { color: '#E64980', glyph: '□', size: 18 },
+    grey: { color: '#E03131', glyph: '✕', size: 22 },
   };
   const reminderRowsHtml = missedEntries.map(m => {
     const st = PE_REMINDER_STATUS[m.dotColor];
     return `
     <tr>
-      <td>${esc(m.asset)} <span title="${m.isGrey ? esc(m.label) + ' — PE pending' : esc(m.dueText)}" style="color:${st.color};font-size:18px;font-weight:700;line-height:1;vertical-align:middle;">${st.glyph}</span></td>
+      <td>${esc(m.asset)} <span title="${m.isGrey ? esc(m.label) + ' — PE pending' : esc(m.dueText)}" style="color:${st.color};font-size:${st.size}px;font-weight:700;line-height:1;vertical-align:middle;">${st.glyph}</span></td>
       <td class="dim">${esc(m.class)}</td>
       <td><span style="display:inline-block;padding:2px 7px;border-radius:4px;background:${PE_ANNUAL_TYPE_BG[m.type] || 'var(--panel-3)'};color:#0B1220;font-weight:700;font-size:11px;">${esc(m.type)}</span></td>
       <td class="dim">${esc(m.dueText)}</td>
