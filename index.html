@@ -4937,10 +4937,10 @@ function renderMasterplan() {
 
   const missedEntries = isViewer() ? [] : buildPeReminderEntries();
   const PE_REMINDER_STATUS = {
-    green: { color: '#0ca30c', glyph: '●' },
-    orange: { color: '#fab219', glyph: '▲' },
-    red: { color: '#d03b3b', glyph: '■' },
-    grey: { color: '#898781', glyph: '⏸' },
+    green: { color: '#2F7EE0', glyph: '○' },
+    orange: { color: '#2F9E44', glyph: '△' },
+    red: { color: '#E64980', glyph: '□' },
+    grey: { color: '#E03131', glyph: '✕' },
   };
   const reminderRowsHtml = missedEntries.map(m => {
     const st = PE_REMINDER_STATUS[m.dotColor];
