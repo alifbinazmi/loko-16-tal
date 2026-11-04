@@ -620,16 +620,11 @@
     .search-box{min-width:0;}
   }
   .save-indicator {
-    position: fixed;
-    bottom: 10px;
-    right: 10px;
+    display: inline-block;
     width: 9px;
     height: 9px;
     border-radius: 50%;
-    z-index: 9999;
-    box-shadow: 0 0 0 2px rgba(0,0,0,0.15);
     transition: background-color .2s ease;
-    pointer-events: none;
   }
   .save-indicator-saving { background: var(--red); animation: saveIndicatorPulse 1s ease-in-out infinite; }
   .save-indicator-saved { background: var(--green); }
@@ -683,8 +678,6 @@
   </form>
 </div>
 
-<div id="saveIndicator" class="save-indicator save-indicator-saved" title="All changes saved"></div>
-
 <div id="dailyDropdown" class="daily-dropdown"></div>
 <div id="filterPanelHost"></div>
 
@@ -725,6 +718,7 @@
     <div class="sync-pill">
       <span class="sync-checkbox saved" id="sidebarSaveCheckbox" title="All changes saved">&#10003;</span>
       <span id="sidebarSaveLabel">SAVED TO CLOUD</span>
+      <div id="saveIndicator" class="save-indicator save-indicator-saved" title="All changes saved"></div>
     </div>
     <button type="button" class="btn btn-ghost" id="saveNowBtn" style="width:100%;justify-content:center;margin-top:8px;font-size:11px;" title="Force-save everything to the cloud right now">Save Now</button>
     <div class="sidebar-stats" id="sidebarStats"></div>
@@ -4956,9 +4950,9 @@ function renderMasterplan() {
       <thead><tr>${PE_HISTORY_COLUMNS.map(c => columnHeaderHtml('peHistory', c.key, c.label)).join('')}</tr></thead>
       <tbody>${histBody}</tbody>
     </table>`;
-  const peHistoryRowCountHtml = `<div class="row-count">${histRows.length} of ${DATA.peHistory.length} completed PE records shown &middot; ${hst && hst.key ? 'sorted by ' + esc(PE_HISTORY_COLUMNS.find(c => c.key === hst.key).label) + (hst.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('peHistory') ? ' &middot; ' + countActiveFilters('peHistory') + ' column filter(s) active' : ''} &middot; click a row to edit, or filter by Asset to see one locomotive's full history &middot; Source: MASTERPLAN_16-TAL_LOCOMOTIVE_FOR_YEAR_2025.xlsx (weekly ACTUAL log)</div>`;
+  const peHistoryRowCountHtml = `<div class="row-count" style="min-height:54px;box-sizing:border-box;">${histRows.length} of ${DATA.peHistory.length} completed PE records shown &middot; ${hst && hst.key ? 'sorted by ' + esc(PE_HISTORY_COLUMNS.find(c => c.key === hst.key).label) + (hst.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('peHistory') ? ' &middot; ' + countActiveFilters('peHistory') + ' column filter(s) active' : ''} &middot; click a row to edit, or filter by Asset to see one locomotive's full history &middot; Source: MASTERPLAN_16-TAL_LOCOMOTIVE_FOR_YEAR_2025.xlsx (weekly ACTUAL log)</div>`;
   const peHistoryTitleBarHtml = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 16px 10px;flex-wrap:wrap;gap:8px;" id="peHistorySection">
+    <div style="display:flex;align-items:center;justify-content:space-between;height:40px;box-sizing:border-box;padding:0 16px;flex-wrap:wrap;gap:8px;" id="peHistorySection">
       <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">PE Completion History (per locomotive, from the weekly Masterplan log)</div>
       <button class="btn btn-primary" id="addPeRecordBtn" style="font-size:11.5px;padding:7px 12px;">${ICONS.plus}Add PE Record</button>
     </div>`;
@@ -4978,14 +4972,14 @@ function renderMasterplan() {
       </div>
       <div>
         <div class="panel">
-          <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:14px 16px 10px;">PE Reminder &mdash; Due This Week &amp; Next Week</div>
+          <div style="display:flex;align-items:center;height:40px;box-sizing:border-box;padding:0 16px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">PE Reminder &mdash; Due This Week &amp; Next Week</div>
           <div class="table-scroll" style="height:400px;">
             <table>
               <thead><tr><th>Asset</th><th>Class</th><th>PE Type</th><th>Week Due</th></tr></thead>
               <tbody>${reminderRowsHtml || '<tr><td colspan="4" class="dim">Nothing due this week or next week.</td></tr>'}</tbody>
             </table>
           </div>
-          <div class="row-count">${missedEntries.length} PE record(s) due this week or next week &middot; updates every Sunday &middot; compares the Annual PE Plan against PE Completion History &middot; read-only reference view</div>
+          <div class="row-count" style="min-height:54px;box-sizing:border-box;">${missedEntries.length} PE record(s) due this week or next week &middot; updates every Sunday &middot; compares the Annual PE Plan against PE Completion History &middot; read-only reference view</div>
         </div>
       </div>
     </div>`;
