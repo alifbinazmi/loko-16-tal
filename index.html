@@ -5254,6 +5254,7 @@ function renderPeAnnualPlan2026() {
 }
 
 function computeUpcomingPeReminders(groupMap, currentWeek, weekDateRange, windowStart, windowEnd) {
+  const peScheduleByAsset = new Map(DATA.peSchedule.map(p => [p.asset, p]));
   const results = [];
   groupMap.forEach(group => group.forEach(r => {
     Object.entries(r.weeks).forEach(([wn, type]) => {
@@ -5264,7 +5265,15 @@ function computeUpcomingPeReminders(groupMap, currentWeek, weekDateRange, window
       for (let w = weekNum; w <= currentWeek; w++) {
         if (r.actualWeeks[w]) { done = true; break; }
       }
-      if (!done) results.push({ asset: r.asset, class: r.class, weekNum, type });
+      if (done) return;
+      const scheduleRow = peScheduleByAsset.get(r.asset);
+      if (scheduleRow && scheduleRow.lastPE) {
+        const intervalDays = String(r.class || '').startsWith('19') ? 30 : 15;
+        const d = new Date(scheduleRow.lastPE + 'T00:00:00');
+        d.setDate(d.getDate() + intervalDays);
+        if (localDateStr(d) > range.end) return;
+      }
+      results.push({ asset: r.asset, class: r.class, weekNum, type });
     });
   }));
   return results.sort((a, b) => a.weekNum - b.weekNum || a.asset - b.asset);
