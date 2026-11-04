@@ -5240,27 +5240,27 @@ function renderPeAnnualPlan2026() {
     `${DATA.peHistory.length} completed PE record(s) &middot; source: PE Completion History (per locomotive, from the weekly Masterplan log) &middot; read-only reference view`);
 
   const currentWeek = weekLookup[todayStr] || 0;
-  const missedEntries = computeMissedPeEntries(peGroupMap, currentWeek);
-  const missedByWeek = new Map();
-  missedEntries.forEach(m => {
-    if (!missedByWeek.has(m.weekNum)) missedByWeek.set(m.weekNum, []);
-    missedByWeek.get(m.weekNum).push(m);
-  });
-  const reminderRowsHtml = [...missedByWeek.keys()].sort((a, b) => a - b).map(wn => {
-    const entries = missedByWeek.get(wn);
-    const badges = entries.map(e => `<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 7px;border-radius:4px;background:${PE_ANNUAL_TYPE_BG[e.type] || 'var(--panel-3)'};color:#0B1220;font-weight:700;font-size:11px;">${esc(e.asset)} &middot; ${esc(e.type)}</span>`).join('');
-    return `<tr><td style="font-weight:700;">WEEK-${wn}</td><td>${badges}</td><td class="num">${entries.length}</td></tr>`;
-  }).join('');
+  const missedEntries = computeMissedPeEntries(peGroupMap, currentWeek)
+    .map(m => ({ ...m, weeksOverdue: currentWeek - m.weekNum }))
+    .sort((a, b) => b.weeksOverdue - a.weeksOverdue || a.asset - b.asset);
+  const reminderRowsHtml = missedEntries.map(m => `
+    <tr>
+      <td>${esc(m.asset)}</td>
+      <td class="dim">${esc(m.class)}</td>
+      <td><span style="display:inline-block;padding:2px 7px;border-radius:4px;background:${PE_ANNUAL_TYPE_BG[m.type] || 'var(--panel-3)'};color:#0B1220;font-weight:700;font-size:11px;">${esc(m.type)}</span></td>
+      <td class="dim">WEEK-${m.weekNum}</td>
+      <td class="num"${m.weeksOverdue > 0 ? ' style="color:var(--red);font-weight:700;"' : ''}>${m.weeksOverdue}</td>
+    </tr>`).join('');
   const reminderHtml = `
   <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:20px 0 10px;">PE Reminder &mdash; Not Yet Done</div>
   <div class="panel">
     <div class="matrix-scroll">
       <table class="matrix pe-excel">
-        <thead><tr><th>Week</th><th>Asset &middot; PE Type</th><th>Count</th></tr></thead>
-        <tbody>${reminderRowsHtml || '<tr><td colspan="3" class="dim">Nothing outstanding — every due PE up to this week has been logged.</td></tr>'}</tbody>
+        <thead><tr><th>Asset</th><th>Class</th><th>PE Type</th><th>Week Due</th><th>Weeks Overdue</th></tr></thead>
+        <tbody>${reminderRowsHtml || '<tr><td colspan="5" class="dim">Nothing outstanding — every due PE has been logged.</td></tr>'}</tbody>
       </table>
     </div>
-    <div class="row-count">${missedEntries.length} outstanding PE record(s) across ${missedByWeek.size} week(s) &middot; compares the Annual PE Plan against PE Completion History &middot; read-only reference view</div>
+    <div class="row-count">${missedEntries.length} outstanding PE record(s) &middot; compares the Annual PE Plan against PE Completion History &middot; read-only reference view</div>
   </div>`;
 
   document.getElementById('content').innerHTML = reminderHtml + actualHtml + planHtml;
