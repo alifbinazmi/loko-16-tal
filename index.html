@@ -5294,7 +5294,7 @@ function renderPeAnnualPlan2026() {
     <div class="row-count">${missedEntries.length} outstanding PE record(s) &middot; compares the Annual PE Plan against PE Completion History &middot; read-only reference view</div>
   </div>`;
 
-  document.getElementById('content').innerHTML = reminderHtml + actualHtml + planHtml;
+  document.getElementById('content').innerHTML = (isViewer() ? '' : reminderHtml) + actualHtml + planHtml;
 }
 
 /* ---------- Daily Fleet Deployment Summary ---------- */
