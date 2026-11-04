@@ -4942,6 +4942,54 @@ function renderMasterplan() {
       <td class="dim" style="position:relative;">${r.pwo ? esc(r.pwo) : '&mdash;'}<span class="row-edit-flag">${ICONS.edit}Edit</span></td>
     </tr>`).join('') : `<tr class="empty-row"><td colspan="${PE_HISTORY_COLUMNS.length}">No PE history matches your filters.</td></tr>`;
 
+  const missedEntries = isViewer() ? [] : buildPeReminderEntries();
+  const reminderRowsHtml = missedEntries.map(m => `
+    <tr>
+      <td>${esc(m.asset)}${m.isDownNow ? ` <span title="${esc(m.currentLabel)} — still outstanding" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);vertical-align:middle;margin-left:4px;"></span>` : ''}</td>
+      <td class="dim">${esc(m.class)}</td>
+      <td><span style="display:inline-block;padding:2px 7px;border-radius:4px;background:${PE_ANNUAL_TYPE_BG[m.type] || 'var(--panel-3)'};color:#0B1220;font-weight:700;font-size:11px;">${esc(m.type)}</span></td>
+      <td class="dim">WEEK-${m.weekNum}</td>
+    </tr>`).join('');
+
+  const peHistoryTableInnerHtml = `
+    <table>
+      <thead><tr>${PE_HISTORY_COLUMNS.map(c => columnHeaderHtml('peHistory', c.key, c.label)).join('')}</tr></thead>
+      <tbody>${histBody}</tbody>
+    </table>`;
+  const peHistoryRowCountHtml = `<div class="row-count">${histRows.length} of ${DATA.peHistory.length} completed PE records shown &middot; ${hst && hst.key ? 'sorted by ' + esc(PE_HISTORY_COLUMNS.find(c => c.key === hst.key).label) + (hst.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('peHistory') ? ' &middot; ' + countActiveFilters('peHistory') + ' column filter(s) active' : ''} &middot; click a row to edit, or filter by Asset to see one locomotive's full history &middot; Source: MASTERPLAN_16-TAL_LOCOMOTIVE_FOR_YEAR_2025.xlsx (weekly ACTUAL log)</div>`;
+  const peHistoryTitleBarHtml = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 16px 10px;flex-wrap:wrap;gap:8px;" id="peHistorySection">
+      <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">PE Completion History (per locomotive, from the weekly Masterplan log)</div>
+      <button class="btn btn-primary" id="addPeRecordBtn" style="font-size:11.5px;padding:7px 12px;">${ICONS.plus}Add PE Record</button>
+    </div>`;
+  const peHistorySectionHtml = isViewer() ? `
+    ${peHistoryTitleBarHtml}
+    <div class="panel">
+      <div class="table-scroll" style="height:400px;">${peHistoryTableInnerHtml}</div>
+      ${peHistoryRowCountHtml}
+    </div>` : `
+    <div class="reliability-split" style="margin-top:14px;">
+      <div>
+        <div class="panel">
+          ${peHistoryTitleBarHtml}
+          <div class="table-scroll" style="height:400px;">${peHistoryTableInnerHtml}</div>
+          ${peHistoryRowCountHtml}
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:14px 16px 10px;">PE Reminder &mdash; Due This Week &amp; Next Week</div>
+          <div class="table-scroll" style="height:400px;">
+            <table>
+              <thead><tr><th>Asset</th><th>Class</th><th>PE Type</th><th>Week Due</th></tr></thead>
+              <tbody>${reminderRowsHtml || '<tr><td colspan="4" class="dim">Nothing due this week or next week.</td></tr>'}</tbody>
+            </table>
+          </div>
+          <div class="row-count">${missedEntries.length} PE record(s) due this week or next week &middot; updates every Sunday &middot; compares the Annual PE Plan against PE Completion History &middot; read-only reference view</div>
+        </div>
+      </div>
+    </div>`;
+
   document.getElementById('content').innerHTML = `
     <div class="kpi-grid">
       <div class="kpi" style="--accent:${achievedPct >= 80 ? 'var(--green)' : achievedPct >= 50 ? 'var(--amber)' : 'var(--red)'}">
@@ -4987,21 +5035,7 @@ function renderMasterplan() {
       <div class="row-count">${rows.length} of ${DATA.peSchedule.length} locomotives shown &middot; ${st && st.key ? 'sorted by ' + esc(PE_COLUMNS.find(c => c.key === st.key).label) + (st.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('peSchedule') ? ' &middot; ' + countActiveFilters('peSchedule') + ' column filter(s) active' : ''} &middot; Source: MASTERPLAN_16-TAL_LOCOMOTIVE_FOR_YEAR_2025.xlsx</div>
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px;flex-wrap:wrap;gap:8px;" id="peHistorySection">
-      <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">PE Completion History (per locomotive, from the weekly Masterplan log)</div>
-      <button class="btn btn-primary" id="addPeRecordBtn" style="font-size:11.5px;padding:7px 12px;">${ICONS.plus}Add PE Record</button>
-    </div>
-    <div class="panel">
-      <div class="table-scroll" style="height:400px;">
-        <table>
-          <thead><tr>
-            ${PE_HISTORY_COLUMNS.map(c => columnHeaderHtml('peHistory', c.key, c.label)).join('')}
-          </tr></thead>
-          <tbody>${histBody}</tbody>
-        </table>
-      </div>
-      <div class="row-count">${histRows.length} of ${DATA.peHistory.length} completed PE records shown &middot; ${hst && hst.key ? 'sorted by ' + esc(PE_HISTORY_COLUMNS.find(c => c.key === hst.key).label) + (hst.dir === -1 ? ' (desc)' : ' (asc)') : 'default order'}${countActiveFilters('peHistory') ? ' &middot; ' + countActiveFilters('peHistory') + ' column filter(s) active' : ''} &middot; click a row to edit, or filter by Asset to see one locomotive's full history &middot; Source: MASTERPLAN_16-TAL_LOCOMOTIVE_FOR_YEAR_2025.xlsx (weekly ACTUAL log)</div>
-    </div>
+    ${peHistorySectionHtml}
   `;
 
   const addPeBtn = document.getElementById('addPeRecordBtn');
@@ -5140,23 +5174,6 @@ function renderPeAnnualPlan2026() {
     return `<td${style ? ` style="${style}"` : ''}>${type ? esc(type) + 'D' : ''}</td>`;
   };
 
-  function computeUpcomingPeReminders(groupMap, currentWeek, weekDateRange, windowStart, windowEnd) {
-    const results = [];
-    groupMap.forEach(group => group.forEach(r => {
-      Object.entries(r.weeks).forEach(([wn, type]) => {
-        const weekNum = Number(wn);
-        const range = weekDateRange[weekNum];
-        if (!range || range.start > windowEnd || range.end < windowStart) return;
-        let done = false;
-        for (let w = weekNum; w <= currentWeek; w++) {
-          if (r.actualWeeks[w] === type) { done = true; break; }
-        }
-        if (!done) results.push({ asset: r.asset, class: r.class, weekNum, type });
-      });
-    }));
-    return results.sort((a, b) => a.weekNum - b.weekNum || a.asset - b.asset);
-  }
-
   const monthHeaderHtml = monthGroups.map((g, gi) => {
     const sep = gi < monthGroups.length - 1 ? sepCellHtml('th') : '';
     return `<th colspan="4">${PE_ANNUAL_MONTH_NAMES[g.month - 1]}</th>${sep}`;
@@ -5240,6 +5257,64 @@ function renderPeAnnualPlan2026() {
   const actualHtml = buildWallChartSection('Actual PE Completion (from PE Completion History)', 'actualWeeks', 'PE ACTUAL',
     `${DATA.peHistory.length} completed PE record(s) &middot; source: PE Completion History (per locomotive, from the weekly Masterplan log) &middot; read-only reference view`);
 
+  document.getElementById('content').innerHTML = actualHtml + planHtml;
+}
+
+function computeUpcomingPeReminders(groupMap, currentWeek, weekDateRange, windowStart, windowEnd) {
+  const results = [];
+  groupMap.forEach(group => group.forEach(r => {
+    Object.entries(r.weeks).forEach(([wn, type]) => {
+      const weekNum = Number(wn);
+      const range = weekDateRange[weekNum];
+      if (!range || range.start > windowEnd || range.end < windowStart) return;
+      let done = false;
+      for (let w = weekNum; w <= currentWeek; w++) {
+        if (r.actualWeeks[w] === type) { done = true; break; }
+      }
+      if (!done) results.push({ asset: r.asset, class: r.class, weekNum, type });
+    });
+  }));
+  return results.sort((a, b) => a.weekNum - b.weekNum || a.asset - b.asset);
+}
+function buildPeReminderEntries() {
+  const monthGroups = peAnnualYearWeeks();
+  const weekLookup = peAnnualWeekLookup(monthGroups);
+  const todayStr = todayDateStr();
+
+  const peGroupMap = new Map();
+  PE_2026_REAL.forEach(r => {
+    if (!peGroupMap.has(r.class)) peGroupMap.set(r.class, []);
+    peGroupMap.get(r.class).push(r);
+  });
+  const peRealAssetSet = new Set(PE_2026_REAL.map(r => r.asset));
+  DATA.peSchedule.filter(r => !peRealAssetSet.has(r.asset)).forEach(r => {
+    const classPrefix = locoClassPrefix(r);
+    const raw = effectiveDailyValue(r.asset, todayStr);
+    const available = isAvailableStatusValue(raw, classPrefix);
+    let weeks = {};
+    if (available && r.scheduleAnchorDate) {
+      const cycles = computeUpcomingPeCycles(r.scheduleAnchorDate, 30, r.nextCycleNumber || 1, r.class);
+      cycles.forEach(c => { const wn = weekLookup[c.date]; if (wn && !weeks[wn]) weeks[wn] = c.type; });
+    }
+    const cls = r.class || '—';
+    if (!peGroupMap.has(cls)) peGroupMap.set(cls, []);
+    peGroupMap.get(cls).push({ class: cls, asset: r.asset, weeks });
+  });
+
+  const peHistoryByAsset = new Map();
+  DATA.peHistory.forEach(h => {
+    if (!peHistoryByAsset.has(h.asset)) peHistoryByAsset.set(h.asset, []);
+    peHistoryByAsset.get(h.asset).push(h);
+  });
+  peGroupMap.forEach(group => group.forEach(r => {
+    const actualWeeks = {};
+    (peHistoryByAsset.get(r.asset) || []).forEach(h => {
+      const wn = weekLookup[h.date];
+      if (wn && !actualWeeks[wn]) actualWeeks[wn] = h.type;
+    });
+    r.actualWeeks = actualWeeks;
+  }));
+
   const weekDateRange = {};
   monthGroups.forEach(g => g.weeks.forEach(w => { weekDateRange[w.weekNum] = { start: w.days[0], end: w.days[w.days.length - 1] }; }));
   const sundayOnOrBefore = dateStr => {
@@ -5251,37 +5326,16 @@ function renderPeAnnualPlan2026() {
   const windowEndD = new Date(windowStart + 'T00:00:00');
   windowEndD.setDate(windowEndD.getDate() + 13);
   const windowEnd = localDateStr(windowEndD);
-
   const currentWeek = weekLookup[todayStr] || 0;
-  const missedEntries = computeUpcomingPeReminders(peGroupMap, currentWeek, weekDateRange, windowStart, windowEnd)
-    .map(m => {
-      const classPrefix = locoClassPrefix(m);
-      const raw = effectiveDailyValue(m.asset, todayStr);
-      const available = isAvailableStatusValue(raw, classPrefix);
-      const currentLabel = available ? null : String(raw || 'OH').toUpperCase();
-      const isDownNow = !!currentLabel && (currentLabel.includes('REPAIR') || currentLabel === 'FAILED' || currentLabel === 'OH');
-      return { ...m, isDownNow, currentLabel };
-    });
-  const reminderRowsHtml = missedEntries.map(m => `
-    <tr>
-      <td>${esc(m.asset)}${m.isDownNow ? ` <span title="${esc(m.currentLabel)} — still outstanding" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);vertical-align:middle;margin-left:4px;"></span>` : ''}</td>
-      <td class="dim">${esc(m.class)}</td>
-      <td><span style="display:inline-block;padding:2px 7px;border-radius:4px;background:${PE_ANNUAL_TYPE_BG[m.type] || 'var(--panel-3)'};color:#0B1220;font-weight:700;font-size:11px;">${esc(m.type)}</span></td>
-      <td class="dim">WEEK-${m.weekNum}</td>
-    </tr>`).join('');
-  const reminderHtml = `
-  <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:20px 0 10px;">PE Reminder &mdash; Due This Week &amp; Next Week</div>
-  <div class="panel">
-    <div class="matrix-scroll">
-      <table class="matrix pe-excel">
-        <thead><tr><th>Asset</th><th>Class</th><th>PE Type</th><th>Week Due</th></tr></thead>
-        <tbody>${reminderRowsHtml || '<tr><td colspan="4" class="dim">Nothing due this week or next week.</td></tr>'}</tbody>
-      </table>
-    </div>
-    <div class="row-count">${missedEntries.length} PE record(s) due this week or next week &middot; updates every Sunday &middot; compares the Annual PE Plan against PE Completion History &middot; read-only reference view</div>
-  </div>`;
 
-  document.getElementById('content').innerHTML = (isViewer() ? '' : reminderHtml) + actualHtml + planHtml;
+  return computeUpcomingPeReminders(peGroupMap, currentWeek, weekDateRange, windowStart, windowEnd).map(m => {
+    const classPrefix = locoClassPrefix(m);
+    const raw = effectiveDailyValue(m.asset, todayStr);
+    const available = isAvailableStatusValue(raw, classPrefix);
+    const currentLabel = available ? null : String(raw || 'OH').toUpperCase();
+    const isDownNow = !!currentLabel && (currentLabel.includes('REPAIR') || currentLabel === 'FAILED' || currentLabel === 'OH');
+    return { ...m, isDownNow, currentLabel };
+  });
 }
 
 /* ---------- Daily Fleet Deployment Summary ---------- */
