@@ -4029,9 +4029,6 @@ function reliabilityMonthSelectHtml(metric, selectedMonth) {
 function buildReliabilityKpiGridHtml() {
   const relMonths = reliabilityTrackedMonths();
   const latestMonth = relMonths[relMonths.length - 1];
-  const totalUnscheduled = DATA.locoPerf.reduce((s, r) => s + (r.unscheduled || 0), 0);
-  const totalPe = DATA.locoPerf.reduce((s, r) => s + (r.pe || 0), 0);
-
   const mkbfMonth = reliabilitySelectedMonth.mkbf || latestMonth;
   const mkbfKm = computeMkbfKm(mkbfMonth);
   const mkbfPass = mkbfKm !== null && mkbfKm >= MKBF_TARGET_KM;
@@ -4040,21 +4037,23 @@ function buildReliabilityKpiGridHtml() {
   const runningKmVal = dailyStatusFleetKmForMonth(runningMonth);
 
   const peMonth = reliabilitySelectedMonth.pe;
-  const peValue = peMonth ? dailyStatusEventCountsForMonth(peMonth).peTotal : totalPe;
+  const peValue = peMonth
+    ? DATA.peHistory.filter(h => h.date && monthKey(h.date) === peMonth).length
+    : DATA.peHistory.length;
 
   const unschedMonth = reliabilitySelectedMonth.unscheduled;
-  const unschedValue = unschedMonth ? dailyStatusEventCountsForMonth(unschedMonth).unscheduledTotal : totalUnscheduled;
+  const failuresForUnsched = unschedMonth
+    ? countableFailures().filter(f => monthKey(f.dateReceive) === unschedMonth)
+    : countableFailures();
+  const unschedValue = failuresForUnsched.length;
 
   const topMonth = reliabilitySelectedMonth.topUnscheduled;
-  let topAsset, topCount;
-  if (topMonth) {
-    const counts = dailyStatusEventCountsForMonth(topMonth).unscheduledByAsset;
-    const best = Object.entries(counts).reduce((m, [a, c]) => c > m[1] ? [a, c] : m, ['\u2014', 0]);
-    topAsset = best[0]; topCount = best[1];
-  } else {
-    const best = DATA.locoPerf.reduce((m, r) => r.unscheduled > m.unscheduled ? r : m, DATA.locoPerf[0]);
-    topAsset = best.asset; topCount = best.unscheduled;
-  }
+  const failuresForTop = topMonth
+    ? countableFailures().filter(f => monthKey(f.dateReceive) === topMonth)
+    : countableFailures();
+  const topEntries = Object.entries(computeAssetTotals(failuresForTop)).sort((a, b) => b[1] - a[1]);
+  const topAsset = topEntries.length ? topEntries[0][0] : '\u2014';
+  const topCount = topEntries.length ? topEntries[0][1] : 0;
 
   return `
     <div class="kpi" style="--accent:${mkbfPass ? 'var(--green)' : 'var(--red)'};">
@@ -4070,21 +4069,21 @@ function buildReliabilityKpiGridHtml() {
       <div class="kpi-corner">${ICONS.reliability}</div>
     </div>
     <div class="kpi" style="--accent:var(--amber);">
-      <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Periodically Examination (PE)</span>${reliabilityMonthSelectHtml('pe', peMonth)}</div>
+      <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Periodic Examination (PE)</span>${reliabilityMonthSelectHtml('pe', peMonth)}</div>
       <div class="kpi-value">${peValue}</div>
-      <div class="kpi-foot">${peMonth ? monthLabel(peMonth) + ' \u00b7 from Daily Status' : 'Year to date, fleet-wide'}</div>
+      <div class="kpi-foot">${peMonth ? monthLabel(peMonth) + ' \u00b7 from PE Completion History' : 'Year to date, fleet-wide \u00b7 from PE Completion History'}</div>
       <div class="kpi-corner">${ICONS.reliability}</div>
     </div>
     <div class="kpi" style="--accent:var(--indigo);">
       <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Unscheduled</span>${reliabilityMonthSelectHtml('unscheduled', unschedMonth)}</div>
       <div class="kpi-value">${unschedValue}</div>
-      <div class="kpi-foot">${unschedMonth ? monthLabel(unschedMonth) + ' \u00b7 from Daily Status' : 'Year to date, fleet-wide'}</div>
+      <div class="kpi-foot">${unschedMonth ? monthLabel(unschedMonth) + ' \u00b7 from Unscheduled Reports' : 'Year to date, fleet-wide \u00b7 from Unscheduled Reports'}</div>
       <div class="kpi-corner">${ICONS.reliability}</div>
     </div>
     <div class="kpi" style="--accent:var(--red);">
       <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top Unscheduled</span>${reliabilityMonthSelectHtml('topUnscheduled', topMonth)}</div>
       <div class="kpi-value">Asset ${esc(topAsset)}</div>
-      <div class="kpi-foot">${topCount} unscheduled repair(s) &middot; ${topMonth ? monthLabel(topMonth) + ' (Daily Status)' : 'highest in fleet, YTD'}</div>
+      <div class="kpi-foot">${topCount} unscheduled repair(s) &middot; ${topMonth ? monthLabel(topMonth) + ' \u00b7 from Unscheduled Reports' : 'highest in fleet, YTD \u00b7 from Unscheduled Reports'}</div>
       <div class="kpi-corner">${ICONS.reliability}</div>
     </div>
   `;
