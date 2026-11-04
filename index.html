@@ -4936,12 +4936,13 @@ function renderMasterplan() {
     </tr>`).join('') : `<tr class="empty-row"><td colspan="${PE_HISTORY_COLUMNS.length}">No PE history matches your filters.</td></tr>`;
 
   const missedEntries = isViewer() ? [] : buildPeReminderEntries();
+  const PE_REMINDER_DOT_COLORS = { green: 'var(--green)', orange: 'var(--amber)', red: 'var(--red)', grey: '#555555' };
   const reminderRowsHtml = missedEntries.map(m => `
     <tr>
-      <td>${esc(m.asset)}${m.isDownNow ? ` <span title="${esc(m.currentLabel)} — still outstanding" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);vertical-align:middle;margin-left:4px;"></span>` : ''}</td>
+      <td>${esc(m.asset)} <span title="${m.isGrey ? esc(m.label) + ' — PE pending' : esc(m.dueText)}" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${PE_REMINDER_DOT_COLORS[m.dotColor]};vertical-align:middle;"></span></td>
       <td class="dim">${esc(m.class)}</td>
       <td><span style="display:inline-block;padding:2px 7px;border-radius:4px;background:${PE_ANNUAL_TYPE_BG[m.type] || 'var(--panel-3)'};color:#0B1220;font-weight:700;font-size:11px;">${esc(m.type)}</span></td>
-      <td class="dim">WEEK-${m.weekNum}</td>
+      <td class="dim">${esc(m.dueText)}</td>
     </tr>`).join('');
 
   const peHistoryTableInnerHtml = `
@@ -4971,14 +4972,14 @@ function renderMasterplan() {
       </div>
       <div>
         <div class="panel">
-          <div style="display:flex;align-items:center;height:40px;box-sizing:border-box;padding:0 16px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">PE Reminder &mdash; Due This Week &amp; Next Week</div>
+          <div style="display:flex;align-items:center;height:40px;box-sizing:border-box;padding:0 16px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">PE Reminder &mdash; Due Soon or Overdue</div>
           <div class="table-scroll" style="height:400px;">
             <table>
-              <thead><tr><th>Asset</th><th>Class</th><th>PE Type</th><th>Week Due</th></tr></thead>
-              <tbody>${reminderRowsHtml || '<tr><td colspan="4" class="dim">Nothing due this week or next week.</td></tr>'}</tbody>
+              <thead><tr><th>Asset</th><th>Class</th><th>PE Type</th><th>Status</th></tr></thead>
+              <tbody>${reminderRowsHtml || '<tr><td colspan="4" class="dim">Nothing due within 3 days, and nothing overdue.</td></tr>'}</tbody>
             </table>
           </div>
-          <div class="row-count" style="min-height:54px;box-sizing:border-box;">${missedEntries.length} PE record(s) due this week or next week &middot; updates every Sunday &middot; compares the Annual PE Plan against PE Completion History &middot; read-only reference view</div>
+          <div class="row-count" style="min-height:54px;box-sizing:border-box;">${missedEntries.length} locomotive(s) due within 3 days or overdue &middot; green = due soon, orange = overdue &le; 30 days, red = overdue &gt; 30 days, grey = down for repair/failed/repaint/OH &middot; from PE Completion History &middot; read-only reference view</div>
         </div>
       </div>
     </div>`;
@@ -5253,91 +5254,23 @@ function renderPeAnnualPlan2026() {
   document.getElementById('content').innerHTML = actualHtml + planHtml;
 }
 
-function computeUpcomingPeReminders(groupMap, currentWeek, weekDateRange, windowStart, windowEnd) {
-  const peScheduleByAsset = new Map(DATA.peSchedule.map(p => [p.asset, p]));
-  const results = [];
-  groupMap.forEach(group => group.forEach(r => {
-    Object.entries(r.weeks).forEach(([wn, type]) => {
-      const weekNum = Number(wn);
-      const range = weekDateRange[weekNum];
-      if (!range || range.start > windowEnd || range.end < windowStart) return;
-      let done = false;
-      for (let w = weekNum; w <= currentWeek; w++) {
-        if (r.actualWeeks[w]) { done = true; break; }
-      }
-      if (done) return;
-      const scheduleRow = peScheduleByAsset.get(r.asset);
-      if (scheduleRow && scheduleRow.lastPE) {
-        const intervalDays = String(r.class || '').startsWith('19') ? 30 : 15;
-        const d = new Date(scheduleRow.lastPE + 'T00:00:00');
-        d.setDate(d.getDate() + intervalDays);
-        if (localDateStr(d) > range.end) return;
-      }
-      results.push({ asset: r.asset, class: r.class, weekNum, type });
-    });
-  }));
-  return results.sort((a, b) => a.weekNum - b.weekNum || a.asset - b.asset);
-}
 function buildPeReminderEntries() {
-  const monthGroups = peAnnualYearWeeks();
-  const weekLookup = peAnnualWeekLookup(monthGroups);
   const todayStr = todayDateStr();
-
-  const peGroupMap = new Map();
-  PE_2026_REAL.forEach(r => {
-    if (!peGroupMap.has(r.class)) peGroupMap.set(r.class, []);
-    peGroupMap.get(r.class).push(r);
-  });
-  const peRealAssetSet = new Set(PE_2026_REAL.map(r => r.asset));
-  DATA.peSchedule.filter(r => !peRealAssetSet.has(r.asset)).forEach(r => {
+  const results = [];
+  DATA.peSchedule.forEach(r => {
+    if (r.daysDue === null || r.daysDue === undefined || r.daysDue > 3) return;
     const classPrefix = locoClassPrefix(r);
     const raw = effectiveDailyValue(r.asset, todayStr);
     const available = isAvailableStatusValue(raw, classPrefix);
-    let weeks = {};
-    if (available && r.scheduleAnchorDate) {
-      const cycles = computeUpcomingPeCycles(r.scheduleAnchorDate, 30, r.nextCycleNumber || 1, r.class);
-      cycles.forEach(c => { const wn = weekLookup[c.date]; if (wn && !weeks[wn]) weeks[wn] = c.type; });
-    }
-    const cls = r.class || '—';
-    if (!peGroupMap.has(cls)) peGroupMap.set(cls, []);
-    peGroupMap.get(cls).push({ class: cls, asset: r.asset, weeks });
+    const label = available ? null : String(raw || 'OH').toUpperCase();
+    const isGrey = !!label && (label.includes('REPAIR') || label === 'FAILED' || label.includes('REPAINT') || label === 'OH');
+    const dotColor = isGrey ? 'grey' : r.daysDue > 0 ? 'green' : r.daysDue >= -30 ? 'orange' : 'red';
+    const dueText = r.daysDue > 0 ? `Due in ${r.daysDue} day${r.daysDue === 1 ? '' : 's'}`
+      : r.daysDue === 0 ? 'Due today'
+      : `Overdue by ${-r.daysDue} day${-r.daysDue === 1 ? '' : 's'}`;
+    results.push({ asset: r.asset, class: r.class, type: r.upcomingType || '—', daysDue: r.daysDue, dotColor, dueText, isGrey, label });
   });
-
-  const peHistoryByAsset = new Map();
-  DATA.peHistory.forEach(h => {
-    if (!peHistoryByAsset.has(h.asset)) peHistoryByAsset.set(h.asset, []);
-    peHistoryByAsset.get(h.asset).push(h);
-  });
-  peGroupMap.forEach(group => group.forEach(r => {
-    const actualWeeks = {};
-    (peHistoryByAsset.get(r.asset) || []).forEach(h => {
-      const wn = weekLookup[h.date];
-      if (wn && !actualWeeks[wn]) actualWeeks[wn] = h.type;
-    });
-    r.actualWeeks = actualWeeks;
-  }));
-
-  const weekDateRange = {};
-  monthGroups.forEach(g => g.weeks.forEach(w => { weekDateRange[w.weekNum] = { start: w.days[0], end: w.days[w.days.length - 1] }; }));
-  const sundayOnOrBefore = dateStr => {
-    const d = new Date(dateStr + 'T00:00:00');
-    d.setDate(d.getDate() - d.getDay());
-    return localDateStr(d);
-  };
-  const windowStart = sundayOnOrBefore(todayStr);
-  const windowEndD = new Date(windowStart + 'T00:00:00');
-  windowEndD.setDate(windowEndD.getDate() + 13);
-  const windowEnd = localDateStr(windowEndD);
-  const currentWeek = weekLookup[todayStr] || 0;
-
-  return computeUpcomingPeReminders(peGroupMap, currentWeek, weekDateRange, windowStart, windowEnd).map(m => {
-    const classPrefix = locoClassPrefix(m);
-    const raw = effectiveDailyValue(m.asset, todayStr);
-    const available = isAvailableStatusValue(raw, classPrefix);
-    const currentLabel = available ? null : String(raw || 'OH').toUpperCase();
-    const isDownNow = !!currentLabel && (currentLabel.includes('REPAIR') || currentLabel === 'FAILED' || currentLabel === 'OH');
-    return { ...m, isDownNow, currentLabel };
-  });
+  return results.sort((a, b) => a.daysDue - b.daysDue || a.asset - b.asset);
 }
 
 /* ---------- Daily Fleet Deployment Summary ---------- */
