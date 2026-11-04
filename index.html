@@ -5614,9 +5614,11 @@ function renderDailyStatus() {
   const nDays = daysInMonthCount(dailyStatusMonth);
   const todayStr = todayDateStr();
   let lastClass = null;
+  const [dsHeaderY, dsHeaderM] = dailyStatusMonth.split('-').map(Number);
   const dayHeaderCells = Array.from({ length: nDays }, (_, i) => {
     const dateStr = `${dailyStatusMonth}-${String(i + 1).padStart(2, '0')}`;
-    return `<th${dateStr === todayStr ? ' class="today-col"' : ''}>${i + 1}</th>`;
+    const wd = new Date(dsHeaderY, dsHeaderM - 1, i + 1).toLocaleDateString('en-GB', { weekday: 'short' });
+    return `<th${dateStr === todayStr ? ' class="today-col"' : ''}><div style="font-size:9px;font-weight:600;line-height:1.3;">${wd}</div>${i + 1}</th>`;
   }).join('');
   const bodyRows = DATA.locoPerf.map(loco => {
     const showClass = loco.class !== lastClass;
