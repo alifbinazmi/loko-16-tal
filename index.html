@@ -5262,7 +5262,7 @@ function computeUpcomingPeReminders(groupMap, currentWeek, weekDateRange, window
       if (!range || range.start > windowEnd || range.end < windowStart) return;
       let done = false;
       for (let w = weekNum; w <= currentWeek; w++) {
-        if (r.actualWeeks[w] === type) { done = true; break; }
+        if (r.actualWeeks[w]) { done = true; break; }
       }
       if (!done) results.push({ asset: r.asset, class: r.class, weekNum, type });
     });
