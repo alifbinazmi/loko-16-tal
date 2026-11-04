@@ -5140,20 +5140,21 @@ function renderPeAnnualPlan2026() {
     return `<td${style ? ` style="${style}"` : ''}>${type ? esc(type) + 'D' : ''}</td>`;
   };
 
-  function computeMissedPeEntries(groupMap, currentWeek) {
-    const missed = [];
+  function computeUpcomingPeReminders(groupMap, currentWeek, weekDateRange, windowStart, windowEnd) {
+    const results = [];
     groupMap.forEach(group => group.forEach(r => {
       Object.entries(r.weeks).forEach(([wn, type]) => {
         const weekNum = Number(wn);
-        if (weekNum > currentWeek) return;
+        const range = weekDateRange[weekNum];
+        if (!range || range.start > windowEnd || range.end < windowStart) return;
         let done = false;
         for (let w = weekNum; w <= currentWeek; w++) {
           if (r.actualWeeks[w] === type) { done = true; break; }
         }
-        if (!done) missed.push({ asset: r.asset, class: r.class, weekNum, type });
+        if (!done) results.push({ asset: r.asset, class: r.class, weekNum, type });
       });
     }));
-    return missed.sort((a, b) => a.weekNum - b.weekNum || a.asset - b.asset);
+    return results.sort((a, b) => a.weekNum - b.weekNum || a.asset - b.asset);
   }
 
   const monthHeaderHtml = monthGroups.map((g, gi) => {
@@ -5239,8 +5240,20 @@ function renderPeAnnualPlan2026() {
   const actualHtml = buildWallChartSection('Actual PE Completion (from PE Completion History)', 'actualWeeks', 'PE ACTUAL',
     `${DATA.peHistory.length} completed PE record(s) &middot; source: PE Completion History (per locomotive, from the weekly Masterplan log) &middot; read-only reference view`);
 
+  const weekDateRange = {};
+  monthGroups.forEach(g => g.weeks.forEach(w => { weekDateRange[w.weekNum] = { start: w.days[0], end: w.days[w.days.length - 1] }; }));
+  const sundayOnOrBefore = dateStr => {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() - d.getDay());
+    return localDateStr(d);
+  };
+  const windowStart = sundayOnOrBefore(todayStr);
+  const windowEndD = new Date(windowStart + 'T00:00:00');
+  windowEndD.setDate(windowEndD.getDate() + 13);
+  const windowEnd = localDateStr(windowEndD);
+
   const currentWeek = weekLookup[todayStr] || 0;
-  const missedEntries = computeMissedPeEntries(peGroupMap, currentWeek)
+  const missedEntries = computeUpcomingPeReminders(peGroupMap, currentWeek, weekDateRange, windowStart, windowEnd)
     .map(m => {
       const classPrefix = locoClassPrefix(m);
       const raw = effectiveDailyValue(m.asset, todayStr);
@@ -5254,18 +5267,18 @@ function renderPeAnnualPlan2026() {
       <td>${esc(m.asset)}${m.isDownNow ? ` <span title="${esc(m.currentLabel)} — still outstanding" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);vertical-align:middle;margin-left:4px;"></span>` : ''}</td>
       <td class="dim">${esc(m.class)}</td>
       <td><span style="display:inline-block;padding:2px 7px;border-radius:4px;background:${PE_ANNUAL_TYPE_BG[m.type] || 'var(--panel-3)'};color:#0B1220;font-weight:700;font-size:11px;">${esc(m.type)}</span></td>
-      <td class="num" style="color:var(--red);font-weight:700;">WEEK-${m.weekNum}</td>
+      <td class="dim">WEEK-${m.weekNum}</td>
     </tr>`).join('');
   const reminderHtml = `
-  <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:20px 0 10px;">PE Reminder &mdash; Not Yet Done</div>
+  <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:20px 0 10px;">PE Reminder &mdash; Due This Week &amp; Next Week</div>
   <div class="panel">
     <div class="matrix-scroll">
       <table class="matrix pe-excel">
-        <thead><tr><th>Asset</th><th>Class</th><th>PE Type</th><th>Overdue Week</th></tr></thead>
-        <tbody>${reminderRowsHtml || '<tr><td colspan="4" class="dim">Nothing outstanding — every due PE has been logged.</td></tr>'}</tbody>
+        <thead><tr><th>Asset</th><th>Class</th><th>PE Type</th><th>Week Due</th></tr></thead>
+        <tbody>${reminderRowsHtml || '<tr><td colspan="4" class="dim">Nothing due this week or next week.</td></tr>'}</tbody>
       </table>
     </div>
-    <div class="row-count">${missedEntries.length} outstanding PE record(s) &middot; compares the Annual PE Plan against PE Completion History &middot; read-only reference view</div>
+    <div class="row-count">${missedEntries.length} PE record(s) due this week or next week &middot; updates every Sunday &middot; compares the Annual PE Plan against PE Completion History &middot; read-only reference view</div>
   </div>`;
 
   document.getElementById('content').innerHTML = (isViewer() ? '' : reminderHtml) + actualHtml + planHtml;
