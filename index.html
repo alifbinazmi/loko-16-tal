@@ -5051,6 +5051,25 @@ function peAnnualHeldWeeks(asset, classPrefix, weekLookup, todayStr) {
   }
   return weeks;
 }
+function peReminderDownWeeks(asset, classPrefix, weekLookup, todayStr) {
+  const isDown = raw => {
+    if (isAvailableStatusValue(raw, classPrefix)) return false;
+    const label = String(raw || 'OH').toUpperCase();
+    return label.includes('REPAIR') || label === 'FAILED' || label === 'OH';
+  };
+  const weeks = new Set();
+  const floor = new Date('2026-01-01T00:00:00');
+  let d = new Date(todayStr + 'T00:00:00');
+  while (d >= floor) {
+    const ds = localDateStr(d);
+    if (isDown(effectiveDailyValue(asset, ds))) {
+      const wn = weekLookup[ds];
+      if (wn) weeks.add(wn);
+    }
+    d.setDate(d.getDate() - 1);
+  }
+  return weeks;
+}
 function renderPeAnnualPlan2026() {
   const monthGroups = peAnnualYearWeeks();
   const weekLookup = peAnnualWeekLookup(monthGroups);
@@ -5240,12 +5259,24 @@ function renderPeAnnualPlan2026() {
     `${DATA.peHistory.length} completed PE record(s) &middot; source: PE Completion History (per locomotive, from the weekly Masterplan log) &middot; read-only reference view`);
 
   const currentWeek = weekLookup[todayStr] || 0;
+  const downWeeksByAsset = new Map();
   const missedEntries = computeMissedPeEntries(peGroupMap, currentWeek)
-    .map(m => ({ ...m, weeksOverdue: currentWeek - m.weekNum }))
+    .map(m => {
+      const classPrefix = locoClassPrefix(m);
+      if (!downWeeksByAsset.has(m.asset)) downWeeksByAsset.set(m.asset, peReminderDownWeeks(m.asset, classPrefix, weekLookup, todayStr));
+      const downWeeks = downWeeksByAsset.get(m.asset);
+      let weeksOverdue = 0;
+      for (let w = m.weekNum + 1; w <= currentWeek; w++) { if (!downWeeks.has(w)) weeksOverdue++; }
+      const raw = effectiveDailyValue(m.asset, todayStr);
+      const available = isAvailableStatusValue(raw, classPrefix);
+      const currentLabel = available ? null : String(raw || 'OH').toUpperCase();
+      const isDownNow = !!currentLabel && (currentLabel.includes('REPAIR') || currentLabel === 'FAILED' || currentLabel === 'OH');
+      return { ...m, weeksOverdue, isDownNow, currentLabel };
+    })
     .sort((a, b) => b.weeksOverdue - a.weeksOverdue || a.asset - b.asset);
   const reminderRowsHtml = missedEntries.map(m => `
     <tr>
-      <td>${esc(m.asset)}</td>
+      <td>${esc(m.asset)}${m.isDownNow ? ` <span title="${esc(m.currentLabel)} — PE count paused" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);vertical-align:middle;margin-left:4px;"></span>` : ''}</td>
       <td class="dim">${esc(m.class)}</td>
       <td><span style="display:inline-block;padding:2px 7px;border-radius:4px;background:${PE_ANNUAL_TYPE_BG[m.type] || 'var(--panel-3)'};color:#0B1220;font-weight:700;font-size:11px;">${esc(m.type)}</span></td>
       <td class="dim">WEEK-${m.weekNum}</td>
