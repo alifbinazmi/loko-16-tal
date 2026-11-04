@@ -4936,14 +4936,22 @@ function renderMasterplan() {
     </tr>`).join('') : `<tr class="empty-row"><td colspan="${PE_HISTORY_COLUMNS.length}">No PE history matches your filters.</td></tr>`;
 
   const missedEntries = isViewer() ? [] : buildPeReminderEntries();
-  const PE_REMINDER_DOT_COLORS = { green: '#4CAF50', orange: '#F5A623', red: '#F87171', grey: '#9CA3AF' };
-  const reminderRowsHtml = missedEntries.map(m => `
+  const PE_REMINDER_STATUS = {
+    green: { color: '#0ca30c', glyph: '●' },
+    orange: { color: '#fab219', glyph: '▲' },
+    red: { color: '#d03b3b', glyph: '■' },
+    grey: { color: '#898781', glyph: '⏸' },
+  };
+  const reminderRowsHtml = missedEntries.map(m => {
+    const st = PE_REMINDER_STATUS[m.dotColor];
+    return `
     <tr>
-      <td>${esc(m.asset)} <span title="${m.isGrey ? esc(m.label) + ' — PE pending' : esc(m.dueText)}" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${PE_REMINDER_DOT_COLORS[m.dotColor]};vertical-align:middle;"></span></td>
+      <td>${esc(m.asset)} <span title="${m.isGrey ? esc(m.label) + ' — PE pending' : esc(m.dueText)}" style="color:${st.color};font-size:12px;line-height:1;vertical-align:middle;">${st.glyph}</span></td>
       <td class="dim">${esc(m.class)}</td>
       <td><span style="display:inline-block;padding:2px 7px;border-radius:4px;background:${PE_ANNUAL_TYPE_BG[m.type] || 'var(--panel-3)'};color:#0B1220;font-weight:700;font-size:11px;">${esc(m.type)}</span></td>
       <td class="dim">${esc(m.dueText)}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   const peHistoryTableInnerHtml = `
     <table>
