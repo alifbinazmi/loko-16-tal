@@ -3232,15 +3232,15 @@ async function exportLanggarToExcel() {
     await loadExcelJsLib();
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Accidents');
-    const headers = ['Bil Kes', 'Tarikh', 'Lokasi', 'No Tren', 'Stokereta', 'Jenis Kerosakan', 'Kronologi', 'Kos Kerosakan', 'Tindakan', 'No CMMS', 'Remark'];
+    const headers = ['No. Case', 'Date', 'Location', 'Train No.', 'Asset No.', 'Driver', 'Damage Type', 'Chronology', 'Kos Kerosakan', 'Tindakan', 'No CMMS', 'Remark'];
     ws.addRow(headers).font = { bold: true };
     DATA.langgar.forEach(l => {
       ws.addRow([
-        l.bilKes || '', l.tarikh ? fmtDate(l.tarikh) : '', l.lokasi || '', l.noTren || '', l.stokereta || '',
+        l.bilKes || '', l.tarikh ? fmtDate(l.tarikh) : '', l.lokasi || '', l.noTren || '', l.stokereta || '', l.driver || '',
         l.jenisKerosakan || '', l.kronologi || '', l.kosKerosakan || '', l.tindakan || '', l.noCmms || '', l.remark || '',
       ]);
     });
-    ws.columns.forEach((col, i) => { col.width = i === 0 ? 10 : (['Kronologi', 'Tindakan', 'Remark'].includes(headers[i]) ? 28 : 16); });
+    ws.columns.forEach((col, i) => { col.width = i === 0 ? 10 : (['Chronology', 'Tindakan', 'Remark'].includes(headers[i]) ? 28 : 16); });
     await downloadWorkbook(wb, 'Accident_Reports.xlsx');
   } catch (e) {
     console.error('Accident export failed', e);
@@ -3614,18 +3614,19 @@ function renderIncidents() {
    LANGGAR 2026 TABLE
    ============================================================ */
 const LANGGAR_COLUMNS = [
-  { key: 'bilKes', label: 'Bil Kes' },
-  { key: 'tarikh', label: 'Tarikh' },
-  { key: 'lokasi', label: 'Lokasi' },
-  { key: 'noTren', label: 'No Tren' },
-  { key: 'stokereta', label: 'Stokereta' },
-  { key: 'jenisKerosakan', label: 'Jenis Kerosakan' },
-  { key: 'kronologi', label: 'Kronologi (excerpt)' },
+  { key: 'bilKes', label: 'No. Case' },
+  { key: 'tarikh', label: 'Date' },
+  { key: 'lokasi', label: 'Location' },
+  { key: 'noTren', label: 'Train No.' },
+  { key: 'stokereta', label: 'Asset No.' },
+  { key: 'driver', label: 'Driver' },
+  { key: 'jenisKerosakan', label: 'Damage Type' },
+  { key: 'kronologi', label: 'Chronology (excerpt)' },
   { key: 'noCmms', label: 'No CMMS' },
 ];
 function renderLanggar() {
   let rows = DATA.langgar
-    .filter(l => matchesSearch(l, ['lokasi','noTren','stokereta','jenisKerosakan','kronologi']));
+    .filter(l => matchesSearch(l, ['lokasi','noTren','stokereta','driver','jenisKerosakan','kronologi']));
   if (langgarSelectedMonth) rows = rows.filter(l => monthKey(l.tarikh) === langgarSelectedMonth);
   rows = applyColumnFilters('langgar', rows);
   const st = sortState.langgar;
@@ -3637,6 +3638,7 @@ function renderLanggar() {
       <td>${esc(l.lokasi)}</td>
       <td>${esc(l.noTren)}</td>
       <td class="num">${esc(l.stokereta)}</td>
+      <td>${esc(l.driver)}</td>
       <td class="wrap" title="${esc(l.jenisKerosakan)}">${esc(l.jenisKerosakan)}</td>
       <td class="wrap dim" title="${esc(l.kronologi)}">${(l.kronologi || '').split('\\n')[0] ? esc((l.kronologi||'').split('\\n')[0]).slice(0,140) : ''}</td>
       <td class="dim" style="position:relative;">${esc(l.noCmms)}<span class="row-edit-flag">${ICONS.edit}Edit</span></td>
@@ -3652,7 +3654,7 @@ function renderLanggar() {
           <tbody>${body}</tbody>
         </table>
       </div>
-      <div class="row-count">${rows.length} of ${DATA.langgar.length} records shown &middot; ${st && st.key ? 'sorted by ' + esc(LANGGAR_COLUMNS.find(c=>c.key===st.key).label) + (st.dir===-1?' (desc)':' (asc)') : 'newest first'}${langgarSelectedMonth ? ' &middot; ' + esc(monthLabel(langgarSelectedMonth)) + ' only' : ''}${countActiveFilters('langgar') ? ' &middot; ' + countActiveFilters('langgar') + ' column filter(s) active' : ''} &middot; hover the Kronologi cell to read the full chronology</div>
+      <div class="row-count">${rows.length} of ${DATA.langgar.length} records shown &middot; ${st && st.key ? 'sorted by ' + esc(LANGGAR_COLUMNS.find(c=>c.key===st.key).label) + (st.dir===-1?' (desc)':' (asc)') : 'newest first'}${langgarSelectedMonth ? ' &middot; ' + esc(monthLabel(langgarSelectedMonth)) + ' only' : ''}${countActiveFilters('langgar') ? ' &middot; ' + countActiveFilters('langgar') + ' column filter(s) active' : ''} &middot; hover the Chronology cell to read the full chronology</div>
     </div>
   `;
   wireSortHeaders();
@@ -6308,12 +6310,13 @@ function openModal(view, editIdx = null, prefill = null) {
     title = rec ? `Edit 16-TAL Accident #${esc(rec.bilKes)}` : 'New 16-TAL Accident';
     formHtml = `
       <div class="form-grid">
-        <div class="field"><label>Tarikh Kejadian *</label><input type="date" id="l_tarikh" value="${rec ? toDateInputValue(rec.tarikh) : ''}" required></div>
-        <div class="field"><label>No Tren</label><input type="text" id="l_noTren" value="${gv('noTren')}" placeholder="e.g. 26NK"></div>
-        <div class="field"><label>Lokasi</label><input type="text" id="l_lokasi" value="${gv('lokasi')}" placeholder="e.g. Gemas-Bahau"></div>
-        <div class="field"><label>Stokereta Terlibat (Asset)</label><input type="number" id="l_stokereta" value="${gv('stokereta')}" placeholder="e.g. 25108"></div>
-        <div class="field full"><label>Jenis Kerosakan</label><input type="text" id="l_jenisKerosakan" value="${gv('jenisKerosakan')}" placeholder="e.g. handle knuckle bengkok"></div>
-        <div class="field full"><label>Kronologi</label><textarea id="l_kronologi" placeholder="Jam 0025 - ..." style="min-height:100px">${gv('kronologi')}</textarea></div>
+        <div class="field"><label>Date of Incident *</label><input type="date" id="l_tarikh" value="${rec ? toDateInputValue(rec.tarikh) : ''}" required></div>
+        <div class="field"><label>Train No.</label><input type="text" id="l_noTren" value="${gv('noTren')}" placeholder="e.g. 26NK"></div>
+        <div class="field"><label>Location</label><input type="text" id="l_lokasi" value="${gv('lokasi')}" placeholder="e.g. Gemas-Bahau"></div>
+        <div class="field"><label>Asset No. Involved</label><input type="number" id="l_stokereta" value="${gv('stokereta')}" placeholder="e.g. 25108"></div>
+        <div class="field"><label>Driver</label><input type="text" id="l_driver" value="${gv('driver')}"></div>
+        <div class="field full"><label>Damage Type</label><input type="text" id="l_jenisKerosakan" value="${gv('jenisKerosakan')}" placeholder="e.g. handle knuckle bengkok"></div>
+        <div class="field full"><label>Chronology</label><textarea id="l_kronologi" placeholder="Jam 0025 - ..." style="min-height:100px">${gv('kronologi')}</textarea></div>
         <div class="field"><label>Kos Kerosakan</label><input type="text" id="l_kosKerosakan" value="${gv('kosKerosakan')}"></div>
         <div class="field"><label>No CMMS</label><input type="text" id="l_noCmms" value="${gv('noCmms')}"></div>
         <div class="field full"><label>Tindakan</label><textarea id="l_tindakan">${gv('tindakan')}</textarea></div>
@@ -6424,10 +6427,11 @@ function readIncidentForm() {
 }
 function readLanggarForm() {
   const tarikh = document.getElementById('l_tarikh').value;
-  if (!tarikh) { toast('Tarikh Kejadian is required'); return null; }
+  if (!tarikh) { toast('Date of Incident is required'); return null; }
   return {
     tarikh, lokasi: document.getElementById('l_lokasi').value, noTren: document.getElementById('l_noTren').value,
     stokereta: document.getElementById('l_stokereta').value ? Number(document.getElementById('l_stokereta').value) : '',
+    driver: document.getElementById('l_driver').value,
     kronologi: document.getElementById('l_kronologi').value, jenisKerosakan: document.getElementById('l_jenisKerosakan').value,
     kosKerosakan: document.getElementById('l_kosKerosakan').value, tindakan: document.getElementById('l_tindakan').value,
     remark: document.getElementById('l_remark').value, noCmms: document.getElementById('l_noCmms').value,
