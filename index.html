@@ -241,7 +241,8 @@
 
   .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
   .reliability-split{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;}
-  .chart-panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px 18px 14px 18px;box-shadow:0 1px 2px rgba(23,27,39,.04), 0 6px 16px -10px rgba(23,27,39,.12);}
+  .chart-panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px 18px 14px 18px;box-shadow:0 1px 2px rgba(23,27,39,.04), 0 6px 16px -10px rgba(23,27,39,.12);transition:border-color .12s,transform .12s,box-shadow .12s;}
+  .chart-panel.kpi-hover{border-color:var(--text-faint);transform:translateY(-1px);box-shadow:0 2px 4px rgba(23,27,39,.06), 0 10px 24px -8px rgba(23,27,39,.16);}
   .section-eyebrow{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);margin:18px 0 10px 2px;display:flex;align-items:center;gap:8px;}
   .section-eyebrow::after{content:"";flex:1;height:1px;background:var(--border-soft);}
   .section-eyebrow:first-child{margin-top:0;}
@@ -1757,6 +1758,8 @@ function wireKpiCards() {
     if (!chartId) return;
     card.addEventListener('mouseenter', () => {
       const canvas = document.getElementById(chartId);
+      const panel = canvas && canvas.closest('.chart-panel');
+      if (panel) panel.classList.add('kpi-hover');
       const data = _dashboardChartData[chartId];
       if (canvas && canvas._setHighlight && data && data.values.length) {
         canvas._setHighlight(data.values.length - 1);
@@ -1764,6 +1767,8 @@ function wireKpiCards() {
     });
     card.addEventListener('mouseleave', () => {
       const canvas = document.getElementById(chartId);
+      const panel = canvas && canvas.closest('.chart-panel');
+      if (panel) panel.classList.remove('kpi-hover');
       if (canvas && canvas._setHighlight) canvas._setHighlight(null);
     });
   });
