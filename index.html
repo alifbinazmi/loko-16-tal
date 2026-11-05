@@ -1739,9 +1739,33 @@ function drillKpi(metric, key) {
     setView('reliability');
   }
 }
+const KPI_CHART_MAP = {
+  availability: 'chartDashAvailability',
+  reliability: 'chartDashReliability',
+  pe: 'chartDashPe',
+  failures: 'chartMonthly',
+  incidents: 'chartMonthlyIncidents',
+  running: 'chartDashRunning',
+};
 function wireKpiCards() {
   document.querySelectorAll('.kpi[data-nav-view]').forEach(navCard => {
     navCard.addEventListener('click', () => setView(navCard.dataset.navView));
+  });
+
+  document.querySelectorAll('.kpi[data-kpi]').forEach(card => {
+    const chartId = KPI_CHART_MAP[card.dataset.kpi];
+    if (!chartId) return;
+    card.addEventListener('mouseenter', () => {
+      const canvas = document.getElementById(chartId);
+      const data = _dashboardChartData[chartId];
+      if (canvas && canvas._setHighlight && data && data.values.length) {
+        canvas._setHighlight(data.values.length - 1);
+      }
+    });
+    card.addEventListener('mouseleave', () => {
+      const canvas = document.getElementById(chartId);
+      if (canvas && canvas._setHighlight) canvas._setHighlight(null);
+    });
   });
 
   document.querySelectorAll('[data-kpi-action]').forEach(actionEl => {
@@ -2447,15 +2471,27 @@ function drawBarChart(canvasId, labels, values, color, opts = {}) {
   const slot = chartW / n;
   const barW = Math.max(4, Math.min(30, slot * 0.55));
   values.forEach((v, i) => {
+    const isHi = opts.highlightIndex === i;
     const barColor = Array.isArray(color) ? color[i] : color;
     const bh = chartH * frac(v);
     const x = padL + slot * i + slot / 2 - barW / 2;
     const y = padT + chartH - bh;
-    const grad = ctx.createLinearGradient(0, y, 0, padT + chartH);
-    grad.addColorStop(0, barColor); grad.addColorStop(1, barColor + '99');
-    ctx.fillStyle = grad;
-    roundRectTop(ctx, x, y, barW, bh, 3);
-    ctx.fill();
+    if (isHi) {
+      ctx.fillStyle = '#FFD43B';
+      roundRectTop(ctx, x, y, barW, bh, 3);
+      ctx.fill();
+      ctx.save();
+      ctx.strokeStyle = '#A6790A'; ctx.lineWidth = 1.5;
+      roundRectTop(ctx, x, y, barW, bh, 3);
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      const grad = ctx.createLinearGradient(0, y, 0, padT + chartH);
+      grad.addColorStop(0, barColor); grad.addColorStop(1, barColor + '99');
+      ctx.fillStyle = grad;
+      roundRectTop(ctx, x, y, barW, bh, 3);
+      ctx.fill();
+    }
   });
 
   if (opts.showValues) {
@@ -2470,11 +2506,13 @@ function drawBarChart(canvasId, labels, values, color, opts = {}) {
     });
   }
 
-  ctx.fillStyle = CHART_TEXT; ctx.font = '9px -apple-system,Segoe UI,sans-serif';
   labels.forEach((lab, i) => {
+    const isHi = opts.highlightIndex === i;
     const x = padL + slot * i + slot / 2;
     const y = padT + chartH + 8;
     ctx.save();
+    ctx.fillStyle = isHi ? '#A6790A' : CHART_TEXT;
+    ctx.font = isHi ? 'bold 9px -apple-system,Segoe UI,sans-serif' : '9px -apple-system,Segoe UI,sans-serif';
     ctx.translate(x, y);
     if (rotate) { ctx.rotate(-50 * Math.PI / 180); ctx.textAlign = 'right'; } else { ctx.textAlign = 'center'; }
     ctx.textBaseline = 'top';
@@ -2520,6 +2558,26 @@ function drawBarChart(canvasId, labels, values, color, opts = {}) {
   } else {
     canvas.style.cursor = 'default';
     canvas.onclick = null;
+  }
+
+  function applyHighlight(idx) {
+    if (canvas._hoverIdx === idx) return;
+    canvas._hoverIdx = idx;
+    drawBarChart(canvasId, labels, values, color, { ...opts, highlightIndex: idx });
+  }
+  canvas._setHighlight = applyHighlight;
+  if (values.length) {
+    canvas.onmousemove = e => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      if (x < padL || x > padL + chartW) { applyHighlight(null); return; }
+      const idx = Math.min(values.length - 1, Math.max(0, Math.floor((x - padL) / slot)));
+      applyHighlight(idx);
+    };
+    canvas.onmouseleave = () => applyHighlight(null);
+  } else {
+    canvas.onmousemove = null;
+    canvas.onmouseleave = null;
   }
 }
 function roundRectTop(ctx, x, y, w, h, r) {
