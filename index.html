@@ -1625,7 +1625,7 @@ function drillIncidentsFailByMonth(monthStr) {
 }
 
 /* ---------- KPI card month-picker ---------- */
-let kpiSelectedMonth = { failures: null, incidents: null, langgar: null, incidentsFail: null, availability: null, reliability: null, pe: null, running: null, topPerformer: null };
+let kpiSelectedMonth = { failures: null, incidents: null, langgar: null, incidentsFail: null, availability: null, reliability: null, pe: null, running: null, topSubsystem: null };
 function kpiMonthOptions(metric) {
   if (metric === 'failures') {
     const counts = {};
@@ -1662,10 +1662,12 @@ function kpiMonthOptions(metric) {
     DATA.peHistory.forEach(h => { if (h.date) { const k = monthKey(h.date); if (k) counts[k] = (counts[k] || 0) + 1; } });
     return Object.keys(counts).sort().map(m => ({ key: m, label: monthLabel(m), count: counts[m] }));
   }
-  if (metric === 'topPerformer') {
-    return getTrackedMonthsWithData().map(m => {
-      const top = fleetTopPerformerForMonth(m);
-      return { key: m, label: monthLabel(m), count: top ? top.asset : '—' };
+  if (metric === 'topSubsystem') {
+    const months = new Set();
+    countableFailures().forEach(f => { const k = monthKey(f.dateReceive); if (k) months.add(k); });
+    return [...months].sort().map(m => {
+      const top = topSubsystemForMonth(m);
+      return { key: m, label: monthLabel(m), count: top ? top.key : '—' };
     });
   }
   return [];
@@ -1735,9 +1737,9 @@ function drillKpi(metric, key) {
       const el = document.getElementById('peHistorySection');
       if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
     });
-  } else if (metric === 'topPerformer') {
-    reliabilityPerfMonth = key || 'all';
-    setView('reliability');
+  } else if (metric === 'topSubsystem') {
+    subsystemSelectedMonth = key || null;
+    setView('subsystem');
   }
 }
 const KPI_CHART_MAP = {
@@ -1747,6 +1749,7 @@ const KPI_CHART_MAP = {
   failures: 'chartMonthly',
   incidents: 'chartMonthlyIncidents',
   running: 'chartDashRunning',
+  topSubsystem: 'chartSubsystem',
 };
 function wireKpiCards() {
   document.querySelectorAll('.kpi[data-nav-view]').forEach(navCard => {
@@ -2082,6 +2085,13 @@ function topEntry(totals) {
   const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
   return sorted.length ? { key: sorted[0][0], count: sorted[0][1] } : null;
 }
+function topSubsystemForMonth(mKey) {
+  const rows = (!mKey || mKey === 'all') ? countableFailures() : countableFailures().filter(f => monthKey(f.dateReceive) === mKey);
+  return topEntry(computeSubsystemTotals(rows));
+}
+function topSubsystemAllTime() {
+  return topSubsystemForMonth('all');
+}
 function computeRepeatOffenders(rows = DATA.failures, minCount = 2) {
   const totals = {};
   rows.forEach(f => {
@@ -2345,24 +2355,24 @@ function buildOrderedKpiCards() {
         <div class="kpi-foot">${kpiFootHtml('langgar', 'Wilayah Timur, 01/01&ndash;31/12/2026', langgarV)}</div>
         <div class="kpi-corner">${ICONS.langgar}</div>
       </div>`,
-    topPerformer: (() => {
-      const topPerf = fleetTopPerformer();
-      const topPerformerV = kpiMetricValue('topPerformer', (topPerf || {}).asset || '&mdash;');
-      const effMonth = topPerformerV.key && topPerformerV.key !== 'ALL' ? topPerformerV.key : 'all';
-      const top = effMonth === 'all' ? topPerf : fleetTopPerformerForMonth(effMonth);
+    topSubsystem: (() => {
+      const topAll = topSubsystemAllTime();
+      const topSubsystemV = kpiMetricValue('topSubsystem', (topAll || {}).key || '&mdash;');
+      const effMonth = topSubsystemV.key && topSubsystemV.key !== 'ALL' ? topSubsystemV.key : 'all';
+      const top = effMonth === 'all' ? topAll : topSubsystemForMonth(effMonth);
       return `
-      <div class="kpi" style="--accent:var(--indigo);" data-kpi="topPerformer" data-nav-view="reliability">
-        <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top Performer</span>${kpiMonthSelectHtml('topPerformer')}</div>
-        <div class="kpi-value">${top ? esc(top.asset) : '&mdash;'}<small>${top ? esc(top.class) : ''}</small></div>
-        <div class="kpi-foot">${kpiFootHtml('topPerformer', 'Fleet-wide &middot; best combined PE, mileage &amp; unscheduled score', topPerformerV)}</div>
-        <div class="kpi-corner">${ICONS.trophy}</div>
+      <div class="kpi" style="--accent:var(--red);" data-kpi="topSubsystem" data-nav-view="subsystem">
+        <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top Sub-System Failure</span>${kpiMonthSelectHtml('topSubsystem')}</div>
+        <div class="kpi-value">${top ? esc(top.key) : '&mdash;'}<small>${top ? top.count + ' failure' + (top.count === 1 ? '' : 's') : ''}</small></div>
+        <div class="kpi-foot">${kpiFootHtml('topSubsystem', 'Fleet-wide &middot; most failures by sub-system, YTD', topSubsystemV)}</div>
+        <div class="kpi-corner">${ICONS.subsystem}</div>
       </div>`;
     })(),
   };
 
   // Requested display order: Fleet Availability, Reliability (MKBF), PE,
-  // Total Unscheduled Reports, Total 16-TAL Incidents, Top Performer, Total Running, 16-TAL Accidents.
-  const order = ['availability', 'reliability', 'pe', 'failures', 'incidents', 'topPerformer', 'running', 'langgar'];
+  // Total Unscheduled Reports, Total 16-TAL Incidents, Top Sub-System Failure, Total Running, 16-TAL Accidents.
+  const order = ['availability', 'reliability', 'pe', 'failures', 'incidents', 'topSubsystem', 'running', 'langgar'];
   return order.map(k => cards[k]);
 }
 function renderDashboardKpiGridsHtml() {
@@ -3977,26 +3987,6 @@ function rankByAssetForGroup(group) {
   const map = {};
   rankGroupByPerf(group).forEach((s, i) => { map[s.asset] = i + 1; });
   return map;
-}
-function fleetTopPerformerForMonth(monthKey) {
-  if (!DATA.locoPerf.length) return null;
-  let rows;
-  if (!monthKey || monthKey === 'all') {
-    rows = DATA.locoPerf;
-  } else {
-    const counts = dailyStatusEventCountsForMonth(monthKey);
-    rows = DATA.locoPerf.map(l => ({
-      asset: l.asset, class: l.class,
-      unscheduled: counts.unscheduledByAsset[l.asset] || 0,
-      pe: counts.peByAsset[l.asset] || 0,
-      mileage: computeFinalKm(l.asset, monthKey),
-    }));
-  }
-  const topAsset = rankGroupByPerf(rows)[0].asset;
-  return rows.find(l => l.asset === topAsset) || null;
-}
-function fleetTopPerformer() {
-  return fleetTopPerformerForMonth('all');
 }
 function reliabilityStatusPill(pass) {
   if (pass === null || pass === undefined) return '<span class="dim">&mdash;</span>';
