@@ -2372,7 +2372,7 @@ function buildOrderedKpiCards() {
 
   // Requested display order: Fleet Availability, Reliability (MKBF), PE,
   // Total Unscheduled Reports, Total 16-TAL Incidents, Top Sub-System Failure, Total Running, 16-TAL Accidents.
-  const order = ['availability', 'reliability', 'pe', 'failures', 'incidents', 'topSubsystem', 'running', 'langgar'];
+  const order = ['availability', 'reliability', 'pe', 'failures', 'incidents', 'langgar', 'running', 'topSubsystem'];
   return order.map(k => cards[k]);
 }
 function renderDashboardKpiGridsHtml() {
