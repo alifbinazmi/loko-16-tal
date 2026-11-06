@@ -644,6 +644,13 @@
   .action-popup-meta { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; }
   .action-popup-body { font-size: 12.5px; line-height: 1.5; color: var(--text); white-space: pre-wrap; max-height: 260px; overflow-y: auto; margin-bottom: 12px; }
   .action-popup-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+  .action-popup.has-component-log { width: 540px; }
+  .asset-flag-component-section { max-height: 320px; overflow-y: auto; margin-bottom: 12px; border: 1px solid var(--border-soft); border-radius: 8px; }
+  .asset-flag-component-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  .asset-flag-component-table th, .asset-flag-component-table td { padding: 4px 6px; border-bottom: 1px solid var(--border-soft); text-align: left; }
+  .asset-flag-component-table th { position: sticky; top: 0; background: var(--panel); font-weight: 700; color: var(--text-dim); text-transform: uppercase; font-size: 10px; letter-spacing: .03em; }
+  .asset-flag-component-table input { width: 100%; min-width: 80px; font-size: 11.5px; padding: 3px 5px; }
+  .asset-flag-component-table td:first-child { white-space: nowrap; font-weight: 600; }
   .daily-dropdown {
     position: fixed; z-index: 6000; min-width: 190px; max-width: 320px; max-height: 260px;
     overflow-y: auto; background: var(--panel); border: 1px solid var(--border-soft); border-radius: 8px;
@@ -701,6 +708,7 @@
     <div class="field"><label>Next Overhaul Year</label><input type="text" id="assetFlagNextOverhaul" placeholder="e.g. 2026"></div>
   </div>
   <textarea id="assetFlagPopupNote" placeholder="Optional note"></textarea>
+  <div id="assetFlagComponentSection" class="asset-flag-component-section" hidden></div>
   <div class="action-popup-actions">
     <button type="button" class="asset-flag-btn notfit" id="assetFlagNotFitBtn" data-choice="notfit">Not Fit</button>
     <button type="button" class="asset-flag-btn note" id="assetFlagNoteBtn" data-choice="note">Overdue O/H</button>
@@ -794,7 +802,7 @@ const SUBSYSTEMS = [
 ];
 
 /* ---------- state ---------- */
-let DATA = { failures: [], incidents: [], langgar: [], locoPerf: [], dailyStatus: {}, additionalKm: {}, dailyAvailability: {}, peSchedule: [], peHistory: [], peWeeklyStatus: {}, dsLabelOverrides: {}, dsMaintenanceNotes: {}, availabilityTargetOverrides: {}, inactiveRanges: {}, assetFlags: {} };
+let DATA = { failures: [], incidents: [], langgar: [], locoPerf: [], dailyStatus: {}, additionalKm: {}, dailyAvailability: {}, peSchedule: [], peHistory: [], peWeeklyStatus: {}, dsLabelOverrides: {}, dsMaintenanceNotes: {}, availabilityTargetOverrides: {}, inactiveRanges: {}, assetFlags: {}, assetComponentLog: {} };
 let currentView = 'dashboard';
 let searchTerm = '';
 let charts = {};
@@ -1349,7 +1357,7 @@ function getSeed() {
   if (!_seedCache) _seedCache = JSON.parse(document.getElementById('seed-data-json').textContent);
   return _seedCache;
 }
-const DATA_KEYS = ['failures', 'incidents', 'langgar', 'dailyStatus', 'additionalKm', 'dailyAvailability', 'peHistory', 'peWeeklyStatus', 'dsLabelOverrides', 'dsMaintenanceNotes', 'availabilityTargetOverrides', 'inactiveRanges', 'assetFlags'];
+const DATA_KEYS = ['failures', 'incidents', 'langgar', 'dailyStatus', 'additionalKm', 'dailyAvailability', 'peHistory', 'peWeeklyStatus', 'dsLabelOverrides', 'dsMaintenanceNotes', 'availabilityTargetOverrides', 'inactiveRanges', 'assetFlags', 'assetComponentLog'];
 async function loadData() {
   const keys = DATA_KEYS;
   try {
@@ -5570,6 +5578,27 @@ function assetFlagCellHtml(loco, isCurrentlyInactive) {
   const { style, note } = assetFlagStyleFor(loco.asset, isCurrentlyInactive);
   return `<td class="asset-flag-cell" id="assetCell-${loco.asset}" data-asset="${loco.asset}"${style ? ` style="${style}"` : ''}${note ? ` title="${esc(note)}"` : ''}>${esc(loco.asset)}</td>`;
 }
+const COMPONENT_LOG_ITEMS = [
+  'Fuel Injector', 'Lube Oil Temperature Switch', 'Water Temperature Switch', 'Fuel Pump', 'Lube Pump',
+  'Starter Motor', 'ECSS', 'STPR & STRR', 'Auto Brake Valve', 'Independence Brake Valve', 'Expressor', 'Battery',
+  'Traction Motor 1', 'Traction Motor 2', 'Traction Motor 3', 'Traction Motor 4', 'Traction Motor 5', 'Traction Motor 6',
+];
+function componentLogTableHtml(asset) {
+  const log = DATA.assetComponentLog[asset] || {};
+  const rows = COMPONENT_LOG_ITEMS.map((name, i) => {
+    const rec = log[name] || {};
+    return `<tr>
+      <td>${esc(name)}</td>
+      <td><input type="date" id="clogDate_${i}" value="${rec.date ? esc(rec.date) : ''}"></td>
+      <td><input type="text" id="clogUnit_${i}" value="${rec.unit ? esc(rec.unit) : ''}"></td>
+      <td><input type="text" id="clogDepot_${i}" value="${rec.depot ? esc(rec.depot) : ''}"></td>
+    </tr>`;
+  }).join('');
+  return `<table class="asset-flag-component-table">
+    <thead><tr><th>Component</th><th>Date Replacement</th><th>Unit</th><th>Depot</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
 let assetFlagPending = null;
 function updateAssetFlagChoiceButtons() {
   document.querySelectorAll('#assetFlagPopup .asset-flag-btn').forEach(btn => {
@@ -5589,6 +5618,17 @@ function showAssetFlagPopup(asset, anchorEl) {
   document.getElementById('assetFlagLastOverhaul').value = (DATA.assetFlags[asset] && DATA.assetFlags[asset].lastOverhaul) || '';
   document.getElementById('assetFlagNextOverhaul').value = (DATA.assetFlags[asset] && DATA.assetFlags[asset].nextOverhaul) || '';
   updateAssetFlagChoiceButtons();
+  const isClass23 = (DATA.locoPerf.find(l => l.asset === asset) || {}).class === '23 Class';
+  const componentSection = document.getElementById('assetFlagComponentSection');
+  if (isClass23) {
+    componentSection.innerHTML = componentLogTableHtml(asset);
+    componentSection.hidden = false;
+    popup.classList.add('has-component-log');
+  } else {
+    componentSection.innerHTML = '';
+    componentSection.hidden = true;
+    popup.classList.remove('has-component-log');
+  }
   popup.hidden = false;
   const rect = anchorEl.getBoundingClientRect();
   const popupRect = popup.getBoundingClientRect();
@@ -5616,6 +5656,19 @@ async function saveAssetFlag() {
       delete map[asset];
     }
   });
+  const componentSection = document.getElementById('assetFlagComponentSection');
+  if (!componentSection.hidden) {
+    await saveMapKeyChange('assetComponentLog', map => {
+      const entry = {};
+      COMPONENT_LOG_ITEMS.forEach((name, i) => {
+        const date = document.getElementById(`clogDate_${i}`).value.trim();
+        const unit = document.getElementById(`clogUnit_${i}`).value.trim();
+        const depot = document.getElementById(`clogDepot_${i}`).value.trim();
+        if (date || unit || depot) entry[name] = { date, unit, depot };
+      });
+      if (Object.keys(entry).length) map[asset] = entry; else delete map[asset];
+    });
+  }
   const cell = document.getElementById(`assetCell-${asset}`);
   if (cell) {
     const isCurrentlyInactive = effectiveDailyValue(asset, todayDateStr()) === 'INACTIVE';
