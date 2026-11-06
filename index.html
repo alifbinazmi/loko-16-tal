@@ -5599,7 +5599,7 @@ function componentLogTableHtml(asset, items) {
     const rec = log[name] || {};
     return `<tr>
       <td>${esc(name)}</td>
-      <td><input type="date" lang="en-GB" id="clogDate_${i}" value="${rec.date ? esc(rec.date) : ''}"></td>
+      <td><input type="text" id="clogDate_${i}" placeholder="dd/mm/yyyy" pattern="\\d{2}/\\d{2}/\\d{4}" value="${rec.date ? esc(rec.date) : ''}"></td>
       <td><input type="text" id="clogUnit_${i}" value="${rec.unit ? esc(rec.unit) : ''}"></td>
       <td><input type="text" id="clogDepot_${i}" value="${rec.depot ? esc(rec.depot) : ''}"></td>
     </tr>`;
