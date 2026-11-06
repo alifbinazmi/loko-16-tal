@@ -5583,9 +5583,19 @@ const COMPONENT_LOG_ITEMS = [
   'Starter Motor', 'ECSS', 'WSR (Wheelslip Relay)', 'STPR & STRR', 'Auto Brake Valve', 'Independence Brake Valve', 'Expressor', 'Battery',
   'Traction Motor 1', 'Traction Motor 2', 'Traction Motor 3', 'Traction Motor 4', 'Traction Motor 5', 'Traction Motor 6',
 ];
-function componentLogTableHtml(asset) {
+const COMPONENT_LOG_ITEMS_25 = [
+  'Fuel Injector', 'TA (Temperature Acquator)', 'ETS (Engine Temperature Switch)', 'Fuel Pump', 'Lube Pump',
+  'Starter Motor', 'Auto Brake Valve', 'Independence Brake Valve', 'Expressor', 'Battery',
+  'Traction Motor 1', 'Traction Motor 2', 'Traction Motor 3', 'Traction Motor 4', 'Traction Motor 5', 'Traction Motor 6',
+];
+function componentLogItemsForClass(cls) {
+  if (cls === '23 Class' || cls === '24 Class') return COMPONENT_LOG_ITEMS;
+  if (cls === '25 Class') return COMPONENT_LOG_ITEMS_25;
+  return null;
+}
+function componentLogTableHtml(asset, items) {
   const log = DATA.assetComponentLog[asset] || {};
-  const rows = COMPONENT_LOG_ITEMS.map((name, i) => {
+  const rows = items.map((name, i) => {
     const rec = log[name] || {};
     return `<tr>
       <td>${esc(name)}</td>
@@ -5619,10 +5629,10 @@ function showAssetFlagPopup(asset, anchorEl) {
   document.getElementById('assetFlagNextOverhaul').value = (DATA.assetFlags[asset] && DATA.assetFlags[asset].nextOverhaul) || '';
   updateAssetFlagChoiceButtons();
   const assetClass = (DATA.locoPerf.find(l => l.asset === asset) || {}).class;
-  const showComponentLog = assetClass === '23 Class' || assetClass === '24 Class';
+  const componentItems = componentLogItemsForClass(assetClass);
   const componentSection = document.getElementById('assetFlagComponentSection');
-  if (showComponentLog) {
-    componentSection.innerHTML = componentLogTableHtml(asset);
+  if (componentItems) {
+    componentSection.innerHTML = componentLogTableHtml(asset, componentItems);
     componentSection.hidden = false;
     popup.classList.add('has-component-log');
   } else {
@@ -5658,10 +5668,12 @@ async function saveAssetFlag() {
     }
   });
   const componentSection = document.getElementById('assetFlagComponentSection');
-  if (!componentSection.hidden) {
+  const assetClass = (DATA.locoPerf.find(l => l.asset === asset) || {}).class;
+  const componentItems = componentLogItemsForClass(assetClass);
+  if (!componentSection.hidden && componentItems) {
     await saveMapKeyChange('assetComponentLog', map => {
       const entry = {};
-      COMPONENT_LOG_ITEMS.forEach((name, i) => {
+      componentItems.forEach((name, i) => {
         const date = document.getElementById(`clogDate_${i}`).value.trim();
         const unit = document.getElementById(`clogUnit_${i}`).value.trim();
         const depot = document.getElementById(`clogDepot_${i}`).value.trim();
