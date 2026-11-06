@@ -4336,19 +4336,21 @@ function dailyValueStyle(rawVal) {
   if (upper === 'INACTIVE') return 'background-color:#5B2A86;color:#5B2A86;border-color:#3E1D5E;font-weight:700;'; // inactive: deep purple, text hidden so cell reads as a plain color block
   if (/\bOH\b/.test(upper)) return `--cell-hue:${hashStringToInt(upper) % 360};font-weight:700;`; // OH: same hash color, just bold
 
-  // Colors carried over from the source Excel's conditional formatting rules
-  if (/^PE\b|^PE\d/.test(upper)) return 'background-color:#7FCDF2;color:#003A5C;border-color:#37AEE8;'; // PE examination codes: cyan
-  if (upper.includes('KVDT')) return 'background-color:#B6B6B6;color:#242424;border-color:#949494;'; // grey
-  if (/(^|[^A-Z])KLANG([^A-Z]|$)/.test(upper) && !upper.includes('PORT')) return 'background-color:#93DA79;color:#1B4D20;border-color:#6BC24E;'; // depot Klang: light green
-  if (/^\d{2}\/\d{2}$/.test(val)) return 'background-color:#F2E058;color:#4A3D00;border-color:#D9C520;'; // slash train-route codes: yellow
-  if (upper.includes('E&O') || /^(20|21|22|24)\s*\(/.test(upper)) return 'background-color:#F7AED1;color:#6E1A40;border-color:#ED94BE;'; // E&O trains + 20/21/22/24 route-segment codes: light magenta
-  if (val.includes('&')) return 'background-color:#F29999;color:#5C1414;border-color:#E86A6A;'; // locomotive pair (&): pink
-  if (/B\.?\s?(UTARA|SELATAN|TIMUR)/.test(upper)) return 'background-color:#B6B6B6;color:#242424;border-color:#949494;'; // Wilayah B.Utara/Selatan/Timur: grey
-  if (/SP\.?\s?TRAIN|SPECIAL\s?TRAIN/.test(upper)) return 'background-color:#2B2B2B;color:#FFFFFF;border-color:#000000;'; // Special Train: black
-  if (upper.includes('YAD PRAI') || upper.includes('YAD UTARA')) return 'background-color:#F2B063;color:#5C3200;border-color:#E89530;'; // yad lansiran: orange
-  if (upper === 'SHUTTLE SELATAN') return 'background-color:#5FCFC0;color:#0B4A43;border-color:#3DB3A3;'; // Shuttle Selatan: teal (distinct from hash-based S.* colors)
-  if (val.includes('+')) return 'background-color:#F28E8E;color:#6B0000;border-color:#E85C5C;'; // combined loco (+): light red
-  if (/^\d{3}-\d{3}$/.test(val)) return 'background-color:#F2B063;color:#5C3200;border-color:#E89530;'; // lansiran pattern (e.g. 472-471): orange
+  // One consistent color per duty-code group (13 groups)
+  if (/^PE\b|^PE\d/.test(upper)) return 'background-color:#7FCDF2;color:#003A5C;border-color:#37AEE8;'; // PE15/30/45/45S/180/360 — cyan
+  if (upper.includes('KVDT') || /B\.?\s?(UTARA|SELATAN|TIMUR)/.test(upper)) return 'background-color:#B6B6B6;color:#242424;border-color:#949494;'; // B.TIMUR/SELATAN/UTARA, KVDT — grey
+  if (/^SHUNT\./.test(upper)) return 'background-color:#8FC4F2;color:#073A66;border-color:#5FA3E0;'; // Shunt.XXX — blue
+  if (/^S\.\s?[A-Z]/.test(upper)) return 'background-color:#93DA79;color:#1B4D20;border-color:#6BC24E;'; // S.XXX (all depot/standby codes) — green
+  if (val === '26' || val === '27') return 'background-color:#E34948;color:#FFFFFF;border-color:#C23333;'; // Tren 26, 27 — red
+  if (val === '1' || val === '2') return 'background-color:#B9A6F2;color:#2E1065;border-color:#9C82E8;'; // Shuttle Tebrau code (1, 2) — violet
+  if (upper === 'SHUTTLE TEBRAU' || upper === 'SHUTTLE HYBRID' || val === '8001/8046') return 'background-color:#8C9EFF;color:#1A1F6B;border-color:#6B7FE8;'; // Shuttle Tebrau / Shuttle Hybrid (named) — indigo
+  if (/^L\/E\b/.test(upper)) return 'background-color:#9FB8C9;color:#1C3540;border-color:#7A9DB0;'; // L/E XXX — slate blue
+  if (/^\d{2}\/\d{2}$/.test(val)) return 'background-color:#F2E058;color:#4A3D00;border-color:#D9C520;'; // 55/56, 35/38, 34/39 — yellow
+  if (upper.includes('E&O') || /^(20|21|22|24)\s*\(/.test(upper)) return 'background-color:#F7AED1;color:#6E1A40;border-color:#ED94BE;'; // 20/21/22/24 (X-X) route-segment codes — magenta
+  if (val.includes('+') || val.includes('&') || /^\d{3}-\d{3}$/.test(val)) return 'background-color:#F28E8E;color:#6B0000;border-color:#E85C5C;'; // (XXX+XXX), (XXX-XXX) combined/lansiran pairs — light red
+  if (upper.includes('YAD PRAI') || upper.includes('YAD UTARA') || upper.includes('F.KLANG')) return 'background-color:#F2B063;color:#5C3200;border-color:#E89530;'; // Yad Utara, Yad Prai, F.Klang — orange
+  if (/SP\.?\s?TRAIN|SPECIAL\s?TRAIN/.test(upper) || upper === 'MYSAWASDEE' || upper === 'RTSM' || upper === 'JNK') return 'background-color:#2B2B2B;color:#FFFFFF;border-color:#000000;'; // Mysawasdee, SP.Train, RTSM, JNK — black
+  if (upper === 'SHUTTLE SELATAN') return 'background-color:#5FCFC0;color:#0B4A43;border-color:#3DB3A3;'; // Shuttle Selatan — teal (not one of the 13 requested groups)
 
   const hue = hashStringToInt(upper) % 360;
   return `--cell-hue:${hue}`;
