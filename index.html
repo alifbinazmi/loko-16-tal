@@ -650,7 +650,8 @@
   .asset-flag-component-table th, .asset-flag-component-table td { padding: 4px 6px; border-bottom: 1px solid var(--border-soft); text-align: left; }
   .asset-flag-component-table th { position: sticky; top: 0; background: var(--panel); font-weight: 700; color: var(--text-dim); text-transform: uppercase; font-size: 10px; letter-spacing: .03em; }
   .asset-flag-component-table input { width: 100%; min-width: 80px; font-size: 11.5px; padding: 3px 5px; }
-  .asset-flag-component-table td:first-child { white-space: normal; font-weight: 600; max-width: 130px; line-height: 1.25; }
+  .asset-flag-component-table td:first-child { white-space: nowrap; font-weight: 600; }
+  .asset-flag-component-table td.clog-wrap { white-space: normal; max-width: 140px; line-height: 1.25; }
   .daily-dropdown {
     position: fixed; z-index: 6000; min-width: 190px; max-width: 320px; max-height: 260px;
     overflow-y: auto; background: var(--panel); border: 1px solid var(--border-soft); border-radius: 8px;
@@ -5597,8 +5598,9 @@ function componentLogTableHtml(asset, items) {
   const log = DATA.assetComponentLog[asset] || {};
   const rows = items.map((name, i) => {
     const rec = log[name] || {};
+    const nameCellClass = name.startsWith('MVCC') ? ' class="clog-wrap"' : '';
     return `<tr>
-      <td>${esc(name)}</td>
+      <td${nameCellClass}>${esc(name)}</td>
       <td><input type="text" id="clogDate_${i}" placeholder="dd/mm/yyyy" pattern="\\d{2}/\\d{2}/\\d{4}" value="${rec.date ? esc(rec.date) : ''}"></td>
       <td><input type="text" id="clogUnit_${i}" value="${rec.unit ? esc(rec.unit) : ''}"></td>
       <td><input type="text" id="clogDepot_${i}" value="${rec.depot ? esc(rec.depot) : ''}"></td>
