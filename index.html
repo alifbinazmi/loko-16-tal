@@ -5580,7 +5580,7 @@ function assetFlagCellHtml(loco, isCurrentlyInactive) {
 }
 const COMPONENT_LOG_ITEMS = [
   'Fuel Injector', 'Lube Oil Temperature Switch', 'Water Temperature Switch', 'Fuel Pump', 'Lube Pump',
-  'Starter Motor', 'ECSS', 'STPR & STRR', 'Auto Brake Valve', 'Independence Brake Valve', 'Expressor', 'Battery',
+  'Starter Motor', 'ECSS', 'WSR (Wheelslip Relay)', 'STPR & STRR', 'Auto Brake Valve', 'Independence Brake Valve', 'Expressor', 'Battery',
   'Traction Motor 1', 'Traction Motor 2', 'Traction Motor 3', 'Traction Motor 4', 'Traction Motor 5', 'Traction Motor 6',
 ];
 function componentLogTableHtml(asset) {
@@ -5618,9 +5618,10 @@ function showAssetFlagPopup(asset, anchorEl) {
   document.getElementById('assetFlagLastOverhaul').value = (DATA.assetFlags[asset] && DATA.assetFlags[asset].lastOverhaul) || '';
   document.getElementById('assetFlagNextOverhaul').value = (DATA.assetFlags[asset] && DATA.assetFlags[asset].nextOverhaul) || '';
   updateAssetFlagChoiceButtons();
-  const isClass23 = (DATA.locoPerf.find(l => l.asset === asset) || {}).class === '23 Class';
+  const assetClass = (DATA.locoPerf.find(l => l.asset === asset) || {}).class;
+  const showComponentLog = assetClass === '23 Class' || assetClass === '24 Class';
   const componentSection = document.getElementById('assetFlagComponentSection');
-  if (isClass23) {
+  if (showComponentLog) {
     componentSection.innerHTML = componentLogTableHtml(asset);
     componentSection.hidden = false;
     popup.classList.add('has-component-log');
