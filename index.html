@@ -5599,7 +5599,7 @@ function componentLogTableHtml(asset, items) {
     const rec = log[name] || {};
     return `<tr>
       <td>${esc(name)}</td>
-      <td><input type="date" id="clogDate_${i}" value="${rec.date ? esc(rec.date) : ''}"></td>
+      <td><input type="date" lang="en-GB" id="clogDate_${i}" value="${rec.date ? esc(rec.date) : ''}"></td>
       <td><input type="text" id="clogUnit_${i}" value="${rec.unit ? esc(rec.unit) : ''}"></td>
       <td><input type="text" id="clogDepot_${i}" value="${rec.depot ? esc(rec.depot) : ''}"></td>
     </tr>`;
@@ -6331,7 +6331,7 @@ function openModal(view, editIdx = null, prefill = null) {
             ${DEPOT_OPTIONS.map(d => `<option value="${esc(d)}" ${(rec ? rec.depoh : (prefill && prefill.depoh)) === d ? 'selected' : ''}>${esc(d)}</option>`).join('')}
           </select>
         </div>
-        <div class="field"><label>Date Receive *</label><input type="date" id="f_dateReceive" value="${rec ? toDateInputValue(rec.dateReceive) : (prefill && prefill.dateReceive ? toDateInputValue(prefill.dateReceive) : '')}" required></div>
+        <div class="field"><label>Date Receive *</label><input type="date" lang="en-GB" id="f_dateReceive" value="${rec ? toDateInputValue(rec.dateReceive) : (prefill && prefill.dateReceive ? toDateInputValue(prefill.dateReceive) : '')}" required></div>
         <div class="field"><label>Time Receive</label><input type="time" id="f_timeReceive" value="${rec ? toTimeInputValue(rec.timeReceive) : ''}"></div>
         <div class="field full"><label>Failure Report by Operation</label><input type="text" id="f_reportByOps" value="${gv('reportByOps')}" placeholder="e.g. Loco Shutdown, Cant Start"></div>
         <div class="field full"><label>Failure Report by Depot</label><input type="text" id="f_reportByDepot" value="${gv('reportByDepot')}" placeholder="detail as reported by depot"></div>
@@ -6346,7 +6346,7 @@ function openModal(view, editIdx = null, prefill = null) {
 
         <div class="form-section-label">Close-out</div>
         <div class="field full"><label>Action Taken</label><textarea id="f_materialUsed" placeholder="Describe the action(s) taken to resolve this report" style="min-height:140px;">${gv('materialUsed')}</textarea></div>
-        <div class="field"><label>Date Released</label><input type="date" id="f_dateReleased" value="${rec ? toDateInputValue(rec.dateReleased) : ''}"></div>
+        <div class="field"><label>Date Released</label><input type="date" lang="en-GB" id="f_dateReleased" value="${rec ? toDateInputValue(rec.dateReleased) : ''}"></div>
         <div class="field"><label>Time Released</label><input type="time" id="f_timeReleased" value="${rec ? toTimeInputValue(rec.timeReleased) : ''}"></div>
         <div class="field"><label>Downtime</label><input type="text" id="f_downtime" value="${gv('downtime')}" placeholder="e.g. 05:00"></div>
         <div class="field"><label>CWO</label><input type="text" id="f_pwo" value="${gv('pwo')}" placeholder="e.g. CWO201954"></div>
@@ -6380,7 +6380,7 @@ function openModal(view, editIdx = null, prefill = null) {
     title = rec ? `Edit 16-TAL Accident #${esc(rec.bilKes)}` : 'New 16-TAL Accident';
     formHtml = `
       <div class="form-grid">
-        <div class="field"><label>Date of Incident *</label><input type="date" id="l_tarikh" value="${rec ? toDateInputValue(rec.tarikh) : ''}" required></div>
+        <div class="field"><label>Date of Incident *</label><input type="date" lang="en-GB" id="l_tarikh" value="${rec ? toDateInputValue(rec.tarikh) : ''}" required></div>
         <div class="field"><label>Train No.</label><input type="text" id="l_noTren" value="${gv('noTren')}" placeholder="e.g. 26NK"></div>
         <div class="field"><label>Location</label><input type="text" id="l_lokasi" value="${gv('lokasi')}" placeholder="e.g. Gemas-Bahau"></div>
         <div class="field"><label>Asset No. Involved</label><input type="number" id="l_stokereta" value="${gv('stokereta')}" placeholder="e.g. 25108"></div>
@@ -6403,7 +6403,7 @@ function openModal(view, editIdx = null, prefill = null) {
         <div class="field"><label>PE Type *</label>
           <select id="ph_type" required>${['PE15', 'PE30', 'PE45', 'PE45S', 'PE180', 'PE360'].map(t => `<option value="${t}" ${selectedType === t ? 'selected' : ''}>${t}</option>`).join('')}</select>
         </div>
-        <div class="field"><label>Date Completed *</label><input type="date" id="ph_date" value="${rec ? toDateInputValue(rec.date) : (prefill && prefill.date ? toDateInputValue(prefill.date) : '')}" required></div>
+        <div class="field"><label>Date Completed *</label><input type="date" lang="en-GB" id="ph_date" value="${rec ? toDateInputValue(rec.date) : (prefill && prefill.date ? toDateInputValue(prefill.date) : '')}" required></div>
         <div class="field"><label>Depot</label>
           <select id="ph_depot">
             <option value="">Select depot…</option>
