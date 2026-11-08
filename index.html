@@ -182,7 +182,7 @@
   #dashSlidesBtn:hover, #uswExportBtn:hover, #incidentExportBtn:hover, #langgarExportBtn:hover{box-shadow:0 6px 20px rgba(0,0,0,.35);}
 
   .content{flex:1;padding:22px 26px 40px 26px;overflow-x:hidden;}
-  .fleet-overview-sticky{position:sticky;top:var(--topbar-h,64px);z-index:15;background:var(--bg);padding-bottom:10px;}
+  .fleet-overview-sticky{position:sticky;top:0;z-index:15;background:var(--bg);padding-bottom:10px;}
   .view{display:none;}
   .view.active{display:block;animation:fadeIn .18s ease;}
   @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
@@ -1774,9 +1774,7 @@ function wireKpiCards() {
       const panel = canvas && canvas.closest('.chart-panel');
       if (panel) {
         panel.classList.add('kpi-hover');
-        if (card.dataset.kpi === 'incidents' || card.dataset.kpi === 'running') {
-          panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     });
     card.addEventListener('mouseleave', () => {
@@ -2406,11 +2404,6 @@ function refreshKpiGrid() {
     renderDashboard();
   }
 }
-function syncFleetOverviewStickyOffset() {
-  const topbar = document.querySelector('.topbar');
-  if (topbar) document.documentElement.style.setProperty('--topbar-h', topbar.offsetHeight + 'px');
-}
-window.addEventListener('resize', syncFleetOverviewStickyOffset);
 function renderDashboard() {
   const ssTotals = computeSubsystemTotals(countableFailures());
   const assetTotals = computeAssetTotals(countableFailures());
@@ -2441,7 +2434,6 @@ function renderDashboard() {
     </div>
   `;
   wireKpiCards();
-  syncFleetOverviewStickyOffset();
   drawDashboardCharts(ssTotals, assetTotals);
   const dashExportBtn = document.getElementById('dashExportBtn');
   if (dashExportBtn) dashExportBtn.addEventListener('click', exportDashboardToExcel);
