@@ -1771,7 +1771,12 @@ function wireKpiCards() {
     card.addEventListener('mouseenter', () => {
       const canvas = document.getElementById(chartId);
       const panel = canvas && canvas.closest('.chart-panel');
-      if (panel) panel.classList.add('kpi-hover');
+      if (panel) {
+        panel.classList.add('kpi-hover');
+        if (card.dataset.kpi === 'incidents' || card.dataset.kpi === 'running') {
+          panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
     });
     card.addEventListener('mouseleave', () => {
       const canvas = document.getElementById(chartId);
