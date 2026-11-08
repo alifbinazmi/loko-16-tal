@@ -4107,7 +4107,7 @@ function buildReliabilityKpiGridHtml() {
     </div>
     <div class="kpi" style="--accent:var(--red);">
       <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top Unscheduled</span>${reliabilityMonthSelectHtml('topUnscheduled', topMonth)}</div>
-      <div class="kpi-value">Asset ${esc(topAsset)}</div>
+      <div class="kpi-value">${esc(topAsset)}</div>
       <div class="kpi-foot">${topCount} unscheduled repair(s) &middot; ${topMonth ? monthLabel(topMonth) + ' \u00b7 from Unscheduled Reports' : 'highest in fleet, YTD \u00b7 from Unscheduled Reports'}</div>
       <div class="kpi-corner">${ICONS.reliability}</div>
     </div>
