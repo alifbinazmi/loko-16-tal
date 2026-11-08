@@ -4901,6 +4901,7 @@ function formatDaysDue(days) {
   return days < 0 ? `${rounded}d overdue` : `${rounded}d left`;
 }
 let peDepotSelectedMonth = null; // null = all months
+let peMonthlyCountSelectedMonth = null; // null = all months
 function peHistoryMonthsAvailable() {
   return [...new Set(DATA.peHistory.map(h => monthKey(h.date)).filter(Boolean))].sort();
 }
@@ -4959,6 +4960,9 @@ function renderMasterplan() {
   const totalOK = DATA.peSchedule.filter(r => r.status === 'OK').length;
   const totalActiveFleet = DATA.peSchedule.filter(r => r.status !== 'INACTIVE').length;
   const topDepotPe = topDepotForPe(peDepotSelectedMonth);
+  const peMonthlyCount = peMonthlyCountSelectedMonth
+    ? DATA.peHistory.filter(h => monthKey(h.date) === peMonthlyCountSelectedMonth).length
+    : DATA.peHistory.length;
 
   const typeColors = { PE15: null, PE45: '#A85D00', PE180: '#2F7EE0', PE360: '#B0202F' };
 
@@ -5057,6 +5061,17 @@ function renderMasterplan() {
         <div class="kpi-foot">${peDepotSelectedMonth ? esc(monthLabel(peDepotSelectedMonth)) : 'All months'} &middot; from PE History</div>
         <div class="kpi-corner">${ICONS.masterplan}</div>
       </div>
+      <div class="kpi" style="--accent:var(--blue)">
+        <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Total PE Completed</span>
+          <select id="peMonthlyCountSelect" onclick="event.stopPropagation()" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text);max-width:110px;">
+            <option value="">All months</option>
+            ${peHistoryMonthsAvailable().map(m => `<option value="${m}" ${peMonthlyCountSelectedMonth === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="kpi-value">${peMonthlyCount}<small>completed</small></div>
+        <div class="kpi-foot">${peMonthlyCountSelectedMonth ? esc(monthLabel(peMonthlyCountSelectedMonth)) : 'All months'} &middot; from PE History</div>
+        <div class="kpi-corner">${ICONS.masterplan}</div>
+      </div>
     </div>
 
     <div class="chart-grid" style="grid-template-columns:1fr;margin-top:14px;">
@@ -5083,6 +5098,11 @@ function renderMasterplan() {
   const peDepotMonthSelectEl = document.getElementById('peDepotMonthSelect');
   if (peDepotMonthSelectEl) peDepotMonthSelectEl.addEventListener('change', e => {
     peDepotSelectedMonth = e.target.value || null;
+    renderMasterplan();
+  });
+  const peMonthlyCountSelectEl = document.getElementById('peMonthlyCountSelect');
+  if (peMonthlyCountSelectEl) peMonthlyCountSelectEl.addEventListener('change', e => {
+    peMonthlyCountSelectedMonth = e.target.value || null;
     renderMasterplan();
   });
   wireRowClicks('peHistory');
