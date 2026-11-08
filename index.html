@@ -4958,7 +4958,6 @@ function renderMasterplan() {
   const totalOverdue = DATA.peSchedule.filter(r => r.status === 'OVERDUE').length;
   const totalOK = DATA.peSchedule.filter(r => r.status === 'OK').length;
   const totalActiveFleet = DATA.peSchedule.filter(r => r.status !== 'INACTIVE').length;
-  const achievedPct = Math.round((PE_PLAN_SUMMARY.actual / PE_PLAN_SUMMARY.plan) * 1000) / 10;
   const topDepotPe = topDepotForPe(peDepotSelectedMonth);
 
   const typeColors = { PE15: null, PE45: '#A85D00', PE180: '#2F7EE0', PE360: '#B0202F' };
@@ -5035,12 +5034,6 @@ function renderMasterplan() {
 
   document.getElementById('content').innerHTML = `
     <div class="kpi-grid">
-      <div class="kpi" style="--accent:${achievedPct >= 80 ? 'var(--green)' : achievedPct >= 50 ? 'var(--amber)' : 'var(--red)'}">
-        <div class="kpi-label">PE Plan Achievement</div>
-        <div class="kpi-value">${achievedPct}<small>%</small></div>
-        <div class="kpi-foot">${PE_PLAN_SUMMARY.actual} of ${PE_PLAN_SUMMARY.plan} planned PE tasks completed, YTD</div>
-        <div class="kpi-corner">${ICONS.masterplan}</div>
-      </div>
       <div class="kpi" style="--accent:var(--red)">
         <div class="kpi-label">Overdue for PE</div>
         <div class="kpi-value">${totalOverdue}<small>/ ${totalActiveFleet} locomotives</small></div>
@@ -5064,6 +5057,10 @@ function renderMasterplan() {
         <div class="kpi-foot">${peDepotSelectedMonth ? esc(monthLabel(peDepotSelectedMonth)) : 'All months'} &middot; from PE History</div>
         <div class="kpi-corner">${ICONS.masterplan}</div>
       </div>
+    </div>
+
+    <div class="chart-grid" style="grid-template-columns:1fr;margin-top:14px;">
+      <div class="chart-panel"><h3>Total PE by Month</h3><div class="chart-wrap"><canvas id="chartMasterplanPe"></canvas></div></div>
     </div>
 
     <div class="panel" style="margin-top:14px;">
@@ -5102,6 +5099,12 @@ function renderMasterplan() {
       if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
     });
   });
+
+  const masterplanPeMonthCounts = {};
+  DATA.peHistory.forEach(h => { if (h.date) { const k = monthKey(h.date); if (k) masterplanPeMonthCounts[k] = (masterplanPeMonthCounts[k] || 0) + 1; } });
+  const masterplanPeMonthKeys = Object.keys(masterplanPeMonthCounts).sort();
+  drawBarChart('chartMasterplanPe', masterplanPeMonthKeys.map(monthLabel), masterplanPeMonthKeys.map(k => masterplanPeMonthCounts[k]), '#2a78d6',
+    { rotate: false, showValues: true, yMin: 0, yMax: 50, ySteps: 10 });
 }
 
 /* ---------- Annual PE Plan (read-only whole-year wall chart) ---------- */
