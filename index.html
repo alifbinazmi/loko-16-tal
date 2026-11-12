@@ -522,10 +522,10 @@
   .ds-month-chip-value{font-family:var(--mono);font-weight:700;font-size:14px;color:var(--text);}
   .ds-month-chip.active .ds-month-chip-value{color:var(--amber);}
 
-  .subtab-row{display:flex;gap:6px;margin-bottom:12px;}
-  .subtab-btn{border:1px solid var(--border-soft);background:var(--panel);color:var(--text-dim);font-size:12px;font-weight:700;padding:7px 16px;border-radius:20px;cursor:pointer;transition:.15s;}
-  .subtab-btn:hover{border-color:var(--text-faint);}
-  .subtab-btn.active{background:var(--amber);color:#1a1200;border-color:var(--amber);}
+  .subtab-row{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--border);}
+  .subtab-btn{border:1px solid var(--border);border-bottom:none;background:var(--panel-2);color:var(--text-dim);font-size:14px;font-weight:700;padding:11px 28px;border-radius:10px 10px 0 0;cursor:pointer;margin-bottom:-1px;transition:.15s;}
+  .subtab-btn:hover{background:var(--panel-3);color:var(--text);}
+  .subtab-btn.active{background:var(--panel);color:var(--text);border-bottom:1px solid var(--panel);}
 
   /* ---------- Modal ---------- */
   .modal-backdrop{
@@ -1846,8 +1846,8 @@ const NAV = [
   { id: 'availability', label: 'Availability', icon: 'gauge', subtitle: 'Fleet availability (avg locomotives operational/day) vs KPI target, by month' },
   { id: 'masterplan', label: 'PE Plan 2026', icon: 'calendar', subtitle: 'Periodic Examination (PE) plan vs actual, and next-due schedule per locomotive' },
   { id: 'peAnnualPlan2026', label: 'Masterplan PE Schedule', icon: 'masterplan', subtitle: 'Whole-year PE plan by locomotive, week-by-week &mdash; exact data from the official Masterplan spreadsheet' },
-  { id: 'failures', label: 'Unscheduled Reports (USW)', icon: 'failure', subtitle: 'Component-level unscheduled repair log &middot; Unscheduled Report Details' },
-  { id: 'failuresCwbg', label: 'Unscheduled by CWBG', icon: 'wrench', subtitle: 'Unscheduled reports sent to CWBG for further repair' },
+  { id: 'failures', label: 'Unscheduled Reports (USW & CWBG)', icon: 'failure', subtitle: 'Component-level unscheduled repair log &middot; Unscheduled Report Details', group: ['failures', 'failuresCwbg'] },
+  { id: 'failuresCwbg', label: 'Unscheduled by CWBG', icon: 'wrench', subtitle: 'Unscheduled reports sent to CWBG for further repair', hidden: true },
   { id: 'subsystem', label: 'Sub-System Summary', icon: 'subsystem', subtitle: 'Live tally by sub-system &times; locomotive &mdash; syncs automatically with Unscheduled Reports' },
   { id: 'incidents', label: '16-TAL Incident & Accident', icon: 'incident', subtitle: 'Operational incident and accident log', group: ['incidents', 'langgar'] },
   { id: 'langgar', label: '16-TAL Accidents', icon: 'langgar', subtitle: 'Laporan insiden operasi di Wilayah Timur 2026', hidden: true },
@@ -3393,6 +3393,7 @@ function renderFailures(viewKey = 'failures') {
       <td><button type="button" class="btn btn-ghost failure-edit-btn" data-idx="${DATA.failures.indexOf(f)}" style="font-size:11px;padding:6px 10px;white-space:nowrap;">${ICONS.edit}Edit Report</button></td>
     </tr>`).join('') : `<tr class="empty-row"><td colspan="${columns.length}">No unscheduled reports match your filters.</td></tr>`;
   document.getElementById('content').innerHTML = `
+    ${subtabPillsHtml([{id:'failures',label:'USW'},{id:'failuresCwbg',label:'CWBG'}])}
     <div class="stat-grid">
       <div class="stat-card">
         <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top failing sub-system</span>
@@ -3467,6 +3468,7 @@ function renderFailures(viewKey = 'failures') {
       openModal('failures', Number(btn.dataset.idx));
     });
   });
+  wireSubtabPills();
 }
 
 /* ============================================================
@@ -3519,13 +3521,12 @@ function wireIncidentsMonthControl() {
     renderIncidents();
   });
 }
-function incidentSubtabPillsHtml() {
+function subtabPillsHtml(options) {
   return `<div class="subtab-row">
-    <button type="button" class="subtab-btn ${currentView === 'incidents' ? 'active' : ''}" data-subview="incidents">Incident</button>
-    <button type="button" class="subtab-btn ${currentView === 'langgar' ? 'active' : ''}" data-subview="langgar">Accident</button>
+    ${options.map(o => `<button type="button" class="subtab-btn ${currentView === o.id ? 'active' : ''}" data-subview="${o.id}">${o.label}</button>`).join('')}
   </div>`;
 }
-function wireIncidentSubtabPills() {
+function wireSubtabPills() {
   document.querySelectorAll('.subtab-btn').forEach(btn => {
     btn.addEventListener('click', () => setView(btn.dataset.subview));
   });
@@ -3617,7 +3618,7 @@ function renderIncidents() {
     </div>` : `<div class="row-count">No incidents recorded for ${monthLabelLong(month)}${hasSearch || countActiveFilters('incidents') ? ' matching your search/filters' : ''}.</div>`;
 
   document.getElementById('content').innerHTML = `
-    ${incidentSubtabPillsHtml()}
+    ${subtabPillsHtml([{id:'incidents',label:'Incident'},{id:'langgar',label:'Accident'}])}
     <div class="panel" style="margin-bottom:14px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:10px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -3647,7 +3648,7 @@ function renderIncidents() {
   wireTextExpanders();
   wireRowClicks('incidents', true);
   wireIncidentsMonthControl();
-  wireIncidentSubtabPills();
+  wireSubtabPills();
 }
 
 /* ============================================================
@@ -3685,7 +3686,7 @@ function renderLanggar() {
     </tr>`).join('') : `<tr class="empty-row"><td colspan="${LANGGAR_COLUMNS.length}">No 16-TAL Accident cases match your filters.</td></tr>`;
 
   document.getElementById('content').innerHTML = `
-    ${incidentSubtabPillsHtml()}
+    ${subtabPillsHtml([{id:'incidents',label:'Incident'},{id:'langgar',label:'Accident'}])}
     <div class="panel">
       <div class="table-scroll">
         <table>
@@ -3701,7 +3702,7 @@ function renderLanggar() {
   wireSortHeaders();
   wireFilterButtons();
   wireRowClicks('langgar', true);
-  wireIncidentSubtabPills();
+  wireSubtabPills();
 }
 
 /* ============================================================
