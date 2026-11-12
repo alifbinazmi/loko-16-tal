@@ -6628,7 +6628,7 @@ async function sendToCwbg(view, idx) {
   }
   const ok = await updateReport(view, idx);
   if (!ok) return;
-  openModal(view, null, { asset: parent.asset, depoh: parent.depoh, parentRid: parent.rid });
+  openModal(view, null, { asset: parent.asset, depoh: parent.depoh, parentRid: parent.rid, reportByOps: parent.reportByOps, reportByDepot: parent.reportByDepot });
 }
 
 async function undoSendToCwbg(view, idx) {
