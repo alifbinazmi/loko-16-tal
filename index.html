@@ -395,6 +395,7 @@
 
   .open-report-bar{display:inline-block;width:4px;height:14px;border-radius:2px;background:#E5484D;margin-right:6px;vertical-align:middle;}
   .cwbg-sent-bar{display:inline-block;width:4px;height:14px;border-radius:2px;background:var(--blue);margin-right:6px;vertical-align:middle;}
+  .pe-overdue-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 6px rgba(176,32,47,.7);margin-right:6px;vertical-align:middle;}
 
   .row-count{padding:10px 16px;font-size:11px;color:var(--text-faint);font-family:var(--mono);border-top:1px solid var(--border-soft);}
 
@@ -3374,9 +3375,11 @@ function renderFailures(viewKey = 'failures') {
     ? [...FAILURE_COLUMNS.slice(0, -1).filter(c => c.key !== 'pwo' && c.key !== 'peInterval'), CWBG_FINDINGS_COLUMN, FAILURE_COLUMNS[FAILURE_COLUMNS.length - 1]]
     : FAILURE_COLUMNS;
 
-  const body = rows.length ? rows.map(f => `
+  const body = rows.length ? rows.map(f => {
+    const peOverdue = DATA.peSchedule.some(r => r.asset === f.asset && r.status === 'OVERDUE');
+    return `
     <tr data-idx="${DATA.failures.indexOf(f)}">
-      <td class="num">${f.cwbgChildRid ? '<span class="cwbg-sent-bar"></span>' : (f.dateReleased ? '' : '<span class="open-report-bar"></span>')}${esc(f.asset)}</td>
+      <td class="num">${peOverdue ? '<span class="pe-overdue-dot" title="Overdue for PE"></span>' : ''}${f.cwbgChildRid ? '<span class="cwbg-sent-bar"></span>' : (f.dateReleased ? '' : '<span class="open-report-bar"></span>')}${esc(f.asset)}</td>
       <td class="dim">${fmtDate(f.dateReceive)}</td>
       ${viewKey === 'failuresCwbg' ? '' : peIntervalCellHtml(f, DATA.failures.indexOf(f))}
       <td>${esc(f.depoh)}</td>
@@ -3393,7 +3396,8 @@ function renderFailures(viewKey = 'failures') {
       ${remarkCellHtml(f)}
       ${viewKey === 'failuresCwbg' ? cwbgFindingsCellHtml(f, DATA.failures.indexOf(f)) : ''}
       <td><button type="button" class="btn btn-ghost failure-edit-btn" data-idx="${DATA.failures.indexOf(f)}" style="font-size:11px;padding:6px 10px;white-space:nowrap;">${ICONS.edit}Edit Report</button></td>
-    </tr>`).join('') : `<tr class="empty-row"><td colspan="${columns.length}">No unscheduled reports match your filters.</td></tr>`;
+    </tr>`;
+  }).join('') : `<tr class="empty-row"><td colspan="${columns.length}">No unscheduled reports match your filters.</td></tr>`;
   document.getElementById('content').innerHTML = `
     ${subtabPillsHtml([{id:'failures',label:'USW'},{id:'failuresCwbg',label:'CWBG'}])}
     <div class="stat-grid">
