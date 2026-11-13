@@ -3772,7 +3772,8 @@ function renderProject16Tal() {
         </select>
         <span class="badge ${badgeClass}" style="margin-left:6px;">${esc(status)}</span>
       </td>
-      <td><input type="text" id="proj_date_${asset}" placeholder="dd/mm/yyyy" pattern="\\d{2}/\\d{2}/\\d{4}" value="${rec.date ? esc(rec.date) : ''}"></td>
+      <td><input type="text" id="proj_dateStarted_${asset}" placeholder="dd/mm/yyyy" pattern="\\d{2}/\\d{2}/\\d{4}" value="${rec.dateStarted ? esc(rec.dateStarted) : ''}"></td>
+      <td><input type="text" id="proj_dateCompleted_${asset}" placeholder="dd/mm/yyyy" pattern="\\d{2}/\\d{2}/\\d{4}" value="${rec.dateCompleted ? esc(rec.dateCompleted) : ''}"></td>
       <td><input type="text" id="proj_remark_${asset}" value="${rec.remark ? esc(rec.remark) : ''}"></td>
     </tr>`;
   }).join('');
@@ -3783,7 +3784,7 @@ function renderProject16Tal() {
       <div style="padding:14px 16px;font-weight:700;font-size:15px;">${esc(proj.title)}</div>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>Asset</th><th>Status</th><th>Date</th><th>Remark</th></tr></thead>
+          <thead><tr><th>Asset</th><th>Status</th><th>Date Started</th><th>Date Completed</th><th>Remark</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -3800,9 +3801,10 @@ async function saveProject16Tal() {
   await saveMapKeyChange('project16tal', map => {
     assets.forEach(asset => {
       const status = document.getElementById(`proj_status_${asset}`).value;
-      const date = document.getElementById(`proj_date_${asset}`).value.trim();
+      const dateStarted = document.getElementById(`proj_dateStarted_${asset}`).value.trim();
+      const dateCompleted = document.getElementById(`proj_dateCompleted_${asset}`).value.trim();
       const remark = document.getElementById(`proj_remark_${asset}`).value.trim();
-      if (status !== 'Not Started' || date || remark) map[asset] = { status, date, remark };
+      if (status !== 'Not Started' || dateStarted || dateCompleted || remark) map[asset] = { status, dateStarted, dateCompleted, remark };
       else delete map[asset];
     });
   });
