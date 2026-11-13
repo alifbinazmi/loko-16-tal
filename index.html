@@ -3341,6 +3341,7 @@ const FAILURE_COLUMNS = [
 let failuresDepotSelectedMonth = { failures: null, failuresCwbg: null };
 let failuresTopSubsystemSelectedMonth = { failures: null, failuresCwbg: null };
 let failuresTopAssetSelectedMonth = { failures: null, failuresCwbg: null };
+let failuresPeOverdueSelectedMonth = { failures: null, failuresCwbg: null };
 function renderFailures(viewKey = 'failures') {
   const baseRows = viewKey === 'failuresCwbg' ? DATA.failures.filter(f => f.parentRid) : DATA.failures.filter(f => !f.parentRid);
   let rows = baseRows
@@ -3370,6 +3371,11 @@ function renderFailures(viewKey = 'failures') {
   const depotScopedRows = depotSelMonth ? statsRows.filter(f => monthKey(f.dateReceive) === depotSelMonth) : statsRows;
   const depotTotals = computeDepotTotals(depotScopedRows);
   const topDepot = Object.entries(depotTotals).sort((a, b) => b[1] - a[1])[0] || ['\u2014', 0];
+  const peOverdueSelMonth = failuresPeOverdueSelectedMonth[viewKey] || null;
+  const peOverdueScopedRows = peOverdueSelMonth ? statsRows.filter(f => monthKey(f.dateReceive) === peOverdueSelMonth) : statsRows;
+  const peOverdueCount = peOverdueScopedRows.filter(f => DATA.peSchedule.some(r => r.asset === f.asset && r.status === 'OVERDUE')).length;
+  const peOverdueTotal = peOverdueScopedRows.length;
+  const peOverduePct = peOverdueTotal ? Math.round((peOverdueCount / peOverdueTotal) * 100) : 0;
   const CWBG_FINDINGS_COLUMN = { key: 'cwbgFindings', label: 'CWBG Findings' };
   const columns = viewKey === 'failuresCwbg'
     ? [...FAILURE_COLUMNS.slice(0, -1).filter(c => c.key !== 'pwo' && c.key !== 'peInterval'), CWBG_FINDINGS_COLUMN, FAILURE_COLUMNS[FAILURE_COLUMNS.length - 1]]
@@ -3400,7 +3406,7 @@ function renderFailures(viewKey = 'failures') {
   }).join('') : `<tr class="empty-row"><td colspan="${columns.length}">No unscheduled reports match your filters.</td></tr>`;
   document.getElementById('content').innerHTML = `
     ${subtabPillsHtml([{id:'failures',label:'USW'},{id:'failuresCwbg',label:'CWBG'}])}
-    <div class="stat-grid">
+    <div class="stat-grid" style="grid-template-columns:repeat(${viewKey === 'failures' ? 4 : 3},1fr);">
       <div class="stat-card">
         <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top failing sub-system</span>
           <select id="failuresTopSubsystemMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 6px;font-size:10.5px;color:var(--text);max-width:100px;text-transform:none;font-weight:400;letter-spacing:normal;">
@@ -3428,6 +3434,16 @@ function renderFailures(viewKey = 'failures') {
         </div>
         <div class="val">${esc(topDepot[0])} <span class="n">(${topDepot[1]})</span></div>
       </div>
+      ${viewKey === 'failures' ? `
+      <div class="stat-card">
+        <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Failures with overdue PE</span>
+          <select id="failuresPeOverdueMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 6px;font-size:10.5px;color:var(--text);max-width:100px;text-transform:none;font-weight:400;letter-spacing:normal;">
+            <option value="">All months</option>
+            ${depotMonthsAvailable.map(m => `<option value="${m}" ${peOverdueSelMonth === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="val">${peOverdueCount} <span class="n">/ ${peOverdueTotal} (${peOverduePct}%)</span></div>
+      </div>` : ''}
     </div>
     <div class="panel">
       <div class="table-scroll">
@@ -3458,6 +3474,11 @@ function renderFailures(viewKey = 'failures') {
   const topAssetMonthSelectEl = document.getElementById('failuresTopAssetMonthSelect');
   if (topAssetMonthSelectEl) topAssetMonthSelectEl.addEventListener('change', e => {
     failuresTopAssetSelectedMonth[viewKey] = e.target.value || null;
+    renderFailures(viewKey);
+  });
+  const peOverdueMonthSelectEl = document.getElementById('failuresPeOverdueMonthSelect');
+  if (peOverdueMonthSelectEl) peOverdueMonthSelectEl.addEventListener('change', e => {
+    failuresPeOverdueSelectedMonth[viewKey] = e.target.value || null;
     renderFailures(viewKey);
   });
   document.querySelectorAll('.cwbg-link-btn').forEach(btn => {
