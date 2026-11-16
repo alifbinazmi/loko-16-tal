@@ -6497,14 +6497,14 @@ function openModal(view, editIdx = null, prefill = null) {
     formHtml = `
       <div class="form-grid">
         <div class="field"><label>No. Asset *</label><input type="number" id="f_asset" value="${gv('asset')}" placeholder="e.g. 25204" required></div>
-        <div class="field"><label>Depoh</label>
-          <select id="f_depoh">
+        <div class="field"><label>Depoh *</label>
+          <select id="f_depoh" required>
             <option value="">Select depot…</option>
             ${DEPOT_OPTIONS.map(d => `<option value="${esc(d)}" ${(rec ? rec.depoh : (prefill && prefill.depoh)) === d ? 'selected' : ''}>${esc(d)}</option>`).join('')}
           </select>
         </div>
         <div class="field"><label>Date Receive *</label><input type="date" lang="en-GB" id="f_dateReceive" value="${rec ? toDateInputValue(rec.dateReceive) : (prefill && prefill.dateReceive ? toDateInputValue(prefill.dateReceive) : '')}" required></div>
-        <div class="field"><label>Time Receive</label><input type="time" id="f_timeReceive" value="${rec ? toTimeInputValue(rec.timeReceive) : ''}"></div>
+        <div class="field"><label>Time Receive *</label><input type="time" id="f_timeReceive" required value="${rec ? toTimeInputValue(rec.timeReceive) : ''}"></div>
         <div class="field full"><label>Failure Report by Operation</label><input type="text" id="f_reportByOps" value="${gv('reportByOps')}" placeholder="e.g. Loco Shutdown, Cant Start"></div>
         <div class="field full"><label>Failure Report by Depot</label><input type="text" id="f_reportByDepot" value="${gv('reportByDepot')}" placeholder="detail as reported by depot"></div>
         <div class="field full"><label>Sub-System *</label>
@@ -6630,6 +6630,23 @@ function openModal(view, editIdx = null, prefill = null) {
       document.getElementById(id).addEventListener('change', updatePeHistorySaveState);
     });
     updatePeHistorySaveState();
+  }
+
+  if (view === 'failures') {
+    const saveBtn = document.getElementById('modalSaveBtn');
+    const updateFailuresSaveState = () => {
+      const asset = document.getElementById('f_asset').value.trim();
+      const depoh = document.getElementById('f_depoh').value;
+      const dateReceive = document.getElementById('f_dateReceive').value;
+      const timeReceive = document.getElementById('f_timeReceive').value;
+      const subSystem = document.getElementById('f_subSystem').value;
+      saveBtn.disabled = !(asset && depoh && dateReceive && timeReceive && subSystem);
+    };
+    ['f_asset', 'f_depoh', 'f_dateReceive', 'f_timeReceive', 'f_subSystem'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updateFailuresSaveState);
+      document.getElementById(id).addEventListener('change', updateFailuresSaveState);
+    });
+    updateFailuresSaveState();
   }
 
   if (!rec) {
