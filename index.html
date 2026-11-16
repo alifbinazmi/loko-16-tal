@@ -172,6 +172,7 @@
   }
   .btn:hover{background:var(--panel-3);border-color:var(--text-faint);}
   .btn:active{transform:scale(.97);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
   .btn-primary{background:var(--amber);color:#1A1400;border-color:var(--amber);}
   .btn-primary:hover{background:#ffb84f;border-color:#ffb84f;}
   .btn-success{background:var(--green);color:#06170D;border-color:var(--green);}
@@ -6616,6 +6617,20 @@ function openModal(view, editIdx = null, prefill = null) {
   if (sendCwbgBtn) sendCwbgBtn.addEventListener('click', () => sendToCwbg(view, editIdx));
   const undoCwbgBtn = document.getElementById('modalUndoCwbgBtn');
   if (undoCwbgBtn) undoCwbgBtn.addEventListener('click', () => undoSendToCwbg(view, editIdx));
+
+  if (view === 'peHistory') {
+    const saveBtn = document.getElementById('modalSaveBtn');
+    const updatePeHistorySaveState = () => {
+      const asset = document.getElementById('ph_asset').value.trim();
+      const date = document.getElementById('ph_date').value;
+      saveBtn.disabled = !(asset && date);
+    };
+    ['ph_asset', 'ph_date'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updatePeHistorySaveState);
+      document.getElementById(id).addEventListener('change', updatePeHistorySaveState);
+    });
+    updatePeHistorySaveState();
+  }
 
   if (!rec) {
     const todayField = document.getElementById('f_dateReceive') || document.getElementById('l_tarikh');
