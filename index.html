@@ -3323,6 +3323,7 @@ const FAILURE_COLUMNS = [
   { key: 'asset', label: 'Asset' },
   { key: 'dateReceive', label: 'Date Rcvd' },
   { key: 'peInterval', label: 'PE Interval' },
+  { key: 'kmSincePrevFailure', label: 'KM Since Previous Failure' },
   { key: 'depoh', label: 'Depoh' },
   { key: 'reportByOps', label: 'Report' },
   { key: 'subSystem', label: 'Sub-System' },
@@ -3341,6 +3342,7 @@ let failuresDepotSelectedMonth = { failures: null, failuresCwbg: null };
 let failuresTopSubsystemSelectedMonth = { failures: null, failuresCwbg: null };
 let failuresTopAssetSelectedMonth = { failures: null, failuresCwbg: null };
 let failuresPeOverdueSelectedMonth = { failures: null, failuresCwbg: null };
+let failuresMkbfSelectedMonth = { failures: null, failuresCwbg: null };
 function renderFailures(viewKey = 'failures') {
   const baseRows = viewKey === 'failuresCwbg' ? DATA.failures.filter(f => f.parentRid) : DATA.failures.filter(f => !f.parentRid);
   let rows = baseRows
@@ -3375,9 +3377,14 @@ function renderFailures(viewKey = 'failures') {
   const peOverdueCount = peOverdueScopedRows.filter(f => DATA.peSchedule.some(r => r.asset === f.asset && r.status === 'OVERDUE')).length;
   const peOverdueTotal = peOverdueScopedRows.length;
   const peOverduePct = peOverdueTotal ? Math.round((peOverdueCount / peOverdueTotal) * 100) : 0;
+  const kmSincePrevMap = viewKey === 'failures' ? kmSincePreviousFailureMap() : null;
+  const mkbfSelMonth = failuresMkbfSelectedMonth[viewKey] || null;
+  const mkbfScopedRows = mkbfSelMonth ? statsRows.filter(f => monthKey(f.dateReceive) === mkbfSelMonth) : statsRows;
+  const mkbfIntervals = kmSincePrevMap ? mkbfScopedRows.map(f => kmSincePrevMap[f.rid]).filter(v => v != null) : [];
+  const mkbfAvgKm = mkbfIntervals.length ? mkbfIntervals.reduce((s, v) => s + v, 0) / mkbfIntervals.length : null;
   const CWBG_FINDINGS_COLUMN = { key: 'cwbgFindings', label: 'CWBG Findings' };
   const columns = viewKey === 'failuresCwbg'
-    ? [...FAILURE_COLUMNS.slice(0, -1).filter(c => c.key !== 'pwo' && c.key !== 'peInterval'), CWBG_FINDINGS_COLUMN, FAILURE_COLUMNS[FAILURE_COLUMNS.length - 1]]
+    ? [...FAILURE_COLUMNS.slice(0, -1).filter(c => c.key !== 'pwo' && c.key !== 'peInterval' && c.key !== 'kmSincePrevFailure'), CWBG_FINDINGS_COLUMN, FAILURE_COLUMNS[FAILURE_COLUMNS.length - 1]]
     : FAILURE_COLUMNS;
 
   const body = rows.length ? rows.map(f => {
@@ -3387,6 +3394,7 @@ function renderFailures(viewKey = 'failures') {
       <td class="num">${peOverdue ? '<span class="pe-overdue-dot" title="Overdue for PE"></span>' : ''}${f.cwbgChildRid ? '<span class="cwbg-sent-bar"></span>' : (f.dateReleased ? '' : '<span class="open-report-bar"></span>')}${esc(f.asset)}</td>
       <td class="dim">${fmtDate(f.dateReceive)}</td>
       ${viewKey === 'failuresCwbg' ? '' : peIntervalCellHtml(f, DATA.failures.indexOf(f))}
+      ${viewKey === 'failuresCwbg' ? '' : `<td class="dim">${kmSincePrevMap[f.rid] == null ? '<span class="dim" title="Insufficient history">&mdash;</span>' : fmtKm(kmSincePrevMap[f.rid]) + ' km'}</td>`}
       <td>${esc(f.depoh)}</td>
       ${reportCellHtml(f, DATA.failures.indexOf(f))}
       <td><span class="badge badge-other">${esc(f.subSystem)}</span></td>
@@ -3405,7 +3413,7 @@ function renderFailures(viewKey = 'failures') {
   }).join('') : `<tr class="empty-row"><td colspan="${columns.length}">No unscheduled reports match your filters.</td></tr>`;
   document.getElementById('content').innerHTML = `
     ${subtabPillsHtml([{id:'failures',label:'USW'},{id:'failuresCwbg',label:'CWBG'}])}
-    <div class="stat-grid" style="grid-template-columns:repeat(${viewKey === 'failures' ? 4 : 3},1fr);">
+    <div class="stat-grid" style="grid-template-columns:repeat(${viewKey === 'failures' ? 5 : 3},1fr);">
       <div class="stat-card">
         <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top failing sub-system</span>
           <select id="failuresTopSubsystemMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 6px;font-size:10.5px;color:var(--text);max-width:100px;text-transform:none;font-weight:400;letter-spacing:normal;">
@@ -3442,6 +3450,15 @@ function renderFailures(viewKey = 'failures') {
           </select>
         </div>
         <div class="val">${peOverdueCount} <span class="n">/ ${peOverdueTotal} (${peOverduePct}%)</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Avg KM Between Failures</span>
+          <select id="failuresMkbfMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 6px;font-size:10.5px;color:var(--text);max-width:100px;text-transform:none;font-weight:400;letter-spacing:normal;">
+            <option value="">All months</option>
+            ${depotMonthsAvailable.map(m => `<option value="${m}" ${mkbfSelMonth === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="val">${mkbfAvgKm === null ? '&mdash;' : fmtKm(mkbfAvgKm) + ' km'}</div>
       </div>` : ''}
     </div>
     <div class="panel">
@@ -3478,6 +3495,11 @@ function renderFailures(viewKey = 'failures') {
   const peOverdueMonthSelectEl = document.getElementById('failuresPeOverdueMonthSelect');
   if (peOverdueMonthSelectEl) peOverdueMonthSelectEl.addEventListener('change', e => {
     failuresPeOverdueSelectedMonth[viewKey] = e.target.value || null;
+    renderFailures(viewKey);
+  });
+  const mkbfMonthSelectEl = document.getElementById('failuresMkbfMonthSelect');
+  if (mkbfMonthSelectEl) mkbfMonthSelectEl.addEventListener('change', e => {
+    failuresMkbfSelectedMonth[viewKey] = e.target.value || null;
     renderFailures(viewKey);
   });
   document.querySelectorAll('.cwbg-link-btn').forEach(btn => {
@@ -4188,6 +4210,20 @@ function mkbfCellHtml(m) {
   else if (m.currentRunKm != null) sub = `&#9656; ${fmtKm(m.currentRunKm)} km since last repair`;
   else if (!m.hasFailures) sub = 'No failures recorded';
   return `${main}${sub ? `<div class="dim" style="font-size:10.5px;margin-top:2px;">${sub}</div>` : ''}`;
+}
+function kmSincePreviousFailureMap() {
+  const map = {};
+  const byAsset = {};
+  DATA.failures.filter(f => !f.parentRid).forEach(f => {
+    (byAsset[f.asset] = byAsset[f.asset] || []).push(f);
+  });
+  Object.values(byAsset).forEach(group => {
+    group.sort((a, b) => (parseFailureDateTime(a.dateReceive, a.timeReceive) || 0) - (parseFailureDateTime(b.dateReceive, b.timeReceive) || 0));
+    for (let i = 0; i < group.length; i++) {
+      map[group[i].rid] = (i === 0 || !group[i - 1].dateReleased) ? null : computeKmBetweenDates(group[i].asset, group[i - 1].dateReleased, group[i].dateReceive);
+    }
+  });
+  return map;
 }
 function unscheduledCountForAsset(asset, yyyyMm) {
   return DATA.failures.filter(f => f.asset === asset && !f.parentRid && (!yyyyMm || monthKey(f.dateReceive) === yyyyMm)).length;
