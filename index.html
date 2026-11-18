@@ -4117,6 +4117,7 @@ const LOCO_PERF_COLUMNS = [
   { key: 'pe', label: 'Periodic Exam' },
   { key: 'mileage', label: 'Mileage (km)' },
   { key: 'rank', label: 'Ranking' },
+  { key: 'mkbf', label: 'MKBF (km)' },
 ];
 function rankGroupByPerf(group) {
   const posOf = (sorted, asset) => sorted.findIndex(x => x.asset === asset) + 1;
@@ -4159,6 +4160,34 @@ function computeMkbfKm(yyyyMm) {
   const failures = failuresForMonth(yyyyMm);
   if (!failures) return null;
   return Math.round(dailyStatusFleetKmForMonth(yyyyMm) / failures);
+}
+function computeAssetMkbf(asset) {
+  const fails = DATA.failures
+    .filter(f => f.asset === asset && !f.parentRid)
+    .slice()
+    .sort((a, b) => (parseFailureDateTime(a.dateReceive, a.timeReceive) || 0) - (parseFailureDateTime(b.dateReceive, b.timeReceive) || 0));
+  const intervals = [];
+  for (let i = 0; i < fails.length - 1; i++) {
+    if (!fails[i].dateReleased) continue;
+    intervals.push(computeKmBetweenDates(asset, fails[i].dateReleased, fails[i + 1].dateReceive));
+  }
+  const mkbfKm = intervals.length ? Math.round((intervals.reduce((s, v) => s + v, 0) / intervals.length) * 10) / 10 : null;
+  const last = fails[fails.length - 1];
+  let currentRunKm = null, underRepair = false;
+  if (last) {
+    if (!last.dateReleased) underRepair = true;
+    else currentRunKm = computeKmBetweenDates(asset, last.dateReleased, todayDateStr());
+  }
+  return { mkbfKm, intervalCount: intervals.length, currentRunKm, underRepair, hasFailures: fails.length > 0 };
+}
+function mkbfCellHtml(m) {
+  if (!m) return '&mdash;';
+  const main = m.intervalCount > 0 ? `${fmtKm(m.mkbfKm)} km` : '<span class="dim" title="Needs 2+ repaired failures">&mdash;</span>';
+  let sub = '';
+  if (m.underRepair) sub = 'Under repair';
+  else if (m.currentRunKm != null) sub = `&#9656; ${fmtKm(m.currentRunKm)} km since last repair`;
+  else if (!m.hasFailures) sub = 'No failures recorded';
+  return `${main}${sub ? `<div class="dim" style="font-size:10.5px;margin-top:2px;">${sub}</div>` : ''}`;
 }
 function unscheduledCountForAsset(asset, yyyyMm) {
   return DATA.failures.filter(f => f.asset === asset && !f.parentRid && (!yyyyMm || monthKey(f.dateReceive) === yyyyMm)).length;
@@ -4350,7 +4379,7 @@ function renderReliability() {
 
   const rankGroup = reliabilityClassFilter === 'all' ? locoPerfEffectiveRows : locoPerfEffectiveRows.filter(l => l.class === reliabilityClassFilter);
   const rankByAsset = rankByAssetForGroup(rankGroup);
-  locoPerfEffectiveRows.forEach(l => { l.rank = rankByAsset[l.asset] || null; });
+  locoPerfEffectiveRows.forEach(l => { l.rank = rankByAsset[l.asset] || null; l.mkbf = computeAssetMkbf(l.asset); });
 
   const locoClasses = [...new Set(DATA.locoPerf.map(l => l.class))].sort();
   const trackedPerfMonths = getAllTrackedMonths();
@@ -4367,6 +4396,7 @@ function renderReliability() {
       <td class="num${r.pe ? ' pe-drill' : ''}"${r.pe ? ` data-asset="${esc(r.asset)}" style="cursor:pointer;color:var(--blue);text-decoration:underline;" title="View this locomotive's PE History"` : ''}>${r.pe}</td>
       <td class="num">${r.mileage ? r.mileage.toLocaleString(undefined, { maximumFractionDigits: 1 }) : '&mdash;'}</td>
       <td class="num">${r.rank ? '#' + r.rank : '&mdash;'}</td>
+      <td class="num">${mkbfCellHtml(r.mkbf)}</td>
     </tr>`).join('') : `<tr class="empty-row"><td colspan="${LOCO_PERF_COLUMNS.length}">No locomotives match your filters.</td></tr>`;
 
   document.getElementById('content').innerHTML = `
@@ -4410,7 +4440,7 @@ function renderReliability() {
           <div class="table-scroll compact">
             <table>
               <thead><tr>
-                ${LOCO_PERF_COLUMNS.map(c => columnHeaderHtml('locoPerf', c.key, c.label, ['unscheduled', 'pe', 'mileage', 'rank'].includes(c.key) ? { noFilter: true } : undefined)).join('')}
+                ${LOCO_PERF_COLUMNS.map(c => columnHeaderHtml('locoPerf', c.key, c.label, c.key === 'mkbf' ? { noFilter: true, noSort: true } : (['unscheduled', 'pe', 'mileage', 'rank'].includes(c.key) ? { noFilter: true } : undefined))).join('')}
               </tr></thead>
               <tbody>${locoBody}</tbody>
             </table>
@@ -4935,24 +4965,36 @@ function dutyCodeKmReferencePanelHtml() {
       <div class="row-count">Every duty code recognized by the automatic Total KM formula, with the distance it contributes per day. Codes not listed here contribute 0km.</div>
     </div>`;
 }
+function kmForDay(asset, dateStr) {
+  const raw = (DATA.dailyStatus[`${asset}|${dateStr}`] || '').trim().toLowerCase();
+  if (!raw) return 0;
+  const rule = KM_RATE_RULES.find(r => r.test(raw));
+  return rule ? rule.km : 0;
+}
 function computeMonthlyKm(asset, yyyyMm) {
   const cacheKey = `${asset}|${yyyyMm}|${_availCacheVersion}`;
   if (_monthlyKmCache.has(cacheKey)) return _monthlyKmCache.get(cacheKey);
   const nDays = daysInMonthCount(yyyyMm);
-  const vals = [];
+  let total = 0;
   for (let d = 1; d <= nDays; d++) {
     const dateStr = `${yyyyMm}-${String(d).padStart(2, '0')}`;
-    const raw = DATA.dailyStatus[`${asset}|${dateStr}`] || '';
-    if (raw.trim() !== '') vals.push(raw.toLowerCase());
+    total += kmForDay(asset, dateStr);
   }
-  let total = 0;
-  KM_RATE_RULES.forEach(rule => {
-    const count = vals.filter(rule.test).length;
-    if (count > 0) total += count * rule.km;
-  });
   const result = Math.round(total * 10) / 10;
   _monthlyKmCache.set(cacheKey, result);
   return result;
+}
+function computeKmBetweenDates(asset, startDateStr, endDateStr) {
+  const start = toDateInputValue(startDateStr);
+  const end = toDateInputValue(endDateStr);
+  if (!start || !end || start >= end) return 0;
+  let total = 0;
+  let d = shiftDateStr(start, 1);
+  while (d <= end) {
+    total += kmForDay(asset, d);
+    d = shiftDateStr(d, 1);
+  }
+  return Math.round(total * 10) / 10;
 }
 function fmtKm(n) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
