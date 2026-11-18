@@ -242,7 +242,8 @@
   .stat-card .val .n{font-family:var(--mono);color:var(--indigo);}
 
   .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-  .reliability-split{display:grid;grid-template-columns:0.7fr 1.3fr;gap:14px;align-items:stretch;}
+  .reliability-split{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;}
+  .reliability-split.wide-right{grid-template-columns:0.7fr 1.3fr;}
   .chart-panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px 18px 14px 18px;box-shadow:0 1px 2px rgba(23,27,39,.04), 0 6px 16px -10px rgba(23,27,39,.12);transition:border-color .12s,transform .12s,box-shadow .12s;scroll-margin-top:var(--fleet-overview-h, 320px);}
   .chart-panel.kpi-hover{border-color:var(--text-faint);transform:translateY(-1px);box-shadow:0 2px 4px rgba(23,27,39,.06), 0 10px 24px -8px rgba(23,27,39,.16);}
   .section-eyebrow{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);margin:18px 0 10px 2px;display:flex;align-items:center;gap:8px;}
@@ -4450,7 +4451,7 @@ function renderReliability() {
       <div class="chart-panel"><h3>Reliability (MKBF) by Month</h3><div class="chart-wrap"><canvas id="chartReliability"></canvas></div></div>
     </div>
 
-    <div class="reliability-split" style="margin-top:14px;margin-bottom:14px;">
+    <div class="reliability-split wide-right" style="margin-top:14px;margin-bottom:14px;">
       <div>
         <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:0 0 10px;">Reliability 2026</div>
       <div class="panel">
