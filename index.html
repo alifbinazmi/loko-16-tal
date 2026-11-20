@@ -3374,7 +3374,7 @@ async function exportUswToExcel({ asset = 'all', year = 'all', columnKeys = USW_
     rows.forEach(f => {
       ws.addRow(cols.map(c => c.value(f)));
     });
-    ws.columns.forEach((col, i) => { col.width = i === 0 ? 10 : (headers[i] === 'Remark' || headers[i] === 'Report' ? 28 : 16); });
+    ws.columns.forEach((col, i) => { col.width = headers[i] === 'Asset' ? 10 : (headers[i] === 'Remark' || headers[i] === 'Report' ? 28 : 16); });
     await downloadWorkbook(wb, 'USW_Unscheduled_Reports.xlsx');
   } catch (e) {
     console.error('USW export failed', e);
@@ -5143,8 +5143,8 @@ function countFilledForMonth(yyyyMm) {
 const KM_RATE_RULES = [
   { test: v => v === '26', km: 723.1, label: '26' },
   { test: v => v === '27', km: 723.1, label: '27' },
-  { test: v => /^80\d\d\/80\d\d$/.test(v), km: 116.8, label: '80xx/80xx (e.g. 8001/8046)' },
-  { test: v => /^81\d\d\/81\d\d$/.test(v), km: 315, label: '81xx/81xx (e.g. 8101/8150)' },
+  { test: v => /^80\d\d\/80\d\d$/.test(v), km: 120, label: '80xx/80xx (e.g. 8001/8046)' },
+  { test: v => /^81\d\d\/81\d\d$/.test(v), km: 575, label: '81xx/81xx (e.g. 8101/8150)' },
   { test: v => v === '1', km: 72, label: '1' },
   { test: v => v === '2', km: 72, label: '2' },
   { test: v => /^\d{3}[+&]\d{3}$/.test(v), km: 266, label: '3-digit+3-digit (e.g. 474+473)' },
