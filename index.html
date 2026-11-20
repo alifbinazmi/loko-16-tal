@@ -5276,10 +5276,10 @@ function renderMasterplan() {
           <div class="table-scroll" style="height:400px;">
             <table>
               <thead><tr><th>Asset</th><th>Class</th><th>PE Type</th><th>Status</th></tr></thead>
-              <tbody>${reminderRowsHtml || '<tr><td colspan="4" class="dim">Nothing due within 3 days, and nothing overdue.</td></tr>'}</tbody>
+              <tbody>${reminderRowsHtml || '<tr><td colspan="4" class="dim">Nothing due within 7 days, and nothing overdue.</td></tr>'}</tbody>
             </table>
           </div>
-          <div class="row-count" style="min-height:54px;box-sizing:border-box;">${missedEntries.length} locomotive(s) due within 3 days or overdue &middot; green = due soon, orange = overdue &le; 30 days, red = overdue &gt; 30 days, grey = down for repair/failed/repaint/OH &middot; from PE Completion History &middot; read-only reference view</div>
+          <div class="row-count" style="min-height:54px;box-sizing:border-box;">${missedEntries.length} locomotive(s) due within 7 days or overdue &middot; green = due soon, orange = overdue &le; 30 days, red = overdue &gt; 30 days, grey = down for repair/failed/repaint/OH &middot; from PE Completion History &middot; read-only reference view</div>
         </div>
       </div>
     </div>`;
@@ -5578,7 +5578,7 @@ function buildPeReminderEntries() {
   const todayStr = todayDateStr();
   const results = [];
   DATA.peSchedule.forEach(r => {
-    if (r.daysDue === null || r.daysDue === undefined || r.daysDue > 3) return;
+    if (r.daysDue === null || r.daysDue === undefined || r.daysDue > 7) return;
     const classPrefix = locoClassPrefix(r);
     const raw = effectiveDailyValue(r.asset, todayStr);
     const available = isAvailableStatusValue(raw, classPrefix);
