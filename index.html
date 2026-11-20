@@ -3343,6 +3343,22 @@ const FAILURE_COLUMNS = [
   { key: 'remark', label: 'Remark' },
   { key: 'editAction', label: 'Edit Report' },
 ];
+const PE_USW_COLUMNS = [
+  { key: 'asset', label: 'Asset' },
+  { key: 'dateReceive', label: 'Date Rcvd' },
+  { key: 'peType', label: 'PE Type' },
+  { key: 'depoh', label: 'Depoh' },
+  { key: 'c1', label: 'Component 1' },
+  { key: 'c2', label: 'Component 2' },
+  { key: 'c3', label: 'Component 3' },
+  { key: 'c4', label: 'Component 4' },
+  { key: 'materialUsed', label: 'Action Taken' },
+  { key: 'pwo', label: 'PWO' },
+  { key: 'dateReleased', label: 'Date Released' },
+  { key: 'downtimeCalc', label: 'Downtime' },
+  { key: 'remark', label: 'Remark' },
+  { key: 'editAction', label: 'Edit Report' },
+];
 let failuresDepotSelectedMonth = { failures: null, failuresCwbg: null, peUsw: null };
 let failuresTopSubsystemSelectedMonth = { failures: null, failuresCwbg: null, peUsw: null };
 let failuresTopAssetSelectedMonth = { failures: null, failuresCwbg: null, peUsw: null };
@@ -3392,7 +3408,7 @@ function renderFailures(viewKey = 'failures') {
   const columns = viewKey === 'failuresCwbg'
     ? [...FAILURE_COLUMNS.slice(0, -1).filter(c => c.key !== 'pwo' && c.key !== 'peInterval' && c.key !== 'kmSincePrevFailure'), CWBG_FINDINGS_COLUMN, FAILURE_COLUMNS[FAILURE_COLUMNS.length - 1]]
     : viewKey === 'peUsw'
-      ? FAILURE_COLUMNS.filter(c => !['peInterval', 'reportByOps', 'subSystem'].includes(c.key)).map(c => c.key === 'pwo' ? { ...c, label: 'PWO' } : c)
+      ? PE_USW_COLUMNS
       : FAILURE_COLUMNS;
 
   const body = rows.length ? rows.map(f => {
@@ -3402,7 +3418,9 @@ function renderFailures(viewKey = 'failures') {
       <td class="num">${peOverdue ? '<span class="pe-overdue-dot" title="Overdue for PE"></span>' : ''}${f.cwbgChildRid ? '<span class="cwbg-sent-bar"></span>' : (f.dateReleased ? '' : '<span class="open-report-bar"></span>')}${esc(f.asset)}</td>
       <td class="dim">${fmtDate(f.dateReceive)}</td>
       ${(viewKey === 'failuresCwbg' || viewKey === 'peUsw') ? '' : peIntervalCellHtml(f, sourceArr.indexOf(f))}
-      ${viewKey === 'failuresCwbg' ? '' : `<td class="dim">${kmSincePrevMap[f.rid] == null ? '<span class="dim" title="Insufficient history">&mdash;</span>' : fmtKm(kmSincePrevMap[f.rid]) + ' km'}</td>`}
+      ${viewKey === 'failuresCwbg' ? '' : viewKey === 'peUsw'
+        ? `<td>${f.peType ? esc(f.peType) : '<span class="dim">&mdash;</span>'}</td>`
+        : `<td class="dim">${kmSincePrevMap[f.rid] == null ? '<span class="dim" title="Insufficient history">&mdash;</span>' : fmtKm(kmSincePrevMap[f.rid]) + ' km'}</td>`}
       <td>${esc(f.depoh)}</td>
       ${viewKey === 'peUsw' ? '' : reportCellHtml(f, sourceArr.indexOf(f))}
       ${viewKey === 'peUsw' ? '' : `<td><span class="badge badge-other">${esc(f.subSystem)}</span></td>`}
@@ -6696,6 +6714,9 @@ function openModal(view, editIdx = null, prefill = null) {
         </div>
         <div class="field"><label>Date Receive *</label><input type="date" lang="en-GB" id="f_dateReceive" value="${rec ? toDateInputValue(rec.dateReceive) : ''}" required></div>
         <div class="field"><label>Time Receive *</label><input type="time" id="f_timeReceive" required value="${rec ? toTimeInputValue(rec.timeReceive) : ''}"></div>
+        <div class="field"><label>PE Type *</label>
+          <select id="f_peType" required>${['PE15', 'PE30', 'PE45', 'PE45S', 'PE180', 'PE360'].map(t => `<option value="${t}" ${rec && rec.peType === t ? 'selected' : ''}>${t}</option>`).join('')}</select>
+        </div>
 
         ${componentFormSection(1, rec)}
         ${componentFormSection(2, rec)}
@@ -6782,9 +6803,10 @@ function openModal(view, editIdx = null, prefill = null) {
       const depoh = document.getElementById('f_depoh').value;
       const dateReceive = document.getElementById('f_dateReceive').value;
       const timeReceive = document.getElementById('f_timeReceive').value;
-      saveBtn.disabled = !(asset && depoh && dateReceive && timeReceive);
+      const peType = document.getElementById('f_peType').value;
+      saveBtn.disabled = !(asset && depoh && dateReceive && timeReceive && peType);
     };
-    ['f_asset', 'f_depoh', 'f_dateReceive', 'f_timeReceive'].forEach(id => {
+    ['f_asset', 'f_depoh', 'f_dateReceive', 'f_timeReceive', 'f_peType'].forEach(id => {
       document.getElementById(id).addEventListener('input', updatePeUswSaveState);
       document.getElementById(id).addEventListener('change', updatePeUswSaveState);
     });
@@ -6833,7 +6855,7 @@ function readPeUswForm() {
   if (!asset || !dateReceive) { toast('Asset and Date Receive are required'); return null; }
   const rec = {
     asset: Number(asset), dateReceive, timeReceive: document.getElementById('f_timeReceive').value,
-    depoh: document.getElementById('f_depoh').value,
+    depoh: document.getElementById('f_depoh').value, peType: document.getElementById('f_peType').value,
     materialUsed: document.getElementById('f_materialUsed').value, dateReleased: document.getElementById('f_dateReleased').value,
     timeReleased: document.getElementById('f_timeReleased').value, downtime: document.getElementById('f_downtime').value,
     pwo: document.getElementById('f_pwo').value,
