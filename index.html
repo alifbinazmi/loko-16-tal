@@ -592,7 +592,15 @@
     padding:8px 10px;font-size:12.5px;font-family:var(--sans);outline:none;
   }
   .field textarea{resize:vertical;min-height:60px;font-family:var(--sans);}
+  .field select{
+    appearance:none;-webkit-appearance:none;-moz-appearance:none;
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="%2348506A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+    background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;
+  }
   .field input:focus, .field select:focus, .field textarea:focus{border-color:var(--amber);}
+  .usw-export-col-row{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:5px;cursor:pointer;font-weight:400;font-size:13px;}
+  .usw-export-col-row:hover{background:var(--panel-3);}
+  .usw-export-col-row input{accent-color:var(--amber);flex-shrink:0;width:15px;height:15px;cursor:pointer;}
   .form-section-label{grid-column:1/-1;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--amber);margin-top:6px;padding-top:10px;border-top:1px solid var(--border-soft);}
 
   .toast{
@@ -3266,8 +3274,8 @@ function openUswExportOptionsModal() {
           <label>Columns to include</label>
           <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:6px;">
             ${USW_EXPORT_COLUMN_GROUPS.map(g => `
-              <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;">
-                <input type="checkbox" class="usw-export-col-chk" value="${g.key}" checked> ${esc(g.label)}
+              <label class="usw-export-col-row">
+                <input type="checkbox" class="usw-export-col-chk" value="${g.key}" checked> <span>${esc(g.label)}</span>
               </label>`).join('')}
           </div>
         </div>
