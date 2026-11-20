@@ -3439,7 +3439,7 @@ function renderFailures(viewKey = 'failures') {
   }).join('') : `<tr class="empty-row"><td colspan="${columns.length}">No unscheduled reports match your filters.</td></tr>`;
   document.getElementById('content').innerHTML = `
     ${subtabPillsHtml([{id:'failures',label:'USW'},{id:'failuresCwbg',label:'CWBG'},{id:'peUsw',label:'PE USW'}])}
-    <div class="stat-grid" style="grid-template-columns:repeat(${viewKey === 'failuresCwbg' ? 3 : viewKey === 'peUsw' ? 4 : 5},1fr);">
+    <div class="stat-grid" style="grid-template-columns:repeat(${viewKey === 'failures' ? 5 : 3},1fr);">
       ${viewKey === 'peUsw' ? '' : `
       <div class="stat-card">
         <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top failing sub-system</span>
@@ -3451,7 +3451,7 @@ function renderFailures(viewKey = 'failures') {
         <div class="val">${esc(topSS[0])} <span class="n">(${topSS[1]})</span></div>
       </div>`}
       <div class="stat-card">
-        <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top failing locomotive</span>
+        <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>${viewKey === 'peUsw' ? 'Top finding during PE' : 'Top failing locomotive'}</span>
           <select id="failuresTopAssetMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 6px;font-size:10.5px;color:var(--text);max-width:100px;text-transform:none;font-weight:400;letter-spacing:normal;">
             <option value="">All months</option>
             ${depotMonthsAvailable.map(m => `<option value="${m}" ${topAssetSelMonth === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}
@@ -3460,7 +3460,7 @@ function renderFailures(viewKey = 'failures') {
         <div class="val">Asset <span class="n">${esc(topAsset[0])}</span> (${topAsset[1]})</div>
       </div>
       <div class="stat-card">
-        <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top depot by failures</span>
+        <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>${viewKey === 'peUsw' ? 'Top finding by failures' : 'Top depot by failures'}</span>
           <select id="failuresDepotMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 6px;font-size:10.5px;color:var(--text);max-width:100px;text-transform:none;font-weight:400;letter-spacing:normal;">
             <option value="">All months</option>
             ${depotMonthsAvailable.map(m => `<option value="${m}" ${depotSelMonth === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}
@@ -3470,14 +3470,15 @@ function renderFailures(viewKey = 'failures') {
       </div>
       ${(viewKey === 'failures' || viewKey === 'peUsw') ? `
       <div class="stat-card">
-        <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Failures with overdue PE</span>
+        <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>${viewKey === 'peUsw' ? 'Finding with overdue PE' : 'Failures with overdue PE'}</span>
           <select id="failuresPeOverdueMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 6px;font-size:10.5px;color:var(--text);max-width:100px;text-transform:none;font-weight:400;letter-spacing:normal;">
             <option value="">All months</option>
             ${depotMonthsAvailable.map(m => `<option value="${m}" ${peOverdueSelMonth === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}
           </select>
         </div>
         <div class="val">${peOverdueCount} <span class="n">/ ${peOverdueTotal} (${peOverduePct}%)</span></div>
-      </div>
+      </div>` : ''}
+      ${viewKey === 'failures' ? `
       <div class="stat-card">
         <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Avg KM Between Failures</span>
           <select id="failuresMkbfMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 6px;font-size:10.5px;color:var(--text);max-width:100px;text-transform:none;font-weight:400;letter-spacing:normal;">
