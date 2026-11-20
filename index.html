@@ -2107,6 +2107,14 @@ function computeDepotTotals(rows = DATA.failures) {
   });
   return totals;
 }
+function computePeTypeTotals(rows = DATA.peUsw) {
+  const totals = {};
+  rows.forEach(f => {
+    const t = f.peType || 'Unassigned';
+    totals[t] = (totals[t] || 0) + 1;
+  });
+  return totals;
+}
 function topEntry(totals) {
   const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
   return sorted.length ? { key: sorted[0][0], count: sorted[0][1] } : null;
@@ -3364,6 +3372,7 @@ let failuresTopSubsystemSelectedMonth = { failures: null, failuresCwbg: null, pe
 let failuresTopAssetSelectedMonth = { failures: null, failuresCwbg: null, peUsw: null };
 let failuresPeOverdueSelectedMonth = { failures: null, failuresCwbg: null, peUsw: null };
 let failuresMkbfSelectedMonth = { failures: null, failuresCwbg: null, peUsw: null };
+let failuresTopPeTypeSelectedMonth = { failures: null, failuresCwbg: null, peUsw: null };
 function renderFailures(viewKey = 'failures') {
   const sourceArr = viewKey === 'peUsw' ? DATA.peUsw : DATA.failures;
   const baseRows = viewKey === 'failuresCwbg' ? DATA.failures.filter(f => f.parentRid) : viewKey === 'peUsw' ? DATA.peUsw : DATA.failures.filter(f => !f.parentRid);
@@ -3394,6 +3403,10 @@ function renderFailures(viewKey = 'failures') {
   const depotScopedRows = depotSelMonth ? statsRows.filter(f => monthKey(f.dateReceive) === depotSelMonth) : statsRows;
   const depotTotals = computeDepotTotals(depotScopedRows);
   const topDepot = Object.entries(depotTotals).sort((a, b) => b[1] - a[1])[0] || ['\u2014', 0];
+  const topPeTypeSelMonth = failuresTopPeTypeSelectedMonth[viewKey] || null;
+  const topPeTypeScopedRows = topPeTypeSelMonth ? statsRows.filter(f => monthKey(f.dateReceive) === topPeTypeSelMonth) : statsRows;
+  const peTypeTotals = computePeTypeTotals(topPeTypeScopedRows);
+  const topPeType = Object.entries(peTypeTotals).sort((a, b) => b[1] - a[1])[0] || ['\u2014', 0];
   const peOverdueSelMonth = failuresPeOverdueSelectedMonth[viewKey] || null;
   const peOverdueScopedRows = peOverdueSelMonth ? statsRows.filter(f => monthKey(f.dateReceive) === peOverdueSelMonth) : statsRows;
   const peOverdueCount = peOverdueScopedRows.filter(f => DATA.peSchedule.some(r => r.asset === f.asset && r.status === 'OVERDUE')).length;
@@ -3439,7 +3452,7 @@ function renderFailures(viewKey = 'failures') {
   }).join('') : `<tr class="empty-row"><td colspan="${columns.length}">No unscheduled reports match your filters.</td></tr>`;
   document.getElementById('content').innerHTML = `
     ${subtabPillsHtml([{id:'failures',label:'USW'},{id:'failuresCwbg',label:'CWBG'},{id:'peUsw',label:'PE USW'}])}
-    <div class="stat-grid" style="grid-template-columns:repeat(${viewKey === 'failures' ? 5 : 3},1fr);">
+    <div class="stat-grid" style="grid-template-columns:repeat(${viewKey === 'failures' ? 5 : viewKey === 'peUsw' ? 4 : 3},1fr);">
       ${viewKey === 'peUsw' ? '' : `
       <div class="stat-card">
         <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top failing sub-system</span>
@@ -3477,6 +3490,16 @@ function renderFailures(viewKey = 'failures') {
           </select>
         </div>
         <div class="val">${peOverdueCount} <span class="n">/ ${peOverdueTotal} (${peOverduePct}%)</span></div>
+      </div>` : ''}
+      ${viewKey === 'peUsw' ? `
+      <div class="stat-card">
+        <div class="lbl" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top finding from PE type</span>
+          <select id="failuresTopPeTypeMonthSelect" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 6px;font-size:10.5px;color:var(--text);max-width:100px;text-transform:none;font-weight:400;letter-spacing:normal;">
+            <option value="">All months</option>
+            ${depotMonthsAvailable.map(m => `<option value="${m}" ${topPeTypeSelMonth === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="val">${esc(topPeType[0])} <span class="n">(${topPeType[1]})</span></div>
       </div>` : ''}
       ${viewKey === 'failures' ? `
       <div class="stat-card">
@@ -3528,6 +3551,11 @@ function renderFailures(viewKey = 'failures') {
   const mkbfMonthSelectEl = document.getElementById('failuresMkbfMonthSelect');
   if (mkbfMonthSelectEl) mkbfMonthSelectEl.addEventListener('change', e => {
     failuresMkbfSelectedMonth[viewKey] = e.target.value || null;
+    renderFailures(viewKey);
+  });
+  const topPeTypeMonthSelectEl = document.getElementById('failuresTopPeTypeMonthSelect');
+  if (topPeTypeMonthSelectEl) topPeTypeMonthSelectEl.addEventListener('change', e => {
+    failuresTopPeTypeSelectedMonth[viewKey] = e.target.value || null;
     renderFailures(viewKey);
   });
   document.querySelectorAll('.cwbg-link-btn').forEach(btn => {
