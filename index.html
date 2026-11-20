@@ -3569,7 +3569,7 @@ function renderFailures(viewKey = 'failures') {
   document.querySelectorAll('.failure-edit-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      openModal(viewKey, Number(btn.dataset.idx));
+      openModal(viewKey === 'failuresCwbg' ? 'failures' : viewKey, Number(btn.dataset.idx));
     });
   });
   wireSubtabPills();
@@ -7110,7 +7110,7 @@ document.getElementById('actionPopupCloseBtn').addEventListener('click', hideAct
 document.getElementById('actionPopupEditBtn').addEventListener('click', () => {
   const popup = document.getElementById('actionTakenPopup');
   const idx = Number(popup.dataset.idx);
-  const view = popup.dataset.view || 'failures';
+  const view = popup.dataset.view === 'failuresCwbg' ? 'failures' : (popup.dataset.view || 'failures');
   hideActionTakenPopup();
   openModal(view, idx);
 });
