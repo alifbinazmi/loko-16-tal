@@ -802,6 +802,7 @@ const ICONS = {
   edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
   pause: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>',
+  loco: '<svg viewBox="0 0 24 24" fill="#FFC107" stroke="none"><path d="M4 9a2 2 0 0 1 2-2h4V3h2v4h3a2 2 0 0 1 2 2v6H4V9z"/><rect x="2" y="15" width="20" height="2.5" rx="1"/><circle cx="7.5" cy="20" r="1.8"/><circle cx="16.5" cy="20" r="1.8"/><rect x="6" y="10" width="3" height="3" fill="#fff"/></svg>',
 };
 
 /* ---------- canonical sub-system list (matches the master Excel workbook) ---------- */
@@ -1851,7 +1852,7 @@ const NAV = [
   { id: 'peAnnualPlan2026', label: 'Masterplan PE Schedule', icon: 'masterplan', subtitle: 'Whole-year PE plan by locomotive, week-by-week &mdash; exact data from the official Masterplan spreadsheet' },
   { id: 'failures', label: 'Unscheduled Reports (USW & CWBG)', icon: 'failure', subtitle: 'Component-level unscheduled repair log &middot; Unscheduled Report Details', group: ['failures', 'failuresCwbg', 'peUsw'] },
   { id: 'failuresCwbg', label: 'Unscheduled by CWBG', icon: 'wrench', subtitle: 'Unscheduled reports sent to CWBG for further repair', hidden: true },
-  { id: 'peUsw', label: 'PE USW', icon: 'failure', subtitle: 'Unscheduled report log &mdash; PE-focused columns', hidden: true },
+  { id: 'peUsw', label: 'PE USW', icon: 'loco', subtitle: 'Unscheduled report log &mdash; PE-focused columns', hidden: true },
   { id: 'subsystem', label: 'Sub-System Summary', icon: 'subsystem', subtitle: 'Live tally by sub-system &times; locomotive &mdash; syncs automatically with Unscheduled Reports' },
   { id: 'incidents', label: '16-TAL Incident & Accident', icon: 'incident', subtitle: 'Operational incident and accident log', group: ['incidents', 'langgar'] },
   { id: 'langgar', label: '16-TAL Accidents', icon: 'langgar', subtitle: 'Laporan insiden operasi di Wilayah Timur 2026', hidden: true },
