@@ -5840,7 +5840,7 @@ function latestFilledDayInMonth(yyyyMm) {
 
 const KM_REFERENCE_TABLE = [
   ['Batu Gajah', [
-    ['Padang Besar', 338.8], ['Bukit Tengah', 195], ['KL Sentral', 206], ['Port Klang', 248.98],
+    ['Padang Besar', 338.8], ['Bukit Tengah', 195], ['KL Sentral', 206.65], ['Port Klang', 248.98],
     ['Gemas', 367.5], ['Kempas', 577.7], ['Lipis', 590.4], ['Tumpat', 890.3],
   ]],
   ['KL Sentral', [
@@ -5848,7 +5848,7 @@ const KM_REFERENCE_TABLE = [
     ['Port Klang', 42.98], ['Batu Gajah', 206.65], ['Padang Besar', 545.5], ['Seremban', 72.5],
   ]],
   ['Gemas', [
-    ['KL Sentral', 174.85], ['Lipis', 222.9], ['Kempas', 184.82], ['Tumpat', 522.8],
+    ['KL Sentral', 174.85], ['Lipis', 222.9], ['Kempas', 184.8], ['Tumpat', 522.8],
     ['Batu Gajah', 367.5], ['Bukit Tengah', 562.5], ['Port Klang', 217.98], ['Padang Besar', 720.4], ['Seremban', 102.5],
   ]],
   ['Kempas', [
@@ -5861,7 +5861,7 @@ const KM_REFERENCE_TABLE = [
 ];
 const STATION_ABBR_MAP = {
   gem: 'Gemas', kem: 'Kempas', lipis: 'Lipis', tum: 'Tumpat', tump: 'Tumpat',
-  dbg: 'Batu Gajah', dbt: 'Bukit Tengah', klang: 'Port Klang',
+  dbg: 'Batu Gajah', dbt: 'Bukit Tengah', klang: 'Port Klang', klsd: 'KL Sentral',
 };
 function resolveStationName(token) {
   const t = token.trim().toLowerCase().replace(/\.$/, '');
