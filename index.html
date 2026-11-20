@@ -2015,7 +2015,7 @@ function renderTopbarActions() {
   const clearBtn = document.getElementById('clearFiltersBtn');
   if (clearBtn) clearBtn.addEventListener('click', () => clearAllFilters(currentView));
   const uswExportBtn = document.getElementById('uswExportBtn');
-  if (uswExportBtn) uswExportBtn.addEventListener('click', exportUswToExcel);
+  if (uswExportBtn) uswExportBtn.addEventListener('click', openUswExportOptionsModal);
   const incidentExportBtn = document.getElementById('incidentExportBtn');
   if (incidentExportBtn) incidentExportBtn.addEventListener('click', exportIncidentsToExcel);
   const langgarExportBtn = document.getElementById('langgarExportBtn');
@@ -3209,27 +3209,95 @@ async function exportDashboardToExcel() {
     if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
   }
 }
-async function exportUswToExcel() {
+const USW_EXPORT_COLUMN_GROUPS = [
+  { key: 'asset', label: 'Asset', cols: [{ header: 'Asset', value: f => f.asset || '' }] },
+  { key: 'dateReceive', label: 'Date Receive', cols: [{ header: 'Date Received', value: f => f.dateReceive || '' }] },
+  { key: 'peInterval', label: 'PE Interval', cols: [{ header: 'PE Interval', value: f => {
+    const d = peIntervalDetail(f);
+    return d ? `${d.lastType} (${fmtDate(d.lastDate)}) → ${d.nextType ? `${d.nextType} (${fmtDate(d.nextDate)})` : '—'}` : '—';
+  } }] },
+  { key: 'depoh', label: 'Depoh', cols: [{ header: 'Depoh', value: f => f.depoh || '' }] },
+  { key: 'report', label: 'Report', cols: [{ header: 'Report', value: f => f.reportByOps || f.reportByDepot || '' }] },
+  { key: 'subSystem', label: 'Sub-System', cols: [{ header: 'Sub-System', value: f => f.subSystem || '' }] },
+  { key: 'component', label: 'Component', cols: [
+    { header: 'Component 1', value: f => f.c1Type || '' }, { header: 'Component 2', value: f => f.c2Type || '' },
+    { header: 'Component 3', value: f => f.c3Type || '' }, { header: 'Component 4', value: f => f.c4Type || '' },
+  ] },
+  { key: 'actionTaken', label: 'Action Taken', cols: [{ header: 'Action Taken', value: f => f.materialUsed || '' }] },
+  { key: 'cwo', label: 'CWO', cols: [{ header: 'CWO', value: f => f.pwo || '' }] },
+  { key: 'dateReleased', label: 'Date Released', cols: [{ header: 'Date Released', value: f => f.dateReleased || '' }] },
+  { key: 'downtime', label: 'Downtime', cols: [{ header: 'Downtime', value: f => formatDowntime(computeDowntimeMs(f)) || '' }] },
+  { key: 'remark', label: 'Remark', cols: [{ header: 'Remark', value: f => f.remark || '' }] },
+];
+function openUswExportOptionsModal() {
+  const baseRows = DATA.failures.filter(f => !f.parentRid);
+  const assetsAvailable = [...new Set(baseRows.map(f => f.asset).filter(Boolean))].sort((a, b) => a - b);
+  const yearsAvailable = [...new Set(baseRows.map(f => (monthKey(f.dateReceive) || '').slice(0, 4)).filter(Boolean))].sort();
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="modal-head">
+      <h2>Export USW to Excel</h2>
+      <button class="modal-close" id="modalCloseBtn">${ICONS.close}</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label>Asset</label>
+          <select id="uswExportAsset">
+            <option value="all">All assets</option>
+            ${assetsAvailable.map(a => `<option value="${a}">${a}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>Year</label>
+          <select id="uswExportYear">
+            <option value="all">All years</option>
+            ${yearsAvailable.map(y => `<option value="${y}">${y}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field full">
+          <label>Columns to include</label>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:6px;">
+            ${USW_EXPORT_COLUMN_GROUPS.map(g => `
+              <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;">
+                <input type="checkbox" class="usw-export-col-chk" value="${g.key}" checked> ${esc(g.label)}
+              </label>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="modalCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="uswExportConfirmBtn">${ICONS.check}Export</button>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.add('open');
+  document.getElementById('modalBackdrop').scrollTop = 0;
+  document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+  document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
+  document.getElementById('uswExportConfirmBtn').addEventListener('click', () => {
+    const asset = document.getElementById('uswExportAsset').value;
+    const year = document.getElementById('uswExportYear').value;
+    const columnKeys = Array.from(document.querySelectorAll('.usw-export-col-chk:checked')).map(el => el.value);
+    if (!columnKeys.length) { toast('Select at least one column', true); return; }
+    closeModal();
+    exportUswToExcel({ asset, year, columnKeys });
+  });
+}
+async function exportUswToExcel({ asset = 'all', year = 'all', columnKeys = USW_EXPORT_COLUMN_GROUPS.map(g => g.key) } = {}) {
   const btn = document.getElementById('uswExportBtn');
   const originalLabel = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Preparing export…'; }
   try {
     await loadExcelJsLib();
-    const rows = DATA.failures.filter(f => !f.parentRid);
+    let rows = DATA.failures.filter(f => !f.parentRid);
+    if (asset !== 'all') rows = rows.filter(f => String(f.asset) === String(asset));
+    if (year !== 'all') rows = rows.filter(f => (monthKey(f.dateReceive) || '').slice(0, 4) === year);
+    const cols = USW_EXPORT_COLUMN_GROUPS.filter(g => columnKeys.includes(g.key)).flatMap(g => g.cols);
+    const headers = cols.map(c => c.header);
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Unscheduled Reports');
-    const headers = ['Asset', 'Date Received', 'PE Interval', 'Depoh', 'Report', 'Sub-System', 'Component 1', 'Component 2', 'Component 3', 'Component 4', 'Action Taken', 'CWO', 'Date Released', 'Downtime', 'Remark'];
     ws.addRow(headers).font = { bold: true };
     rows.forEach(f => {
-      const d = peIntervalDetail(f);
-      const peIntervalText = d ? `${d.lastType} (${fmtDate(d.lastDate)}) → ${d.nextType ? `${d.nextType} (${fmtDate(d.nextDate)})` : '—'}` : '—';
-      ws.addRow([
-        f.asset || '', f.dateReceive || '', peIntervalText, f.depoh || '',
-        f.reportByOps || f.reportByDepot || '', f.subSystem || '',
-        f.c1Type || '', f.c2Type || '', f.c3Type || '', f.c4Type || '',
-        f.materialUsed || '', f.pwo || '', f.dateReleased || '',
-        formatDowntime(computeDowntimeMs(f)) || '', f.remark || '',
-      ]);
+      ws.addRow(cols.map(c => c.value(f)));
     });
     ws.columns.forEach((col, i) => { col.width = i === 0 ? 10 : (headers[i] === 'Remark' || headers[i] === 'Report' ? 28 : 16); });
     await downloadWorkbook(wb, 'USW_Unscheduled_Reports.xlsx');
