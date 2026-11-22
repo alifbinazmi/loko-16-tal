@@ -6907,13 +6907,13 @@ function openModal(view, editIdx = null, prefill = null) {
           <select id="ph_type" required>${['PE15', 'PE30', 'PE45', 'PE45S', 'PE180', 'PE360'].map(t => `<option value="${t}" ${selectedType === t ? 'selected' : ''}>${t}</option>`).join('')}</select>
         </div>
         <div class="field"><label>Date Completed *</label><input type="date" lang="en-GB" id="ph_date" value="${rec ? toDateInputValue(rec.date) : (prefill && prefill.date ? toDateInputValue(prefill.date) : '')}" required></div>
-        <div class="field"><label>Depot</label>
+        <div class="field"><label>Depot *</label>
           <select id="ph_depot">
             <option value="">Select depot…</option>
             ${DEPOT_OPTIONS.map(d => `<option value="${esc(d)}" ${rec && rec.depot === d ? 'selected' : ''}>${esc(d)}</option>`).join('')}
           </select>
         </div>
-        <div class="field"><label>PWO</label><input type="text" id="ph_pwo" value="${gv('pwo')}" placeholder="e.g. PWO201954"></div>
+        <div class="field"><label>PWO *</label><input type="text" id="ph_pwo" value="${gv('pwo')}" placeholder="e.g. PWO201954"></div>
       </div>
     `;
   } else if (view === 'peUsw') {
@@ -6986,9 +6986,11 @@ function openModal(view, editIdx = null, prefill = null) {
     const updatePeHistorySaveState = () => {
       const asset = document.getElementById('ph_asset').value.trim();
       const date = document.getElementById('ph_date').value;
-      saveBtn.disabled = !(asset && date);
+      const depot = document.getElementById('ph_depot').value;
+      const pwo = document.getElementById('ph_pwo').value.trim();
+      saveBtn.disabled = !(asset && date && depot && pwo);
     };
-    ['ph_asset', 'ph_date'].forEach(id => {
+    ['ph_asset', 'ph_date', 'ph_depot', 'ph_pwo'].forEach(id => {
       document.getElementById(id).addEventListener('input', updatePeHistorySaveState);
       document.getElementById(id).addEventListener('change', updatePeHistorySaveState);
     });
@@ -7115,10 +7117,12 @@ function readLanggarForm() {
 function readPeHistoryForm() {
   const asset = document.getElementById('ph_asset').value;
   const date = document.getElementById('ph_date').value;
-  if (!asset || !date) { toast('Asset and Date Completed are required'); return null; }
+  const depot = document.getElementById('ph_depot').value;
+  const pwo = document.getElementById('ph_pwo').value;
+  if (!asset || !date || !depot || !pwo) { toast('Asset, Date Completed, Depot, and PWO are required'); return null; }
   return {
     asset: Number(asset), type: document.getElementById('ph_type').value, rawType: document.getElementById('ph_type').value + 'D',
-    date, depot: document.getElementById('ph_depot').value, pwo: document.getElementById('ph_pwo').value,
+    date, depot, pwo,
   };
 }
 
