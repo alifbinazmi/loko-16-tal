@@ -2648,28 +2648,35 @@ function roundRectTop(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-function drawLineChart(canvasId, labels, values, color) {
+function drawLineChart(canvasId, labels, values, color, opts = {}) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
   const { ctx, w, h } = setupCanvas(canvas);
   ctx.clearRect(0, 0, w, h);
   const padL = 30, padR = 10, padT = 10, padB = 26;
   const chartW = w - padL - padR, chartH = h - padT - padB;
-  const maxV = niceMax(Math.max(...values, 1));
-  const steps = 4;
+  const targetArr = Array.isArray(opts.targetLine) ? opts.targetLine : null;
+  const targetScalar = targetArr ? null : opts.targetLine;
+  const minV = opts.yMin != null ? opts.yMin : 0;
+  const maxV = opts.yMax != null ? opts.yMax : niceMax(Math.max(...values, targetArr ? Math.max(...targetArr) : (targetScalar || 0), 1));
+  const range = maxV - minV;
+  const steps = opts.ySteps || 4;
+  const frac = v => Math.max(0, Math.min(1, (v - minV) / range));
+  const lineColor = Array.isArray(color) ? '#2F6FCB' : color;
 
   ctx.strokeStyle = CHART_GRID; ctx.lineWidth = 1; ctx.font = '10px -apple-system,Segoe UI,sans-serif'; ctx.fillStyle = CHART_TEXT;
   for (let i = 0; i <= steps; i++) {
     const y = padT + chartH - (chartH * i / steps);
     ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
+    const val = Math.round(minV + (range * i / steps));
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    ctx.fillText(Math.round(maxV * i / steps), padL - 6, y);
+    ctx.fillText(val, padL - 6, y);
   }
 
   const n = values.length;
   if (n === 0) return;
   const stepX = n > 1 ? chartW / (n - 1) : 0;
-  const pts = values.map((v, i) => ({ x: padL + stepX * i, y: padT + chartH - chartH * (v / maxV) }));
+  const pts = values.map((v, i) => ({ x: padL + stepX * i, y: padT + chartH - chartH * frac(v) }));
 
   ctx.beginPath();
   ctx.moveTo(pts[0].x, padT + chartH);
@@ -2677,19 +2684,82 @@ function drawLineChart(canvasId, labels, values, color) {
   ctx.lineTo(pts[pts.length - 1].x, padT + chartH);
   ctx.closePath();
   const grad = ctx.createLinearGradient(0, padT, 0, padT + chartH);
-  grad.addColorStop(0, color + '40'); grad.addColorStop(1, color + '05');
+  grad.addColorStop(0, lineColor + '40'); grad.addColorStop(1, lineColor + '05');
   ctx.fillStyle = grad; ctx.fill();
 
   ctx.beginPath();
   pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
+  ctx.strokeStyle = lineColor; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
 
-  ctx.fillStyle = color;
-  pts.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 2.6, 0, Math.PI * 2); ctx.fill(); });
+  pts.forEach((p, i) => {
+    ctx.fillStyle = Array.isArray(color) ? color[i % color.length] : color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill();
+  });
+
+  if (opts.showValues) {
+    ctx.fillStyle = CHART_TEXT; ctx.font = 'bold 9px -apple-system,Segoe UI,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    pts.forEach((p, i) => {
+      const label = typeof opts.valueFormat === 'function' ? opts.valueFormat(values[i]) : Math.round(values[i]);
+      ctx.fillText(label, p.x, p.y - 6);
+    });
+  }
 
   ctx.fillStyle = CHART_TEXT; ctx.font = '9px -apple-system,Segoe UI,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   const labelEvery = Math.ceil(n / Math.max(1, Math.floor(chartW / 46)));
   labels.forEach((lab, i) => { if (i % labelEvery === 0) ctx.fillText(lab, pts[i].x, padT + chartH + 8); });
+
+  if (targetArr && targetArr.length) {
+    ctx.save();
+    ctx.strokeStyle = '#A85D00'; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    targetArr.forEach((t, i) => {
+      const ty = padT + chartH - chartH * frac(t);
+      if (i === 0) ctx.moveTo(pts[0].x, ty); else ctx.lineTo(pts[i].x, ty);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  } else if (targetScalar) {
+    const ty = padT + chartH - chartH * frac(targetScalar);
+    ctx.save();
+    ctx.strokeStyle = '#A85D00'; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(padL, ty); ctx.lineTo(padL + chartW, ty); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#A85D00'; ctx.font = '9px -apple-system,Segoe UI,sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText('Target ' + targetScalar, padL + 3, ty - 2);
+    ctx.restore();
+  }
+
+  if (opts.onClick && pts.length) {
+    canvas.style.cursor = 'pointer';
+    canvas.onclick = e => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      let idx = 0, bestDist = Infinity;
+      pts.forEach((p, i) => { const d = Math.abs(p.x - x); if (d < bestDist) { bestDist = d; idx = i; } });
+      opts.onClick(idx, labels[idx], values[idx]);
+    };
+  } else {
+    canvas.style.cursor = 'default';
+    canvas.onclick = null;
+  }
+}
+function drawLineChartAnimated(canvasId, labels, values, color, opts = {}) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const targetArr = Array.isArray(opts.targetLine) ? opts.targetLine : null;
+  const targetScalar = targetArr ? null : opts.targetLine;
+  const yMax = opts.yMax != null ? opts.yMax : niceMax(Math.max(...values, targetArr ? Math.max(...targetArr) : (targetScalar || 0), 1));
+  const fixedOpts = { ...opts, yMax };
+  const t0 = performance.now();
+  (function frame(now) {
+    const t = Math.min(1, (now - t0) / 700);
+    const eased = 1 - Math.pow(1 - t, 3);
+    drawLineChart(canvasId, labels, values.map(v => v * eased), color, fixedOpts);
+    if (t < 1) requestAnimationFrame(frame);
+  })(t0);
 }
 
 function drawDoughnutChart(canvasId, labels, values, colors, sweepFraction = 1) {
@@ -2790,6 +2860,7 @@ function updateDashboardChartBadges() {
 function drawDashboardCharts(ssTotals, assetTotals, animate = true) {
   _dashboardChartData = {};
   const draw = animate ? drawBarChartAnimated : drawBarChart;
+  const drawLine = animate ? drawLineChartAnimated : drawLineChart;
 
   const ssEntries = Object.entries(ssTotals).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   draw('chartSubsystem', ssEntries.map(e => e[0]), ssEntries.map(e => e[1]), '#e87ba4', {
@@ -2804,7 +2875,7 @@ function drawDashboardCharts(ssTotals, assetTotals, animate = true) {
   const monthCounts = {};
   countableFailures().forEach(f => { const k = monthKey(f.dateReceive); if (k) monthCounts[k] = (monthCounts[k] || 0) + 1; });
   const monthKeys = Object.keys(monthCounts).sort();
-  draw('chartMonthly', monthKeys.map(monthLabel), monthKeys.map(k => monthCounts[k]), '#eb6834', {
+  drawLine('chartMonthly', monthKeys.map(monthLabel), monthKeys.map(k => monthCounts[k]), '#eb6834', {
     rotate: false,
     onClick: (idx) => drillFailuresByMonth(monthKeys[idx]),
     showValues: true,
@@ -2841,7 +2912,7 @@ function drawDashboardCharts(ssTotals, assetTotals, animate = true) {
 
   const availMonths = availabilityTrackedMonths();
   const availData = availMonths.map(m => ({ month: m, value: computeDailyAvailabilityAverage(m), target: availabilityTargetForMonth(m) }));
-  draw('chartDashAvailability', availData.map(a => monthLabel(a.month)), availData.map(a => a.value),
+  drawLine('chartDashAvailability', availData.map(a => monthLabel(a.month)), availData.map(a => a.value),
     availData.map(a => a.value >= a.target ? '#159253' : '#B0202F'),
     { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability'), yMin: 5, yMax: 30, ySteps: 5, showValues: true, valueFormat: v => v.toFixed(1) + '%' });
   _dashboardChartData.chartDashAvailability = { title: 'Fleet Availability by Month', labelHeader: 'Month', valueHeader: 'Availability %', labels: availData.map(a => monthLabel(a.month)), values: availData.map(a => a.value) };
@@ -2850,7 +2921,7 @@ function drawDashboardCharts(ssTotals, assetTotals, animate = true) {
 
   const relMonths = reliabilityTrackedMonths();
   const mkbfData = relMonths.map(m => computeMkbfKm(m) || 0);
-  draw('chartDashReliability', relMonths.map(monthLabel), mkbfData,
+  drawLine('chartDashReliability', relMonths.map(monthLabel), mkbfData,
     mkbfData.map(v => v >= MKBF_TARGET_KM ? '#159253' : '#B0202F'),
     { rotate: false, targetLine: MKBF_TARGET_KM, onClick: () => setView('reliability'), showValues: true, valueFormat: v => fmtKm(v) });
   _dashboardChartData.chartDashReliability = { title: 'Reliability (MKBF) by Month', labelHeader: 'Month', valueHeader: 'MKBF (km)', labels: relMonths.map(monthLabel), values: mkbfData };
