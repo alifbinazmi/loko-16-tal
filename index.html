@@ -182,8 +182,6 @@
   .btn-success:hover{background:#1cb868;border-color:#1cb868;}
   .btn-ghost{background:transparent;}
   .btn svg{width:14px;height:14px;}
-  #dashSlidesBtn, #uswExportBtn, #incidentExportBtn, #langgarExportBtn{display:flex;align-items:center;gap:9px;padding:8px 15px;border-radius:10px;flex-shrink:0;background:linear-gradient(135deg,#7B5CE0 0%,#5F46B8 55%,#4A3A9E 100%);box-shadow:0 4px 16px rgba(0,0,0,.25);color:#fff;border:none;}
-  #dashSlidesBtn:hover, #uswExportBtn:hover, #incidentExportBtn:hover, #langgarExportBtn:hover{box-shadow:0 6px 20px rgba(0,0,0,.35);}
 
   .content{flex:1;padding:22px 26px 40px 26px;overflow-x:hidden;}
   .fleet-overview-sticky{position:sticky;top:0;z-index:15;background:var(--bg);padding-bottom:10px;transform:translateZ(0);will-change:transform;}
@@ -206,6 +204,8 @@
   .kpi-label{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;}
   .kpi-value{font-family:var(--mono);font-size:32px;font-weight:700;line-height:1;color:var(--text);font-variant-numeric:tabular-nums;}
   .kpi-value small{font-size:13px;color:var(--text-dim);font-weight:600;margin-left:6px;}
+  .kpi-value.kpi-value-text{font-size:22px;}
+  .kpi-month-select{background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text);max-width:110px;}
   .kpi-foot{margin-top:8px;font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:5px;}
   .kpi-foot::after{content:"\25BE";font-size:9px;color:var(--text-faint);margin-left:auto;}
   .kpi-corner{position:absolute;bottom:10px;right:12px;width:16px;height:16px;opacity:.5;color:var(--accent,var(--amber));}
@@ -239,7 +239,7 @@
   .kpi-foot:has(.kpi-foot-link)::after{content:"";margin-left:0;}
 
   .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
-  .stat-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px 16px;}
+  .stat-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px 16px 14px 16px;}
   .stat-card .lbl{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px;}
   .stat-card .val{font-size:15px;font-weight:700;color:var(--text);}
   .stat-card .val .n{font-family:var(--mono);color:var(--indigo);}
@@ -252,11 +252,14 @@
   .mini-rank-fill{height:100%;border-radius:3px;background:var(--indigo);}
   .mini-rank-fill.lead{background:var(--amber);}
   .mini-rank-count{flex:0 0 auto;min-width:20px;text-align:right;font-family:var(--mono);font-weight:700;font-size:11.5px;color:var(--text);}
+  .mini-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:8px;}
+  .mini-legend-item{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--text-dim);}
+  .mini-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 
   .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
   .reliability-split{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;}
   .reliability-split.wide-right{grid-template-columns:0.7fr 1.3fr;}
-  .chart-panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px 18px 14px 18px;box-shadow:0 1px 2px rgba(23,27,39,.04), 0 6px 16px -10px rgba(23,27,39,.12);transition:border-color .12s,transform .12s,box-shadow .12s;scroll-margin-top:var(--fleet-overview-h, 320px);}
+  .chart-panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px 16px 14px 16px;box-shadow:0 1px 2px rgba(23,27,39,.04), 0 6px 16px -10px rgba(23,27,39,.12);transition:border-color .12s,transform .12s,box-shadow .12s;scroll-margin-top:var(--fleet-overview-h, 320px);}
   .chart-panel.kpi-hover{border-color:var(--text-faint);transform:translateY(-1px);box-shadow:0 2px 4px rgba(23,27,39,.06), 0 10px 24px -8px rgba(23,27,39,.16);}
   .section-eyebrow{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);margin:18px 0 10px 2px;display:flex;align-items:center;gap:8px;}
   .section-eyebrow::after{content:"";flex:1;height:1px;background:var(--border-soft);}
@@ -384,6 +387,7 @@
   .filter-panel-footer button:hover{background:#ffb84f;}
   .filter-panel-empty{padding:14px;text-align:center;color:var(--text-faint);font-size:11.5px;}
   tbody td{padding:9px 12px;border-bottom:1px solid var(--border-soft);color:var(--text);vertical-align:top;}
+  tbody tr:nth-child(even){background:var(--bg);}
   tbody tr:hover{background:var(--panel-2);}
   tbody tr[data-idx]{cursor:pointer;}
   tbody tr[data-idx]:hover td:last-child{position:relative;}
@@ -797,6 +801,11 @@
    Single-file interactive app. Data persists via window.storage.
    ============================================================ */
 
+// Mirrors the :root CSS custom properties for use in <canvas> fillStyle, which can't read CSS variables.
+const COLORS = {
+  amber: '#A85D00', green: '#159253', red: '#B0202F', blue: '#2F7EE0', indigo: '#3D4F91',
+  catBlue: '#2a78d6', catOrange: '#eb6834', catAqua: '#1baf7a', catViolet: '#6250d6', catYellow: '#eda100', catMagenta: '#e87ba4',
+};
 const ICONS = {
   wrench: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-2.6 2.6-2-2z"/></svg>',
   gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
@@ -2592,7 +2601,7 @@ function drawBarChart(canvasId, labels, values, color, opts = {}) {
 
   if (targetArr && targetArr.length) {
     ctx.save();
-    ctx.strokeStyle = '#A85D00'; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = COLORS.amber; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
     ctx.beginPath();
     targetArr.forEach((t, i) => {
       const ty = padT + chartH - chartH * frac(t);
@@ -2606,10 +2615,10 @@ function drawBarChart(canvasId, labels, values, color, opts = {}) {
   } else if (targetScalar) {
     const ty = padT + chartH - chartH * frac(targetScalar);
     ctx.save();
-    ctx.strokeStyle = '#A85D00'; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = COLORS.amber; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
     ctx.beginPath(); ctx.moveTo(padL, ty); ctx.lineTo(padL + chartW, ty); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = '#A85D00'; ctx.font = '9px -apple-system,Segoe UI,sans-serif';
+    ctx.fillStyle = COLORS.amber; ctx.font = '9px -apple-system,Segoe UI,sans-serif';
     ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
     ctx.fillText('Target ' + targetScalar, padL + 3, ty - 2);
     ctx.restore();
@@ -2720,7 +2729,7 @@ function drawLineChart(canvasId, labels, values, color, opts = {}) {
 
   if (targetArr && targetArr.length) {
     ctx.save();
-    ctx.strokeStyle = '#A85D00'; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = COLORS.amber; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
     ctx.beginPath();
     targetArr.forEach((t, i) => {
       const ty = padT + chartH - chartH * frac(t);
@@ -2732,10 +2741,10 @@ function drawLineChart(canvasId, labels, values, color, opts = {}) {
   } else if (targetScalar) {
     const ty = padT + chartH - chartH * frac(targetScalar);
     ctx.save();
-    ctx.strokeStyle = '#A85D00'; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = COLORS.amber; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
     ctx.beginPath(); ctx.moveTo(padL, ty); ctx.lineTo(padL + chartW, ty); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = '#A85D00'; ctx.font = '9px -apple-system,Segoe UI,sans-serif';
+    ctx.fillStyle = COLORS.amber; ctx.font = '9px -apple-system,Segoe UI,sans-serif';
     ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
     ctx.fillText('Target ' + targetScalar, padL + 3, ty - 2);
     ctx.restore();
@@ -2872,7 +2881,7 @@ function drawDashboardCharts(ssTotals, assetTotals, animate = true) {
   const drawLine = animate ? drawLineChartAnimated : drawLineChart;
 
   const ssEntries = Object.entries(ssTotals).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-  draw('chartSubsystem', ssEntries.map(e => e[0]), ssEntries.map(e => e[1]), '#e87ba4', {
+  draw('chartSubsystem', ssEntries.map(e => e[0]), ssEntries.map(e => e[1]), COLORS.catMagenta, {
     rotate: true,
     onClick: () => setView('subsystem'),
     showValues: true,
@@ -2884,7 +2893,7 @@ function drawDashboardCharts(ssTotals, assetTotals, animate = true) {
   const monthCounts = {};
   countableFailures().forEach(f => { const k = monthKey(f.dateReceive); if (k) monthCounts[k] = (monthCounts[k] || 0) + 1; });
   const monthKeys = Object.keys(monthCounts).sort();
-  drawLine('chartMonthly', monthKeys.map(monthLabel), monthKeys.map(k => monthCounts[k]), '#eb6834', {
+  drawLine('chartMonthly', monthKeys.map(monthLabel), monthKeys.map(k => monthCounts[k]), COLORS.catOrange, {
     rotate: false,
     onClick: (idx) => drillFailuresByMonth(monthKeys[idx]),
     showValues: true,
@@ -2897,7 +2906,7 @@ function drawDashboardCharts(ssTotals, assetTotals, animate = true) {
   const incMonthCounts = {};
   DATA.incidents.forEach(i => { if (i.month && i.asset) incMonthCounts[i.month] = (incMonthCounts[i.month] || 0) + 1; });
   const incMonths = Object.keys(incMonthCounts).sort((a, b) => incidentMonthSortKey(a) - incidentMonthSortKey(b));
-  draw('chartMonthlyIncidents', incMonths.map(incidentMonthShortLabel), incMonths.map(m => incMonthCounts[m]), '#1baf7a', {
+  draw('chartMonthlyIncidents', incMonths.map(incidentMonthShortLabel), incMonths.map(m => incMonthCounts[m]), COLORS.catAqua, {
     rotate: false,
     onClick: (idx) => drillIncidentsByMonth(incMonths[idx]),
     showValues: true,
@@ -2908,7 +2917,7 @@ function drawDashboardCharts(ssTotals, assetTotals, animate = true) {
   if (chartMonthlyIncidentsTitleEl) chartMonthlyIncidentsTitleEl.addEventListener('click', () => setView('incidents'));
 
   const assetEntries = Object.entries(assetTotals).sort((a, b) => b[1] - a[1]).slice(0, 12);
-  draw('chartAsset', assetEntries.map(e => e[0]), assetEntries.map(e => e[1]), '#6250d6', { rotate: false, showValues: true });
+  draw('chartAsset', assetEntries.map(e => e[0]), assetEntries.map(e => e[1]), COLORS.catViolet, { rotate: false, showValues: true });
   _dashboardChartData.chartAsset = { title: 'Failures by Locomotive (top 12)', labelHeader: 'Asset', valueHeader: 'Failures', labels: assetEntries.map(e => e[0]), values: assetEntries.map(e => e[1]) };
   const chartAssetTitleEl = document.getElementById('chartAssetTitle');
   if (chartAssetTitleEl) chartAssetTitleEl.addEventListener('click', () => {
@@ -2922,7 +2931,7 @@ function drawDashboardCharts(ssTotals, assetTotals, animate = true) {
   const availMonths = availabilityTrackedMonths();
   const availData = availMonths.map(m => ({ month: m, value: computeDailyAvailabilityAverage(m), target: availabilityTargetForMonth(m) }));
   drawLine('chartDashAvailability', availData.map(a => monthLabel(a.month)), availData.map(a => a.value),
-    availData.map(a => a.value >= a.target ? '#159253' : '#B0202F'),
+    availData.map(a => a.value >= a.target ? COLORS.green : COLORS.red),
     { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability'), yMin: 5, yMax: 30, ySteps: 5, showValues: true, valueFormat: v => v.toFixed(1) + '%' });
   _dashboardChartData.chartDashAvailability = { title: 'Fleet Availability by Month', labelHeader: 'Month', valueHeader: 'Availability %', labels: availData.map(a => monthLabel(a.month)), values: availData.map(a => a.value) };
   const availTitleEl = document.getElementById('chartDashAvailabilityTitle');
@@ -2931,7 +2940,7 @@ function drawDashboardCharts(ssTotals, assetTotals, animate = true) {
   const relMonths = reliabilityTrackedMonths();
   const mkbfData = relMonths.map(m => computeMkbfKm(m) || 0);
   drawLine('chartDashReliability', relMonths.map(monthLabel), mkbfData,
-    mkbfData.map(v => v >= MKBF_TARGET_KM ? '#159253' : '#B0202F'),
+    mkbfData.map(v => v >= MKBF_TARGET_KM ? COLORS.green : COLORS.red),
     { rotate: false, targetLine: MKBF_TARGET_KM, onClick: () => setView('reliability'), showValues: true, valueFormat: v => fmtKm(v) });
   _dashboardChartData.chartDashReliability = { title: 'Reliability (MKBF) by Month', labelHeader: 'Month', valueHeader: 'MKBF (km)', labels: relMonths.map(monthLabel), values: mkbfData };
   const chartDashReliabilityTitleEl = document.getElementById('chartDashReliabilityTitle');
@@ -2940,14 +2949,14 @@ function drawDashboardCharts(ssTotals, assetTotals, animate = true) {
   const peMonthCounts = {};
   DATA.peHistory.forEach(h => { if (h.date) { const k = monthKey(h.date); if (k) peMonthCounts[k] = (peMonthCounts[k] || 0) + 1; } });
   const peMonthKeys = Object.keys(peMonthCounts).sort();
-  draw('chartDashPe', peMonthKeys.map(monthLabel), peMonthKeys.map(k => peMonthCounts[k]), '#2a78d6',
+  draw('chartDashPe', peMonthKeys.map(monthLabel), peMonthKeys.map(k => peMonthCounts[k]), COLORS.catBlue,
     { rotate: false, onClick: () => setView('masterplan'), showValues: true, yMin: 0, yMax: 50, ySteps: 10 });
   _dashboardChartData.chartDashPe = { title: 'PE Completions by Month', labelHeader: 'Month', valueHeader: 'PE Completions', labels: peMonthKeys.map(monthLabel), values: peMonthKeys.map(k => peMonthCounts[k]) };
   const chartDashPeTitleEl = document.getElementById('chartDashPeTitle');
   if (chartDashPeTitleEl) chartDashPeTitleEl.addEventListener('click', () => setView('masterplan'));
 
   const runningData = relMonths.map(m => dailyStatusFleetKmForMonth(m));
-  draw('chartDashRunning', relMonths.map(monthLabel), runningData, '#eda100',
+  draw('chartDashRunning', relMonths.map(monthLabel), runningData, COLORS.catYellow,
     { rotate: false, onClick: () => setView('dailyStatus'), showValues: true, valueFormat: v => fmtKm(v) });
   _dashboardChartData.chartDashRunning = { title: 'Total Running (km) by Month', labelHeader: 'Month', valueHeader: 'Running (km)', labels: relMonths.map(monthLabel), values: runningData };
   const chartDashRunningTitleEl = document.getElementById('chartDashRunningTitle');
@@ -2997,7 +3006,7 @@ function renderSubsystem(animate = true) {
   const top3Subsystems = SUBSYSTEMS.map(s => [s, rowTotal(s)]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const top3Assets = assets.map(a => [a, colTotal(a)]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const top4M = Object.entries(compute4MTotals(scopedFailures)).sort((a, b) => b[1] - a[1]);
-  const FOUR_M_COLORS = { Material: '#2a78d6', Method: '#eb6834', Machine: '#1baf7a', Manpower: '#eda100' };
+  const FOUR_M_COLORS = { Material: COLORS.catBlue, Method: COLORS.catOrange, Machine: COLORS.catAqua, Manpower: COLORS.catYellow };
   const ssChartEntries = SUBSYSTEMS.map(s => [s, rowTotal(s)]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
 
   const severityClass = v => v > 10 ? 'sev-high' : v > 5 ? 'sev-mid' : v === 0 ? 'zero' : '';
@@ -3031,6 +3040,7 @@ function renderSubsystem(animate = true) {
         <div class="lbl">Root Cause Factors (4M)</div>
         <div class="val">${top4M[0] && top4M[0][1] > 0 ? esc(top4M[0][0]) : '—'} <span class="n">(${top4M[0] ? top4M[0][1] : 0})</span></div>
         <div style="height:140px;margin-top:8px;"><canvas id="chartRootCause4M"></canvas></div>
+        <div class="mini-legend">${Object.entries(FOUR_M_COLORS).map(([label, color]) => `<span class="mini-legend-item"><span class="mini-legend-dot" style="background:${color};"></span>${esc(label)}</span>`).join('')}</div>
       </div>
     </div>
     <div class="panel">
@@ -3052,7 +3062,7 @@ function renderSubsystem(animate = true) {
   `;
   const draw = animate ? drawBarChartAnimated : drawBarChart;
   const drawDonut = animate ? drawDoughnutChartAnimated : drawDoughnutChart;
-  draw('chartSubsystemSummary', ssChartEntries.map(e => e[0]), ssChartEntries.map(e => e[1]), '#A85D00', { rotate: true, showValues: true });
+  draw('chartSubsystemSummary', ssChartEntries.map(e => e[0]), ssChartEntries.map(e => e[1]), COLORS.amber, { rotate: true, showValues: true });
   drawDonut('chartRootCause4M', top4M.map(e => e[0]), top4M.map(e => e[1]), top4M.map(e => FOUR_M_COLORS[e[0]]));
   document.getElementById('ssMonthSelect').addEventListener('change', e => {
     subsystemSelectedMonth = e.target.value || null;
@@ -4463,7 +4473,7 @@ function renderAvailability(animate = true) {
 
   const draw = animate ? drawBarChartAnimated : drawBarChart;
   draw('chartAvailability', avail.map(a => monthLabel(a.month)), avail.map(a => a.value),
-    avail.map(a => a.value >= a.target ? '#159253' : '#B0202F'), { rotate: false, targetLine: avail.map(a => a.target), showValues: true, valueFormat: v => v.toFixed(1) + '%', yMin: 5, yMax: 30, ySteps: 5 });
+    avail.map(a => a.value >= a.target ? COLORS.green : COLORS.red), { rotate: false, targetLine: avail.map(a => a.target), showValues: true, valueFormat: v => v.toFixed(1) + '%', yMin: 5, yMax: 30, ySteps: 5 });
   wireDailyAvailabilityNav();
   wireAvailabilityTargetInputs();
 }
@@ -4595,7 +4605,7 @@ function reliabilityTrackedMonths() {
 let reliabilitySelectedMonth = { mkbf: null, running: null, pe: null, unscheduled: null, topUnscheduled: null };
 function reliabilityMonthSelectHtml(metric, selectedMonth) {
   const months = reliabilityTrackedMonths();
-  return `<select class="reliability-month-select" data-reliability-metric="${metric}" onclick="event.stopPropagation()" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text);">
+  return `<select class="reliability-month-select kpi-month-select" data-reliability-metric="${metric}" onclick="event.stopPropagation()">
     <option value=""${!selectedMonth ? ' selected' : ''}>Latest / YTD</option>
     ${months.map(m => `<option value="${m}"${selectedMonth === m ? ' selected' : ''}>${esc(monthLabel(m))}</option>`).join('')}
   </select>`;
@@ -4656,7 +4666,7 @@ function buildReliabilityKpiGridHtml() {
     </div>
     <div class="kpi" style="--accent:var(--red);">
       <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top Unscheduled</span>${reliabilityMonthSelectHtml('topUnscheduled', topMonth)}</div>
-      <div class="kpi-value">${esc(topAsset)}</div>
+      <div class="kpi-value kpi-value-text">${esc(topAsset)}</div>
       <div class="kpi-foot">${topCount} unscheduled repair(s) &middot; ${topMonth ? monthLabel(topMonth) + ' \u00b7 from Unscheduled Reports' : 'highest in fleet, YTD \u00b7 from Unscheduled Reports'}</div>
       <div class="kpi-corner">${ICONS.reliability}</div>
     </div>
@@ -4840,9 +4850,9 @@ function renderReliability(animate = true) {
 
   const draw = animate ? drawBarChartAnimated : drawBarChart;
   draw('chartReliability', rel.map(m => monthLabel(m)), rel.map(m => computeMkbfKm(m) || 0),
-    rel.map(m => (computeMkbfKm(m) || 0) >= MKBF_TARGET_KM ? '#159253' : '#B0202F'), { rotate: false, targetLine: MKBF_TARGET_KM, showValues: true, valueFormat: v => fmtKm(v) });
+    rel.map(m => (computeMkbfKm(m) || 0) >= MKBF_TARGET_KM ? COLORS.green : COLORS.red), { rotate: false, targetLine: MKBF_TARGET_KM, showValues: true, valueFormat: v => fmtKm(v) });
 
-  draw('chartTopLocoFailures', topLocoFailures.map(([asset]) => asset), topLocoFailures.map(([, count]) => count), '#6250d6', {
+  draw('chartTopLocoFailures', topLocoFailures.map(([asset]) => asset), topLocoFailures.map(([, count]) => count), COLORS.catViolet, {
     rotate: false, showValues: true,
     onClick: (idx) => drillToAssetFailures(topLocoFailures[idx][0]),
   });
@@ -5563,10 +5573,10 @@ function renderMasterplan(animate = true) {
 
   const missedEntries = isViewer() ? [] : buildPeReminderEntries();
   const PE_REMINDER_STATUS = {
-    green: { color: '#2F7EE0', glyph: '○', size: 18 },
-    orange: { color: '#2F9E44', glyph: '△', size: 18 },
-    red: { color: '#E64980', glyph: '□', size: 18 },
-    grey: { color: '#E03131', glyph: '✕', size: 22 },
+    green: { color: COLORS.green, glyph: '○', size: 18 },
+    orange: { color: COLORS.catOrange, glyph: '△', size: 18 },
+    red: { color: COLORS.red, glyph: '□', size: 18 },
+    grey: { color: '#6A7390', glyph: '✕', size: 22 },
   };
   const reminderRowsHtml = missedEntries.map(m => {
     const st = PE_REMINDER_STATUS[m.dotColor];
@@ -5609,10 +5619,10 @@ function renderMasterplan(animate = true) {
           <div style="display:flex;align-items:center;justify-content:space-between;height:40px;box-sizing:border-box;padding:0 16px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">
             <span>PE Reminder &mdash; Due Soon or Overdue</span>
             <span style="display:flex;gap:8px;font-size:10px;font-weight:600;letter-spacing:normal;text-transform:none;white-space:nowrap;">
-              <span style="color:#2F7EE0;">○ Soon</span>
-              <span style="color:#2F9E44;">△ &le;30d</span>
-              <span style="color:#E64980;">□ &gt;30d</span>
-              <span style="color:#E03131;">✕ Down</span>
+              <span style="color:${COLORS.green};">○ Soon</span>
+              <span style="color:${COLORS.catOrange};">△ &le;30d</span>
+              <span style="color:${COLORS.red};">□ &gt;30d</span>
+              <span style="color:#6A7390;">✕ Down</span>
             </span>
           </div>
           <div class="table-scroll" style="height:400px;">
@@ -5642,18 +5652,18 @@ function renderMasterplan(animate = true) {
       </div>
       <div class="kpi" style="--accent:var(--amber)">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Top Depot by PE</span>
-          <select id="peDepotMonthSelect" onclick="event.stopPropagation()" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text);max-width:110px;">
+          <select id="peDepotMonthSelect" class="kpi-month-select" onclick="event.stopPropagation()">
             <option value="">All months</option>
             ${peHistoryMonthsAvailable().map(m => `<option value="${m}" ${peDepotSelectedMonth === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}
           </select>
         </div>
-        <div class="kpi-value">${topDepotPe ? esc(topDepotPe.depot) : '—'}<small>${topDepotPe ? topDepotPe.count + ' PE' : ''}</small></div>
+        <div class="kpi-value kpi-value-text">${topDepotPe ? esc(topDepotPe.depot) : '—'}<small>${topDepotPe ? topDepotPe.count + ' PE' : ''}</small></div>
         <div class="kpi-foot">${peDepotSelectedMonth ? esc(monthLabel(peDepotSelectedMonth)) : 'All months'} &middot; from PE History</div>
         <div class="kpi-corner">${ICONS.masterplan}</div>
       </div>
       <div class="kpi" style="--accent:var(--blue)">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Total PE Completed</span>
-          <select id="peMonthlyCountSelect" onclick="event.stopPropagation()" style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text);max-width:110px;">
+          <select id="peMonthlyCountSelect" class="kpi-month-select" onclick="event.stopPropagation()">
             <option value="">All months</option>
             ${peHistoryMonthsAvailable().map(m => `<option value="${m}" ${peMonthlyCountSelectedMonth === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}
           </select>
@@ -5714,7 +5724,7 @@ function renderMasterplan(animate = true) {
   DATA.peHistory.forEach(h => { if (h.date) { const k = monthKey(h.date); if (k) masterplanPeMonthCounts[k] = (masterplanPeMonthCounts[k] || 0) + 1; } });
   const masterplanPeMonthKeys = Object.keys(masterplanPeMonthCounts).sort();
   const draw = animate ? drawBarChartAnimated : drawBarChart;
-  draw('chartMasterplanPe', masterplanPeMonthKeys.map(monthLabel), masterplanPeMonthKeys.map(k => masterplanPeMonthCounts[k]), '#2a78d6',
+  draw('chartMasterplanPe', masterplanPeMonthKeys.map(monthLabel), masterplanPeMonthKeys.map(k => masterplanPeMonthCounts[k]), COLORS.catBlue,
     { rotate: false, showValues: true, yMin: 0, yMax: 50, ySteps: 10 });
   if (animate) animateKpiNumbers(document.getElementById('content'));
 }
@@ -7077,12 +7087,12 @@ function openModal(view, editIdx = null, prefill = null) {
         </div>
         <div class="field"><label>Date Completed *</label><input type="date" lang="en-GB" id="ph_date" value="${rec ? toDateInputValue(rec.date) : (prefill && prefill.date ? toDateInputValue(prefill.date) : '')}" required></div>
         <div class="field"><label>Depot *</label>
-          <select id="ph_depot">
+          <select id="ph_depot" required>
             <option value="">Select depot…</option>
             ${DEPOT_OPTIONS.map(d => `<option value="${esc(d)}" ${rec && rec.depot === d ? 'selected' : ''}>${esc(d)}</option>`).join('')}
           </select>
         </div>
-        <div class="field"><label>PWO *</label><input type="text" id="ph_pwo" value="${gv('pwo')}" placeholder="e.g. PWO201954"></div>
+        <div class="field"><label>PWO *</label><input type="text" id="ph_pwo" value="${gv('pwo')}" placeholder="e.g. PWO201954" required></div>
       </div>
     `;
   } else if (view === 'peUsw') {
