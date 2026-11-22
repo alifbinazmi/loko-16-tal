@@ -130,10 +130,13 @@
   .topbar-clock-date{font-size:12.5px;font-weight:800;letter-spacing:.05em;opacity:.92;white-space:nowrap;}
   .topbar-clock-divider{width:1px;height:16px;background:rgba(255,255,255,.35);flex-shrink:0;}
   .topbar-clock-time{font-family:var(--mono);font-size:16px;font-weight:800;letter-spacing:.03em;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.2);}
-  .sidebar-stats{display:flex;flex-direction:column;gap:6px;margin-top:10px;padding:0;}
-  .sidebar-stats .tb-chip{width:100%;justify-content:flex-start;padding:7px 10px;}
-  .sidebar-stats .tb-chip b{font-size:14px;font-weight:800;letter-spacing:-.02em;}
-  .sidebar-stats .tb-chip-label{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);}
+  .sidebar-stats{display:flex;flex-direction:column;gap:8px;margin-top:10px;padding:0;}
+  .sidebar-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .sidebar-stat-tile{display:flex;flex-direction:column;gap:3px;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:7px 8px;min-width:0;}
+  .sidebar-stat-tile .top-row{display:flex;align-items:center;gap:5px;}
+  .sidebar-stat-tile .top-row svg{width:12px;height:12px;flex-shrink:0;color:var(--text-faint);}
+  .sidebar-stat-tile b{font-family:var(--mono);font-weight:800;font-size:14px;letter-spacing:-.02em;color:var(--text);}
+  .sidebar-stat-tile .lbl{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);white-space:normal;line-height:1.25;word-break:break-word;}
 
 
 
@@ -2060,12 +2063,24 @@ function renderSidebarStats() {
   const avail = latestAvailabilityInfo();
   const dep = deploymentMaintenanceCounts();
   el.innerHTML = `
-    <div class="tb-chip" title="From Total Availability table, synced to today's date">${ICONS.gauge}<b>${avail.total}</b><span class="tb-chip-label">Available</span></div>
-    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today (Failed + Repair)">${ICONS.failure}<b>${dep.failed}</b><span class="tb-chip-label">Under Maintenance</span></div>
-    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.masterplan}<b>${dep.pe}</b><span class="tb-chip-label">PE</span></div>
-    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.gear}<b>${dep.overhaul}</b><span class="tb-chip-label">Overhaul</span></div>
-    <div class="tb-chip" title="From Daily Fleet Deployment Summary, today">${ICONS.pause}<b>${dep.inactive}</b><span class="tb-chip-label">Inactive</span></div>
-    <div class="tb-chip"><span class="tb-dot" id="tbSyncDot"></span><span id="tbSyncLabel">SYNCED</span></div>
+    <div class="sidebar-stat-grid">
+      <div class="sidebar-stat-tile" title="From Total Availability table, synced to today's date">
+        <div class="top-row">${ICONS.gauge}<b>${avail.total}</b></div><span class="lbl">Available</span>
+      </div>
+      <div class="sidebar-stat-tile" title="From Daily Fleet Deployment Summary, today (Failed + Repair)">
+        <div class="top-row">${ICONS.failure}<b>${dep.failed}</b></div><span class="lbl">Maintenance</span>
+      </div>
+      <div class="sidebar-stat-tile" title="From Daily Fleet Deployment Summary, today">
+        <div class="top-row">${ICONS.masterplan}<b>${dep.pe}</b></div><span class="lbl">PE</span>
+      </div>
+      <div class="sidebar-stat-tile" title="From Daily Fleet Deployment Summary, today">
+        <div class="top-row">${ICONS.gear}<b>${dep.overhaul}</b></div><span class="lbl">Overhaul</span>
+      </div>
+      <div class="sidebar-stat-tile" title="From Daily Fleet Deployment Summary, today">
+        <div class="top-row">${ICONS.pause}<b>${dep.inactive}</b></div><span class="lbl">Inactive</span>
+      </div>
+    </div>
+    <div class="tb-chip" style="width:100%;"><span class="tb-dot" id="tbSyncDot"></span><span id="tbSyncLabel">SYNCED</span></div>
   `;
   updateSaveIndicator();
 }
