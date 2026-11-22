@@ -2349,49 +2349,49 @@ function buildOrderedKpiCards() {
     availability: `
       <div class="kpi" style="--accent:${availPass ? 'var(--green)' : 'var(--red)'};" data-kpi="availability" data-nav-view="availability">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Fleet Availability</span>${kpiMonthSelectHtml('availability')}</div>
-        <div class="kpi-value">${availV.count}<small>/ ${availTarget} target</small></div>
+        <div class="kpi-value">${kpiNumHtml(availV.count)}<small>/ ${availTarget} target</small></div>
         <div class="kpi-foot">${kpiFootHtml('availability', monthLabel(availShownMonth) + ' &middot; avg locos/day &middot; ' + (availPass ? 'On target' : 'Below target'), availV)}</div>
         <div class="kpi-corner">${ICONS.gauge}</div>
       </div>`,
     reliability: `
       <div class="kpi" style="--accent:${mkbfPass ? 'var(--green)' : 'var(--red)'};" data-kpi="reliability" data-nav-view="reliability">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Reliability (MKBF)</span>${kpiMonthSelectHtml('reliability')}</div>
-        <div class="kpi-value">${mkbfV.count}<small>/ ${fmtKm(MKBF_TARGET_KM)} km</small></div>
+        <div class="kpi-value">${kpiNumHtml(mkbfV.count)}<small>/ ${fmtKm(MKBF_TARGET_KM)} km</small></div>
         <div class="kpi-foot">${kpiFootHtml('reliability', monthLabel(mkbfShownMonth) + ' &middot; running km &divide; failures', mkbfV)}</div>
         <div class="kpi-corner">${ICONS.reliability}</div>
       </div>`,
     pe: `
       <div class="kpi" style="--accent:${peAchievedPct >= 80 ? 'var(--green)' : peAchievedPct >= 50 ? 'var(--amber)' : 'var(--red)'};" data-kpi="pe" data-nav-view="masterplan">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Periodic Examination (PE)</span>${kpiMonthSelectHtml('pe')}</div>
-        <div class="kpi-value">${peV.key && peV.key !== 'ALL' ? peV.count : peAchievedPct}<small>${peV.key && peV.key !== 'ALL' ? ' completed' : '%'}</small></div>
+        <div class="kpi-value">${kpiNumHtml(peV.key && peV.key !== 'ALL' ? peV.count : peAchievedPct)}<small>${peV.key && peV.key !== 'ALL' ? ' completed' : '%'}</small></div>
         <div class="kpi-foot">${kpiFootHtml('pe', PE_PLAN_SUMMARY.actual + ' of ' + PE_PLAN_SUMMARY.plan + ' planned PE tasks, YTD', peV)}</div>
         <div class="kpi-corner">${ICONS.masterplan}</div>
       </div>`,
     failures: `
       <div class="kpi" style="--accent:var(--green)" data-kpi="failures" data-nav-view="failures">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Total Unscheduled Reports</span>${kpiMonthSelectHtml('failures')}</div>
-        <div class="kpi-value">${failuresV.count}</div>
+        <div class="kpi-value">${kpiNumHtml(failuresV.count)}</div>
         <div class="kpi-foot">${kpiFootHtml('failures', 'Unscheduled Report Details', failuresV)}</div>
         <div class="kpi-corner">${ICONS.failure}</div>
       </div>`,
     incidents: `
       <div class="kpi" style="--accent:var(--blue)" data-kpi="incidents" data-nav-view="incidents">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Total 16-TAL Incidents</span>${kpiMonthSelectHtml('incidents')}</div>
-        <div class="kpi-value">${incidentsV.count}</div>
+        <div class="kpi-value">${kpiNumHtml(incidentsV.count)}</div>
         <div class="kpi-foot">${kpiFootHtml('incidents', 'Total 16-TAL Incidents', incidentsV)}</div>
         <div class="kpi-corner">${ICONS.incident}</div>
       </div>`,
     running: `
       <div class="kpi" style="--accent:var(--blue);" data-kpi="running" data-nav-view="dailyStatus">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>Total Running</span>${kpiMonthSelectHtml('running')}</div>
-        <div class="kpi-value">${runningV.count}<small>km</small></div>
+        <div class="kpi-value">${kpiNumHtml(runningV.count)}<small>km</small></div>
         <div class="kpi-foot">${kpiFootHtml('running', 'Fleet-wide, from Daily Status', runningV)}</div>
         <div class="kpi-corner">${ICONS.reliability}</div>
       </div>`,
     langgar: `
       <div class="kpi" style="--accent:var(--amber)" data-kpi="langgar" data-nav-view="langgar">
         <div class="kpi-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px;"><span>16-TAL Accidents</span>${kpiMonthSelectHtml('langgar')}</div>
-        <div class="kpi-value">${langgarV.count}</div>
+        <div class="kpi-value">${kpiNumHtml(langgarV.count)}</div>
         <div class="kpi-foot">${kpiFootHtml('langgar', 'Wilayah Timur, 01/01&ndash;31/12/2026', langgarV)}</div>
         <div class="kpi-corner">${ICONS.langgar}</div>
       </div>`,
@@ -2426,6 +2426,7 @@ function refreshKpiGrid() {
     grids[0].innerHTML = all.slice(0, 4).join('');
     grids[1].innerHTML = all.slice(4, 8).join('');
     wireKpiCards();
+    grids.forEach(g => animateKpiNumbers(g));
   } else {
     renderDashboard();
   }
@@ -2435,7 +2436,7 @@ function syncChartScrollMargin() {
   if (fleetOverview) document.documentElement.style.setProperty('--fleet-overview-h', fleetOverview.offsetHeight + 'px');
 }
 window.addEventListener('resize', syncChartScrollMargin);
-function renderDashboard() {
+function renderDashboard(animate = true) {
   const ssTotals = computeSubsystemTotals(countableFailures());
   const assetTotals = computeAssetTotals(countableFailures());
 
@@ -2466,7 +2467,8 @@ function renderDashboard() {
   `;
   wireKpiCards();
   syncChartScrollMargin();
-  drawDashboardCharts(ssTotals, assetTotals);
+  drawDashboardCharts(ssTotals, assetTotals, animate);
+  if (animate) animateKpiNumbers(document.getElementById('content'));
   const dashExportBtn = document.getElementById('dashExportBtn');
   if (dashExportBtn) dashExportBtn.addEventListener('click', exportDashboardToExcel);
 }
@@ -2603,6 +2605,21 @@ function drawBarChart(canvasId, labels, values, color, opts = {}) {
     canvas.onclick = null;
   }
 }
+function drawBarChartAnimated(canvasId, labels, values, color, opts = {}) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const targetArr = Array.isArray(opts.targetLine) ? opts.targetLine : null;
+  const targetScalar = targetArr ? null : opts.targetLine;
+  const yMax = opts.yMax != null ? opts.yMax : niceMax(Math.max(...values, targetArr ? Math.max(...targetArr) : (targetScalar || 0), 1));
+  const fixedOpts = { ...opts, yMax };
+  const t0 = performance.now();
+  (function frame(now) {
+    const t = Math.min(1, (now - t0) / 700);
+    const eased = 1 - Math.pow(1 - t, 3);
+    drawBarChart(canvasId, labels, values.map(v => v * eased), color, fixedOpts);
+    if (t < 1) requestAnimationFrame(frame);
+  })(t0);
+}
 function roundRectTop(ctx, x, y, w, h, r) {
   if (h <= 0) { return; }
   r = Math.min(r, w / 2, h);
@@ -2738,11 +2755,12 @@ function updateDashboardChartBadges() {
     }
   });
 }
-function drawDashboardCharts(ssTotals, assetTotals) {
+function drawDashboardCharts(ssTotals, assetTotals, animate = true) {
   _dashboardChartData = {};
+  const draw = animate ? drawBarChartAnimated : drawBarChart;
 
   const ssEntries = Object.entries(ssTotals).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-  drawBarChart('chartSubsystem', ssEntries.map(e => e[0]), ssEntries.map(e => e[1]), '#e87ba4', {
+  draw('chartSubsystem', ssEntries.map(e => e[0]), ssEntries.map(e => e[1]), '#e87ba4', {
     rotate: true,
     onClick: () => setView('subsystem'),
     showValues: true,
@@ -2754,7 +2772,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   const monthCounts = {};
   countableFailures().forEach(f => { const k = monthKey(f.dateReceive); if (k) monthCounts[k] = (monthCounts[k] || 0) + 1; });
   const monthKeys = Object.keys(monthCounts).sort();
-  drawBarChart('chartMonthly', monthKeys.map(monthLabel), monthKeys.map(k => monthCounts[k]), '#eb6834', {
+  draw('chartMonthly', monthKeys.map(monthLabel), monthKeys.map(k => monthCounts[k]), '#eb6834', {
     rotate: false,
     onClick: (idx) => drillFailuresByMonth(monthKeys[idx]),
     showValues: true,
@@ -2767,7 +2785,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   const incMonthCounts = {};
   DATA.incidents.forEach(i => { if (i.month && i.asset) incMonthCounts[i.month] = (incMonthCounts[i.month] || 0) + 1; });
   const incMonths = Object.keys(incMonthCounts).sort((a, b) => incidentMonthSortKey(a) - incidentMonthSortKey(b));
-  drawBarChart('chartMonthlyIncidents', incMonths.map(incidentMonthShortLabel), incMonths.map(m => incMonthCounts[m]), '#1baf7a', {
+  draw('chartMonthlyIncidents', incMonths.map(incidentMonthShortLabel), incMonths.map(m => incMonthCounts[m]), '#1baf7a', {
     rotate: false,
     onClick: (idx) => drillIncidentsByMonth(incMonths[idx]),
     showValues: true,
@@ -2778,7 +2796,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   if (chartMonthlyIncidentsTitleEl) chartMonthlyIncidentsTitleEl.addEventListener('click', () => setView('incidents'));
 
   const assetEntries = Object.entries(assetTotals).sort((a, b) => b[1] - a[1]).slice(0, 12);
-  drawBarChart('chartAsset', assetEntries.map(e => e[0]), assetEntries.map(e => e[1]), '#6250d6', { rotate: false, showValues: true });
+  draw('chartAsset', assetEntries.map(e => e[0]), assetEntries.map(e => e[1]), '#6250d6', { rotate: false, showValues: true });
   _dashboardChartData.chartAsset = { title: 'Failures by Locomotive (top 12)', labelHeader: 'Asset', valueHeader: 'Failures', labels: assetEntries.map(e => e[0]), values: assetEntries.map(e => e[1]) };
   const chartAssetTitleEl = document.getElementById('chartAssetTitle');
   if (chartAssetTitleEl) chartAssetTitleEl.addEventListener('click', () => {
@@ -2791,7 +2809,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
 
   const availMonths = availabilityTrackedMonths();
   const availData = availMonths.map(m => ({ month: m, value: computeDailyAvailabilityAverage(m), target: availabilityTargetForMonth(m) }));
-  drawBarChart('chartDashAvailability', availData.map(a => monthLabel(a.month)), availData.map(a => a.value),
+  draw('chartDashAvailability', availData.map(a => monthLabel(a.month)), availData.map(a => a.value),
     availData.map(a => a.value >= a.target ? '#159253' : '#B0202F'),
     { rotate: false, targetLine: availData.map(a => a.target), onClick: () => setView('availability'), yMin: 5, yMax: 30, ySteps: 5, showValues: true, valueFormat: v => v.toFixed(1) + '%' });
   _dashboardChartData.chartDashAvailability = { title: 'Fleet Availability by Month', labelHeader: 'Month', valueHeader: 'Availability %', labels: availData.map(a => monthLabel(a.month)), values: availData.map(a => a.value) };
@@ -2800,7 +2818,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
 
   const relMonths = reliabilityTrackedMonths();
   const mkbfData = relMonths.map(m => computeMkbfKm(m) || 0);
-  drawBarChart('chartDashReliability', relMonths.map(monthLabel), mkbfData,
+  draw('chartDashReliability', relMonths.map(monthLabel), mkbfData,
     mkbfData.map(v => v >= MKBF_TARGET_KM ? '#159253' : '#B0202F'),
     { rotate: false, targetLine: MKBF_TARGET_KM, onClick: () => setView('reliability'), showValues: true, valueFormat: v => fmtKm(v) });
   _dashboardChartData.chartDashReliability = { title: 'Reliability (MKBF) by Month', labelHeader: 'Month', valueHeader: 'MKBF (km)', labels: relMonths.map(monthLabel), values: mkbfData };
@@ -2810,14 +2828,14 @@ function drawDashboardCharts(ssTotals, assetTotals) {
   const peMonthCounts = {};
   DATA.peHistory.forEach(h => { if (h.date) { const k = monthKey(h.date); if (k) peMonthCounts[k] = (peMonthCounts[k] || 0) + 1; } });
   const peMonthKeys = Object.keys(peMonthCounts).sort();
-  drawBarChart('chartDashPe', peMonthKeys.map(monthLabel), peMonthKeys.map(k => peMonthCounts[k]), '#2a78d6',
+  draw('chartDashPe', peMonthKeys.map(monthLabel), peMonthKeys.map(k => peMonthCounts[k]), '#2a78d6',
     { rotate: false, onClick: () => setView('masterplan'), showValues: true, yMin: 0, yMax: 50, ySteps: 10 });
   _dashboardChartData.chartDashPe = { title: 'PE Completions by Month', labelHeader: 'Month', valueHeader: 'PE Completions', labels: peMonthKeys.map(monthLabel), values: peMonthKeys.map(k => peMonthCounts[k]) };
   const chartDashPeTitleEl = document.getElementById('chartDashPeTitle');
   if (chartDashPeTitleEl) chartDashPeTitleEl.addEventListener('click', () => setView('masterplan'));
 
   const runningData = relMonths.map(m => dailyStatusFleetKmForMonth(m));
-  drawBarChart('chartDashRunning', relMonths.map(monthLabel), runningData, '#eda100',
+  draw('chartDashRunning', relMonths.map(monthLabel), runningData, '#eda100',
     { rotate: false, onClick: () => setView('dailyStatus'), showValues: true, valueFormat: v => fmtKm(v) });
   _dashboardChartData.chartDashRunning = { title: 'Total Running (km) by Month', labelHeader: 'Month', valueHeader: 'Running (km)', labels: relMonths.map(monthLabel), values: runningData };
   const chartDashRunningTitleEl = document.getElementById('chartDashRunningTitle');
@@ -2828,7 +2846,7 @@ function drawDashboardCharts(ssTotals, assetTotals) {
 let _dashboardResizeTimer = null;
 window.addEventListener('resize', () => {
   clearTimeout(_dashboardResizeTimer);
-  _dashboardResizeTimer = setTimeout(() => { if (currentView === 'dashboard') renderDashboard(); }, 150);
+  _dashboardResizeTimer = setTimeout(() => { if (currentView === 'dashboard') renderDashboard(false); }, 150);
 });
 
 /* ============================================================
@@ -5243,6 +5261,30 @@ function computeKmBetweenDates(asset, startDateStr, endDateStr) {
 }
 function fmtKm(n) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+function numFromDisplay(v) {
+  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/,/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+function kpiNumHtml(displayValue) {
+  const n = numFromDisplay(displayValue);
+  return n === null ? esc(String(displayValue)) : `<span class="kpi-num" data-final="${n}">${esc(String(displayValue))}</span>`;
+}
+function animateKpiNumbers(root) {
+  root.querySelectorAll('.kpi-num[data-final]').forEach(span => {
+    const final = parseFloat(span.dataset.final);
+    if (!Number.isFinite(final)) return;
+    const magnitude = Math.max(Math.abs(final), 5);
+    const start = final + (Math.random() * 2 - 1) * magnitude * 1.5;
+    const t0 = performance.now();
+    (function frame(now) {
+      const t = Math.min(1, (now - t0) / 800);
+      const eased = 1 - Math.pow(1 - t, 3);
+      span.textContent = fmtKm(start + (final - start) * eased);
+      if (t < 1) requestAnimationFrame(frame);
+      else span.textContent = fmtKm(final);
+    })(t0);
+  });
 }
 function additionalKmKey(asset, yyyyMm) {
   return `${asset}|${yyyyMm}`;
