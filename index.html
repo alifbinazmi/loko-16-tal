@@ -2563,7 +2563,7 @@ function drawBarChart(canvasId, labels, values, color, opts = {}) {
       const bh = chartH * frac(v);
       const x = padL + slot * i + slot / 2;
       const y = padT + chartH - bh - 4;
-      const label = typeof opts.valueFormat === 'function' ? opts.valueFormat(v) : v;
+      const label = typeof opts.valueFormat === 'function' ? opts.valueFormat(v) : Math.round(v);
       ctx.fillText(label, x, y);
     });
   }
