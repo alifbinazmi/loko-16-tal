@@ -243,6 +243,15 @@
   .stat-card .lbl{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px;}
   .stat-card .val{font-size:15px;font-weight:700;color:var(--text);}
   .stat-card .val .n{font-family:var(--mono);color:var(--indigo);}
+  .mini-rank-list{margin-top:10px;display:flex;flex-direction:column;gap:7px;}
+  .mini-rank-row{display:flex;align-items:center;gap:8px;}
+  .mini-rank-num{flex:0 0 auto;width:16px;height:16px;border-radius:50%;background:var(--panel-3);color:var(--text-dim);font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);}
+  .mini-rank-num.lead{background:var(--amber-soft);color:var(--amber);}
+  .mini-rank-label{flex:0 1 auto;min-width:0;max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;color:var(--text-dim);}
+  .mini-rank-track{flex:1;height:6px;border-radius:3px;background:var(--panel-3);overflow:hidden;}
+  .mini-rank-fill{height:100%;border-radius:3px;background:var(--indigo);}
+  .mini-rank-fill.lead{background:var(--amber);}
+  .mini-rank-count{flex:0 0 auto;min-width:20px;text-align:right;font-family:var(--mono);font-weight:700;font-size:11.5px;color:var(--text);}
 
   .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
   .reliability-split{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;}
@@ -2956,6 +2965,17 @@ window.addEventListener('resize', () => {
    SUB-SYSTEM SUMMARY (auto-computed, always synced)
    ============================================================ */
 let subsystemSelectedMonth = null; // null = all months
+function miniRankListHtml(entries) {
+  if (!entries.length) return '<div class="dim" style="margin-top:8px;">No data</div>';
+  const top = entries[0][1] || 1;
+  return `<div class="mini-rank-list">${entries.map(([label, count], i) => `
+    <div class="mini-rank-row">
+      <span class="mini-rank-num${i === 0 ? ' lead' : ''}">${i + 1}</span>
+      <span class="mini-rank-label" title="${esc(label)}">${esc(label)}</span>
+      <div class="mini-rank-track"><div class="mini-rank-fill${i === 0 ? ' lead' : ''}" style="width:${Math.max(4, Math.round((count / top) * 100))}%;"></div></div>
+      <span class="mini-rank-count">${count}</span>
+    </div>`).join('')}</div>`;
+}
 function renderSubsystem(animate = true) {
   const monthsAvailable = [...new Set(DATA.failures.map(f => monthKey(f.dateReceive)).filter(Boolean))].sort();
   const scopedFailures = (subsystemSelectedMonth
@@ -3000,16 +3020,12 @@ function renderSubsystem(animate = true) {
       <div class="stat-card">
         <div class="lbl">Top Failing Sub-System</div>
         <div class="val">${top3Subsystems[0] ? esc(top3Subsystems[0][0]) : '—'} <span class="n">(${top3Subsystems[0] ? top3Subsystems[0][1] : 0})</span></div>
-        <div style="margin-top:8px;font-size:11.5px;color:var(--text-dim);line-height:1.8;">
-          ${top3Subsystems.map((e, i) => `<div>#${i + 1} ${esc(e[0])} <span style="font-family:var(--mono);color:var(--indigo);">(${e[1]})</span></div>`).join('') || '<div class="dim">No data</div>'}
-        </div>
+        ${miniRankListHtml(top3Subsystems)}
       </div>
       <div class="stat-card">
         <div class="lbl">Top Failing Locomotive</div>
         <div class="val">${top3Assets[0] ? 'Asset ' + esc(top3Assets[0][0]) : '—'} <span class="n">(${top3Assets[0] ? top3Assets[0][1] : 0})</span></div>
-        <div style="margin-top:8px;font-size:11.5px;color:var(--text-dim);line-height:1.8;">
-          ${top3Assets.map((e, i) => `<div>#${i + 1} Asset ${esc(e[0])} <span style="font-family:var(--mono);color:var(--indigo);">(${e[1]})</span></div>`).join('') || '<div class="dim">No data</div>'}
-        </div>
+        ${miniRankListHtml(top3Assets.map(([a, v]) => ['Asset ' + a, v]))}
       </div>
       <div class="stat-card">
         <div class="lbl">Root Cause Factors (4M)</div>
