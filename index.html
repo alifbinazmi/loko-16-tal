@@ -2892,9 +2892,7 @@ function renderSubsystem() {
       <div class="stat-card">
         <div class="lbl">Root Cause Factors (4M)</div>
         <div class="val">${top4M[0] && top4M[0][1] > 0 ? esc(top4M[0][0]) : '—'} <span class="n">(${top4M[0] ? top4M[0][1] : 0})</span></div>
-        <div style="margin-top:8px;font-size:11.5px;color:var(--text-dim);line-height:1.8;">
-          ${top4M.filter(([, v]) => v > 0).map((e, i) => `<div>#${i + 1} ${esc(e[0])} <span style="font-family:var(--mono);color:var(--indigo);">(${e[1]})</span></div>`).join('') || '<div class="dim">No data</div>'}
-        </div>
+        <div style="height:120px;margin-top:8px;"><canvas id="chartRootCause4M"></canvas></div>
       </div>
     </div>
     <div class="panel">
@@ -2915,6 +2913,7 @@ function renderSubsystem() {
     </div>
   `;
   drawBarChart('chartSubsystemSummary', ssChartEntries.map(e => e[0]), ssChartEntries.map(e => e[1]), '#A85D00', { rotate: true, showValues: true });
+  drawBarChart('chartRootCause4M', top4M.map(e => e[0]), top4M.map(e => e[1]), '#3D4F91', { rotate: false, showValues: true });
   document.getElementById('ssMonthSelect').addEventListener('change', e => {
     subsystemSelectedMonth = e.target.value || null;
     renderSubsystem();
