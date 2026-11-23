@@ -2852,6 +2852,116 @@ function drawLineChartAnimated(canvasId, labels, values, color, opts = {}) {
   })(t0);
 }
 
+// Combo chart: bars on a left-axis scale, one or more line series (lineSeries: {values, color, dashed, label}) on a shared right-axis scale.
+function drawComboChart(canvasId, labels, barValues, barColor, lineSeries, opts = {}) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const { ctx, w, h } = setupCanvas(canvas);
+  ctx.clearRect(0, 0, w, h);
+  const padL = 34, padR = 34, padT = 10, padB = 26;
+  const chartW = w - padL - padR, chartH = h - padT - padB;
+
+  const barMax = opts.yMax != null ? opts.yMax : niceMax(Math.max(...barValues, 1));
+  const fracBar = v => Math.max(0, Math.min(1, v / barMax));
+
+  const allLineVals = lineSeries.flatMap(s => s.values);
+  const lineMax = opts.yMax2 != null ? opts.yMax2 : niceMax(Math.max(...allLineVals, 1));
+  const fracLine = v => Math.max(0, Math.min(1, v / lineMax));
+
+  const steps = opts.ySteps || 4;
+  ctx.font = '10px -apple-system,Segoe UI,sans-serif';
+  for (let i = 0; i <= steps; i++) {
+    const y = padT + chartH - (chartH * i / steps);
+    ctx.strokeStyle = CHART_GRID; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
+    const leftVal = Math.round(barMax * i / steps);
+    const rightVal = Math.round(lineMax * i / steps);
+    ctx.fillStyle = CHART_TEXT;
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(opts.leftFormat ? opts.leftFormat(leftVal) : leftVal, padL - 6, y);
+    ctx.textAlign = 'left';
+    ctx.fillText(opts.rightFormat ? opts.rightFormat(rightVal) : rightVal, padL + chartW + 6, y);
+  }
+
+  const n = barValues.length || 1;
+  const slot = chartW / n;
+  const barW = Math.max(4, Math.min(30, slot * 0.5));
+  barValues.forEach((v, i) => {
+    const bColor = Array.isArray(barColor) ? barColor[i] : barColor;
+    const bh = chartH * fracBar(v);
+    const x = padL + slot * i + slot / 2 - barW / 2;
+    const y = padT + chartH - bh;
+    const grad = ctx.createLinearGradient(0, y, 0, padT + chartH);
+    grad.addColorStop(0, bColor); grad.addColorStop(1, bColor + '99');
+    ctx.fillStyle = grad;
+    roundRectTop(ctx, x, y, barW, bh, 3);
+    ctx.fill();
+  });
+
+  if (opts.showBarValues) {
+    ctx.fillStyle = CHART_TEXT; ctx.font = 'bold 9px -apple-system,Segoe UI,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    barValues.forEach((v, i) => {
+      const bh = chartH * fracBar(v);
+      const x = padL + slot * i + slot / 2;
+      const y = padT + chartH - bh - 4;
+      ctx.fillText(opts.leftFormat ? opts.leftFormat(v) : Math.round(v), x, y);
+    });
+  }
+
+  ctx.fillStyle = CHART_TEXT; ctx.font = '9px -apple-system,Segoe UI,sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  labels.forEach((lab, i) => {
+    const x = padL + slot * i + slot / 2;
+    ctx.fillText(lab, x, padT + chartH + 8);
+  });
+
+  lineSeries.forEach(series => {
+    const pts = series.values.map((v, i) => ({ x: padL + slot * i + slot / 2, y: padT + chartH - chartH * fracLine(v) }));
+    ctx.save();
+    ctx.strokeStyle = series.color; ctx.lineWidth = 1.8; ctx.lineJoin = 'round';
+    if (series.dashed) ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (!series.dashed) {
+      pts.forEach(p => { ctx.fillStyle = series.color; ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill(); });
+    }
+    ctx.restore();
+  });
+
+  if (opts.onClick && barValues.length) {
+    canvas.style.cursor = 'pointer';
+    canvas.onclick = e => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      if (x < padL || x > padL + chartW) return;
+      const idx = Math.min(barValues.length - 1, Math.max(0, Math.floor((x - padL) / slot)));
+      opts.onClick(idx, labels[idx], barValues[idx]);
+    };
+  } else {
+    canvas.style.cursor = 'default';
+    canvas.onclick = null;
+  }
+}
+function drawComboChartAnimated(canvasId, labels, barValues, barColor, lineSeries, opts = {}) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const yMax = opts.yMax != null ? opts.yMax : niceMax(Math.max(...barValues, 1));
+  const allLineVals = lineSeries.flatMap(s => s.values);
+  const yMax2 = opts.yMax2 != null ? opts.yMax2 : niceMax(Math.max(...allLineVals, 1));
+  const fixedOpts = { ...opts, yMax, yMax2 };
+  const t0 = performance.now();
+  (function frame(now) {
+    const t = Math.min(1, (now - t0) / 700);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const scaledLines = lineSeries.map(s => ({ ...s, values: s.values.map(v => v * eased) }));
+    drawComboChart(canvasId, labels, barValues.map(v => v * eased), barColor, scaledLines, fixedOpts);
+    if (t < 1) requestAnimationFrame(frame);
+  })(t0);
+}
+
 function drawDoughnutChart(canvasId, labels, values, colors, sweepFraction = 1) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
@@ -4868,16 +4978,13 @@ function renderReliability(animate = true) {
     <div class="kpi-grid">${buildReliabilityKpiGridHtml()}</div>
 
     <div class="chart-grid" style="grid-template-columns:1fr;">
-      <div class="chart-panel"><h3>Total Running (km) by Month</h3><div class="chart-wrap"><canvas id="chartReliabilityRunning"></canvas></div></div>
-    </div>
-    <div class="chart-grid" style="grid-template-columns:1fr;margin-top:14px;">
       <div class="chart-panel">
-        <h3>Reliability (MKBF) by Month</h3>
-        <div class="chart-wrap"><canvas id="chartReliability"></canvas></div>
+        <h3>Reliability: Total Running, MKBF &amp; Target by Month</h3>
+        <div class="chart-wrap" style="height:280px;"><canvas id="chartReliability"></canvas></div>
         <div class="mini-legend">
-          <span class="mini-legend-item"><span class="mini-legend-dot" style="background:var(--green);"></span>MKBF &ge; Target</span>
-          <span class="mini-legend-item"><span class="mini-legend-dot" style="background:var(--red);"></span>MKBF &lt; Target</span>
-          <span class="mini-legend-item"><span class="mini-legend-dot" style="background:var(--amber);"></span>Target (${fmtKm(MKBF_TARGET_KM)} km)</span>
+          <span class="mini-legend-item"><span class="mini-legend-dot" style="background:var(--blue);"></span>Total Running (km, left axis)</span>
+          <span class="mini-legend-item"><span style="display:inline-block;width:14px;height:2px;background:var(--indigo);"></span>MKBF (km, right axis)</span>
+          <span class="mini-legend-item"><span style="display:inline-block;width:14px;height:0;border-top:2px dashed var(--amber);"></span>Target (${fmtKm(MKBF_TARGET_KM)} km, right axis)</span>
         </div>
       </div>
     </div>
@@ -4932,14 +5039,14 @@ function renderReliability(animate = true) {
   `;
 
   const draw = animate ? drawBarChartAnimated : drawBarChart;
-  const drawLine = animate ? drawLineChartAnimated : drawLineChart;
+  const comboDraw = animate ? drawComboChartAnimated : drawComboChart;
 
-  draw('chartReliabilityRunning', rel.map(m => monthLabel(m)), rel.map(m => dailyStatusFleetKmForMonth(m) || 0),
-    COLORS.blue, { rotate: false, showValues: true, valueFormat: v => fmtKm(v) });
-
-  drawLine('chartReliability', rel.map(m => monthLabel(m)), rel.map(m => computeMkbfKm(m) || 0),
-    rel.map(m => (computeMkbfKm(m) || 0) >= MKBF_TARGET_KM ? COLORS.green : COLORS.red),
-    { targetLine: MKBF_TARGET_KM, showValues: true, valueFormat: v => fmtKm(v) });
+  comboDraw('chartReliability', rel.map(m => monthLabel(m)), rel.map(m => dailyStatusFleetKmForMonth(m) || 0), COLORS.blue,
+    [
+      { values: rel.map(m => computeMkbfKm(m) || 0), color: COLORS.indigo, label: 'MKBF' },
+      { values: rel.map(() => MKBF_TARGET_KM), color: COLORS.amber, dashed: true, label: 'Target' },
+    ],
+    { showBarValues: true, leftFormat: v => fmtKm(v), rightFormat: v => fmtKm(v) });
 
   draw('chartTopLocoFailures', topLocoFailures.map(([asset]) => asset), topLocoFailures.map(([, count]) => count), COLORS.catViolet, {
     rotate: false, showValues: true,
