@@ -28,6 +28,10 @@
     --green-soft:#DBF3E4;
     --red:#B0202F;
     --red-soft:#FCE0E5;
+    --yellow:#8A6D00;
+    --yellow-soft:#FFF3B0;
+    --orange:#9A4B00;
+    --orange-soft:#FFE0B2;
     --blue:#2F7EE0;
     --blue-soft:#DEEAFC;
     --indigo:#3D4F91;
@@ -58,6 +62,10 @@
     --green-soft:#153826;
     --red:#E5484D;
     --red-soft:#3A1A1C;
+    --yellow:#F0C14B;
+    --yellow-soft:#3D3312;
+    --orange:#F0984B;
+    --orange-soft:#3D2412;
     --blue:#5B9BFF;
     --blue-soft:#17283F;
     --indigo:#8891D9;
@@ -530,11 +538,6 @@
   .dsdep-label-input:focus{outline:none;border-color:var(--brand);background:var(--panel-2);}
   td.asset-flag-cell{cursor:pointer;}
   td.asset-flag-cell:hover{outline:1px solid var(--border-soft);outline-offset:-1px;}
-  .asset-flag-btn{border:none;border-radius:4px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;}
-  .asset-flag-btn.notfit{background:var(--red-soft);color:var(--red);}
-  .asset-flag-btn.note{background:#FEF3C7;color:#7C5800;}
-  .asset-flag-btn.clear{background:transparent;color:var(--text-dim);border:1px solid var(--border-soft);}
-  .asset-flag-btn.selected{outline:2px solid var(--text);outline-offset:1px;}
   .asset-flag-overhaul-row{display:flex;gap:10px;margin-bottom:10px;}
   .asset-flag-overhaul-row .field{flex:1;min-width:0;}
   .asset-flag-overhaul-row input{width:100%;box-sizing:border-box;}
@@ -618,10 +621,10 @@
   body.viewer-mode #eiaMarkBtn,
   body.viewer-mode #eiaClearBtn,
   body.viewer-mode #assetFlagSaveBtn,
-  body.viewer-mode .asset-flag-btn,
   body.viewer-mode #dashSlidesBtn{display:none !important;}
   body.viewer-mode #assetFlagPopup textarea,
-  body.viewer-mode #assetFlagPopup input{pointer-events:none;background:var(--panel-2);}
+  body.viewer-mode #assetFlagPopup input,
+  body.viewer-mode #assetFlagPopup select{pointer-events:none;background:var(--panel-2);}
   body.viewer-mode #viewerModeBadge{display:inline;}
 
   /* ---------- Login screen ---------- */
@@ -775,6 +778,14 @@
     <span id="assetFlagPopupTitle"></span>
     <button type="button" class="btn btn-ghost" id="assetFlagPopupCloseBtn" style="padding:2px 8px;">&times;</button>
   </div>
+  <div class="field"><label>Status</label>
+    <select id="assetFlagStatusSelect">
+      <option value="">Full Tonnage</option>
+      <option value="notfit">Not Fit</option>
+      <option value="overhaul">Overdue Overhaul</option>
+      <option value="notfit_overhaul">Not Fit + Overdue Overhaul</option>
+    </select>
+  </div>
   <div class="asset-flag-overhaul-row">
     <div class="field"><label>Last Overhaul Year</label><input type="text" id="assetFlagLastOverhaul" placeholder="e.g. 2023"></div>
     <div class="field"><label>Next Overhaul Year</label><input type="text" id="assetFlagNextOverhaul" placeholder="e.g. 2026"></div>
@@ -782,9 +793,6 @@
   <textarea id="assetFlagPopupNote" placeholder="Optional note"></textarea>
   <div id="assetFlagComponentSection" class="asset-flag-component-section" hidden></div>
   <div class="action-popup-actions">
-    <button type="button" class="asset-flag-btn notfit" id="assetFlagNotFitBtn" data-choice="notfit">Not Fit</button>
-    <button type="button" class="asset-flag-btn note" id="assetFlagNoteBtn" data-choice="note">Overdue O/H</button>
-    <button type="button" class="asset-flag-btn clear" id="assetFlagClearBtn" data-choice="">None</button>
     <button type="button" class="btn btn-primary" id="assetFlagSaveBtn">Save</button>
   </div>
 </div>
@@ -6306,15 +6314,17 @@ function kmReferenceTablePanelHtml() {
 /* Asset flag: a persistent (non-date) Not Fit / Notes marker on the asset number itself,
    click-to-edit right on the daily grid. Inactive styling always wins since it's a stronger state. */
 function assetFlagStyleFor(asset, isCurrentlyInactive) {
-  const flag = DATA.assetFlags[asset];
+  const flagRec = DATA.assetFlags[asset];
+  const flag = flagRec ? (flagRec.flag === 'note' ? 'overhaul' : flagRec.flag) : null;
   let style = '';
   if (isCurrentlyInactive) style = 'background-color:#8B0000;color:#FFFFFF;font-weight:700;';
-  else if (flag && flag.flag === 'notfit') style = 'background-color:var(--red-soft);color:var(--red);font-weight:700;';
-  else if (flag && flag.flag === 'note') style = 'background-color:#FEF3C7;color:#7C5800;font-weight:700;';
+  else if (flag === 'notfit_overhaul') style = 'background-color:var(--orange-soft);color:var(--orange);font-weight:700;';
+  else if (flag === 'notfit') style = 'background-color:var(--red-soft);color:var(--red);font-weight:700;';
+  else if (flag === 'overhaul') style = 'background-color:var(--yellow-soft);color:var(--yellow);font-weight:700;';
   const titleParts = [];
-  if (flag && flag.note) titleParts.push(flag.note);
-  if (flag && flag.lastOverhaul) titleParts.push(`Last OH ${flag.lastOverhaul}`);
-  if (flag && flag.nextOverhaul) titleParts.push(`Next OH ${flag.nextOverhaul}`);
+  if (flagRec && flagRec.note) titleParts.push(flagRec.note);
+  if (flagRec && flagRec.lastOverhaul) titleParts.push(`Last OH ${flagRec.lastOverhaul}`);
+  if (flagRec && flagRec.nextOverhaul) titleParts.push(`Next OH ${flagRec.nextOverhaul}`);
   return { style, note: titleParts.join(' — ') };
 }
 function assetFlagCellHtml(loco, isCurrentlyInactive) {
@@ -6353,25 +6363,16 @@ function componentLogTableHtml(asset, items) {
     <tbody>${rows}</tbody>
   </table>`;
 }
-let assetFlagPending = null;
-function updateAssetFlagChoiceButtons() {
-  document.querySelectorAll('#assetFlagPopup .asset-flag-btn').forEach(btn => {
-    btn.classList.toggle('selected', btn.dataset.choice === (assetFlagPending || ''));
-  });
-}
-function selectAssetFlagChoice(choice) {
-  assetFlagPending = choice || null;
-  updateAssetFlagChoiceButtons();
-}
 function showAssetFlagPopup(asset, anchorEl) {
   const popup = document.getElementById('assetFlagPopup');
   popup.dataset.asset = asset;
-  assetFlagPending = (DATA.assetFlags[asset] && DATA.assetFlags[asset].flag) || null;
+  const existingFlag = DATA.assetFlags[asset];
+  const currentFlag = existingFlag ? (existingFlag.flag === 'note' ? 'overhaul' : (existingFlag.flag || '')) : '';
+  document.getElementById('assetFlagStatusSelect').value = currentFlag;
   document.getElementById('assetFlagPopupTitle').textContent = `Asset ${asset}`;
   document.getElementById('assetFlagPopupNote').value = (DATA.assetFlags[asset] && DATA.assetFlags[asset].note) || '';
   document.getElementById('assetFlagLastOverhaul').value = (DATA.assetFlags[asset] && DATA.assetFlags[asset].lastOverhaul) || '';
   document.getElementById('assetFlagNextOverhaul').value = (DATA.assetFlags[asset] && DATA.assetFlags[asset].nextOverhaul) || '';
-  updateAssetFlagChoiceButtons();
   const assetClass = (DATA.locoPerf.find(l => l.asset === asset) || {}).class;
   const componentItems = componentLogItemsForClass(assetClass);
   const componentSection = document.getElementById('assetFlagComponentSection');
@@ -6401,12 +6402,13 @@ function hideAssetFlagPopup() {
 async function saveAssetFlag() {
   const popup = document.getElementById('assetFlagPopup');
   const asset = Number(popup.dataset.asset);
+  const flagValue = document.getElementById('assetFlagStatusSelect').value || null;
   const note = document.getElementById('assetFlagPopupNote').value.trim();
   const lastOverhaul = document.getElementById('assetFlagLastOverhaul').value.trim();
   const nextOverhaul = document.getElementById('assetFlagNextOverhaul').value.trim();
   await saveMapKeyChange('assetFlags', map => {
-    if (assetFlagPending || note || lastOverhaul || nextOverhaul) {
-      map[asset] = { flag: assetFlagPending || null, note, lastOverhaul, nextOverhaul };
+    if (flagValue || note || lastOverhaul || nextOverhaul) {
+      map[asset] = { flag: flagValue, note, lastOverhaul, nextOverhaul };
     } else {
       delete map[asset];
     }
@@ -7512,9 +7514,6 @@ document.addEventListener('click', e => {
   hideActionTakenPopup();
 });
 document.getElementById('assetFlagPopupCloseBtn').addEventListener('click', hideAssetFlagPopup);
-document.getElementById('assetFlagNotFitBtn').addEventListener('click', () => selectAssetFlagChoice('notfit'));
-document.getElementById('assetFlagNoteBtn').addEventListener('click', () => selectAssetFlagChoice('note'));
-document.getElementById('assetFlagClearBtn').addEventListener('click', () => selectAssetFlagChoice(null));
 document.getElementById('assetFlagSaveBtn').addEventListener('click', () => saveAssetFlag());
 document.addEventListener('click', e => {
   const popup = document.getElementById('assetFlagPopup');
