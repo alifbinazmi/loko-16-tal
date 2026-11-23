@@ -2861,11 +2861,18 @@ function drawComboChart(canvasId, labels, barValues, barColor, lineSeries, opts 
   const padL = 34, padR = 34, padT = 10, padB = 26;
   const chartW = w - padL - padR, chartH = h - padT - padB;
 
-  const barMax = opts.yMax != null ? opts.yMax : niceMax(Math.max(...barValues, 1));
+  const barActualMax = Math.max(...barValues, 0);
+  const barMax = opts.yMax != null ? opts.yMax : niceMax(Math.max(barActualMax, 1));
   const fracBar = v => Math.max(0, Math.min(1, v / barMax));
 
   const allLineVals = lineSeries.flatMap(s => s.values);
-  const lineMax = opts.yMax2 != null ? opts.yMax2 : niceMax(Math.max(...allLineVals, 1));
+  let lineMax;
+  if (opts.yMax2 != null) {
+    lineMax = opts.yMax2;
+  } else {
+    const barPeakFrac = Math.max(Math.min(1, barActualMax / barMax), 0.0001);
+    lineMax = niceMax(Math.max(...allLineVals, 1) / barPeakFrac);
+  }
   const fracLine = v => Math.max(0, Math.min(1, v / lineMax));
 
   const steps = opts.ySteps || 4;
@@ -2948,9 +2955,11 @@ function drawComboChart(canvasId, labels, barValues, barColor, lineSeries, opts 
 function drawComboChartAnimated(canvasId, labels, barValues, barColor, lineSeries, opts = {}) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
-  const yMax = opts.yMax != null ? opts.yMax : niceMax(Math.max(...barValues, 1));
+  const barActualMax = Math.max(...barValues, 0);
+  const yMax = opts.yMax != null ? opts.yMax : niceMax(Math.max(barActualMax, 1));
+  const barPeakFrac = Math.max(Math.min(1, barActualMax / yMax), 0.0001);
   const allLineVals = lineSeries.flatMap(s => s.values);
-  const yMax2 = opts.yMax2 != null ? opts.yMax2 : niceMax(Math.max(...allLineVals, 1));
+  const yMax2 = opts.yMax2 != null ? opts.yMax2 : niceMax(Math.max(...allLineVals, 1) / barPeakFrac);
   const fixedOpts = { ...opts, yMax, yMax2 };
   const t0 = performance.now();
   (function frame(now) {
