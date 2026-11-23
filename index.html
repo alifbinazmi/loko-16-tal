@@ -34,6 +34,31 @@
     --sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --radius: 6px;
   }
+  :root[data-theme="dark"]{
+    --bg:#14151A;
+    --panel:#1C1E26;
+    --panel-2:#242732;
+    --panel-3:#2E323F;
+    --border:#363B49;
+    --border-soft:#2A2E3A;
+    --text:#EDEFF5;
+    --text-dim:#AAB0C4;
+    --text-faint:#777E92;
+    --chrome-bg:#5C1818;
+    --chrome-bg-deep:#3A1010;
+    --brand:#E5484D;
+    --brand-soft:#3A1A1C;
+    --amber:#E0A030;
+    --amber-soft:#3A2E14;
+    --green:#2BC97E;
+    --green-soft:#153826;
+    --red:#E5484D;
+    --red-soft:#3A1A1C;
+    --blue:#5B9BFF;
+    --blue-soft:#17283F;
+    --indigo:#8891D9;
+    --indigo-soft:#262A3F;
+  }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
   body{display:flex;min-height:100vh;}
@@ -78,6 +103,7 @@
     border-top:1px solid var(--border-soft);border-radius:10px 10px 0 0;
     background:linear-gradient(180deg,#E4E6EA 0%,#D3D6DC 100%);
   }
+  :root[data-theme="dark"] .sidebar-foot{background:linear-gradient(180deg,#2E323F 0%,#242732 100%);}
   .sync-pill{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--text-faint);}
   .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(21,146,83,.7);}
   .sync-checkbox{
@@ -134,6 +160,13 @@
   .topbar-clock-date{font-size:12.5px;font-weight:800;letter-spacing:.05em;opacity:.92;white-space:nowrap;}
   .topbar-clock-divider{width:1px;height:16px;background:rgba(255,255,255,.35);flex-shrink:0;}
   .topbar-clock-time{font-family:var(--mono);font-size:16px;font-weight:800;letter-spacing:.03em;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.2);}
+  .theme-toggle-btn{
+    all:unset;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;
+    width:38px;height:38px;flex-shrink:0;border-radius:10px;cursor:pointer;color:#fff;
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);transition:background .12s;
+  }
+  .theme-toggle-btn:hover{background:rgba(255,255,255,.22);}
+  .theme-toggle-btn svg{width:17px;height:17px;}
   .sidebar-stats{display:flex;flex-direction:column;gap:8px;margin-top:10px;padding:0;}
   .sidebar-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
   .sidebar-stat-tile{display:flex;flex-direction:column;gap:3px;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:7px 8px;min-width:0;}
@@ -782,6 +815,7 @@
       <span class="topbar-title-accent" id="topbarTitleAccent"></span>
     </div>
     <div class="topbar-actions" id="topbarActions"></div>
+    <button type="button" class="theme-toggle-btn" id="themeToggleBtn" title="Toggle dark mode"></button>
     <div class="topbar-clock" id="topbarClock">
       <span class="topbar-clock-date" id="tbDate">&nbsp;</span>
       <span class="topbar-clock-divider"></span>
@@ -805,11 +839,38 @@
    ============================================================ */
 
 // Mirrors the :root CSS custom properties for use in <canvas> fillStyle, which can't read CSS variables.
-const COLORS = {
-  amber: '#A85D00', green: '#159253', red: '#B0202F', blue: '#2F7EE0', indigo: '#3D4F91',
-  catBlue: '#2a78d6', catOrange: '#eb6834', catAqua: '#1baf7a', catViolet: '#6250d6', catYellow: '#eda100', catMagenta: '#e87ba4',
+// COLORS is mutated in place (not reassigned) by applyChartTheme() so every existing COLORS.xxx call site stays theme-aware.
+const THEME_CHART = {
+  light: { grid: '#E7E9F0', text: '#5B6479', textStrong: '#171B27',
+    amber: '#A85D00', green: '#159253', red: '#B0202F', blue: '#2F7EE0', indigo: '#3D4F91',
+    catBlue: '#2a78d6', catOrange: '#eb6834', catAqua: '#1baf7a', catViolet: '#6250d6', catYellow: '#eda100', catMagenta: '#e87ba4' },
+  dark: { grid: '#333744', text: '#AAB0C4', textStrong: '#EDEFF5',
+    amber: '#E0A030', green: '#2BC97E', red: '#E5484D', blue: '#5B9BFF', indigo: '#8891D9',
+    catBlue: '#3987e5', catOrange: '#d95926', catAqua: '#199e70', catViolet: '#9085e9', catYellow: '#c98500', catMagenta: '#d55181' },
 };
+const COLORS = { amber: '', green: '', red: '', blue: '', indigo: '', catBlue: '', catOrange: '', catAqua: '', catViolet: '', catYellow: '', catMagenta: '' };
+let CHART_GRID, CHART_TEXT, CHART_TEXT_STRONG;
+function applyChartTheme(theme) {
+  const t = THEME_CHART[theme] || THEME_CHART.light;
+  Object.assign(COLORS, {
+    amber: t.amber, green: t.green, red: t.red, blue: t.blue, indigo: t.indigo,
+    catBlue: t.catBlue, catOrange: t.catOrange, catAqua: t.catAqua, catViolet: t.catViolet, catYellow: t.catYellow, catMagenta: t.catMagenta,
+  });
+  CHART_GRID = t.grid; CHART_TEXT = t.text; CHART_TEXT_STRONG = t.textStrong;
+}
+applyChartTheme('light');
+function applyTheme(theme) {
+  theme = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', theme);
+  applyChartTheme(theme);
+  try { localStorage.setItem('loko_theme', theme); } catch (e) {}
+  const btn = document.getElementById('themeToggleBtn');
+  if (btn) btn.innerHTML = theme === 'dark' ? ICONS.sun : ICONS.moon;
+  if (document.getElementById('content') && document.getElementById('content').innerHTML.trim()) renderContent();
+}
 const ICONS = {
+  sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>',
+  moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
   wrench: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-2.6 2.6-2-2z"/></svg>',
   gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
   trophy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 4H4v2a4 4 0 0 0 4 4"/><path d="M16 4h4v2a4 4 0 0 1-4 4"/><line x1="12" y1="13" x2="12" y2="17"/><path d="M10 17h4l1 4H9z"/></svg>',
@@ -2524,10 +2585,6 @@ function setupCanvas(canvas) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return { ctx, w, h };
 }
-const CHART_TEXT = '#5B6479';
-const CHART_TEXT_STRONG = '#171B27';
-const CHART_GRID = '#E7E9F0';
-
 function niceMax(v) {
   if (v <= 0) return 5;
   const mag = Math.pow(10, Math.floor(Math.log10(v)));
@@ -7542,6 +7599,11 @@ async function handleLoginSubmit(e) {
   startApp();
 }
 (async function boot() {
+  let savedTheme = 'light';
+  try { savedTheme = localStorage.getItem('loko_theme') || 'light'; } catch (e) {}
+  applyTheme(savedTheme);
+  const themeToggleBtn = document.getElementById('themeToggleBtn');
+  if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
   const brandLogoEl = document.querySelector('.brand-logo');
   const loginBadgeEl = document.getElementById('loginBadge');
   if (brandLogoEl && loginBadgeEl) loginBadgeEl.src = brandLogoEl.src;
