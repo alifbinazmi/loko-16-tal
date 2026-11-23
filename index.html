@@ -4868,7 +4868,18 @@ function renderReliability(animate = true) {
     <div class="kpi-grid">${buildReliabilityKpiGridHtml()}</div>
 
     <div class="chart-grid" style="grid-template-columns:1fr;">
-      <div class="chart-panel"><h3>Reliability (MKBF) by Month</h3><div class="chart-wrap"><canvas id="chartReliability"></canvas></div></div>
+      <div class="chart-panel"><h3>Total Running (km) by Month</h3><div class="chart-wrap"><canvas id="chartReliabilityRunning"></canvas></div></div>
+    </div>
+    <div class="chart-grid" style="grid-template-columns:1fr;margin-top:14px;">
+      <div class="chart-panel">
+        <h3>Reliability (MKBF) by Month</h3>
+        <div class="chart-wrap"><canvas id="chartReliability"></canvas></div>
+        <div class="mini-legend">
+          <span class="mini-legend-item"><span class="mini-legend-dot" style="background:var(--green);"></span>MKBF &ge; Target</span>
+          <span class="mini-legend-item"><span class="mini-legend-dot" style="background:var(--red);"></span>MKBF &lt; Target</span>
+          <span class="mini-legend-item"><span class="mini-legend-dot" style="background:var(--amber);"></span>Target (${fmtKm(MKBF_TARGET_KM)} km)</span>
+        </div>
+      </div>
     </div>
 
     <div class="reliability-split wide-right" style="margin-top:14px;margin-bottom:14px;">
@@ -4921,8 +4932,14 @@ function renderReliability(animate = true) {
   `;
 
   const draw = animate ? drawBarChartAnimated : drawBarChart;
-  draw('chartReliability', rel.map(m => monthLabel(m)), rel.map(m => computeMkbfKm(m) || 0),
-    rel.map(m => (computeMkbfKm(m) || 0) >= MKBF_TARGET_KM ? COLORS.green : COLORS.red), { rotate: false, targetLine: MKBF_TARGET_KM, showValues: true, valueFormat: v => fmtKm(v) });
+  const drawLine = animate ? drawLineChartAnimated : drawLineChart;
+
+  draw('chartReliabilityRunning', rel.map(m => monthLabel(m)), rel.map(m => dailyStatusFleetKmForMonth(m) || 0),
+    COLORS.blue, { rotate: false, showValues: true, valueFormat: v => fmtKm(v) });
+
+  drawLine('chartReliability', rel.map(m => monthLabel(m)), rel.map(m => computeMkbfKm(m) || 0),
+    rel.map(m => (computeMkbfKm(m) || 0) >= MKBF_TARGET_KM ? COLORS.green : COLORS.red),
+    { targetLine: MKBF_TARGET_KM, showValues: true, valueFormat: v => fmtKm(v) });
 
   draw('chartTopLocoFailures', topLocoFailures.map(([asset]) => asset), topLocoFailures.map(([, count]) => count), COLORS.catViolet, {
     rotate: false, showValues: true,
