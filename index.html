@@ -18,6 +18,8 @@
     --text-faint:#6A7390;
     --chrome-bg:#B02020;
     --chrome-bg-deep:#7A1414;
+    --topbar-bg:#2F6FCB;
+    --topbar-bg-deep:#163D73;
     --brand:#B02020;
     --brand-soft:#FBE3E3;
     --amber:#A85D00;
@@ -46,6 +48,8 @@
     --text-faint:#777E92;
     --chrome-bg:#5C1818;
     --chrome-bg-deep:#3A1010;
+    --topbar-bg:#3A7BD5;
+    --topbar-bg-deep:#102A4D;
     --brand:#E5484D;
     --brand-soft:#3A1A1C;
     --amber:#E0A030;
@@ -124,7 +128,7 @@
   .main{flex:1;min-width:0;display:flex;flex-direction:column;}
   .topbar{
     display:flex;align-items:center;gap:14px;
-    padding:14px 26px;border-bottom:1px solid rgba(255,255,255,.25);background:linear-gradient(180deg,var(--chrome-bg) 0%,var(--chrome-bg-deep) 100%);
+    padding:14px 26px;border-bottom:1px solid rgba(255,255,255,.25);background:linear-gradient(180deg,var(--topbar-bg) 0%,var(--topbar-bg-deep) 100%);
     position:sticky;top:0;z-index:20;
   }
   .topbar-titles{text-align:center;min-width:0;flex:1;}
@@ -154,7 +158,7 @@
   .topbar-left-actions{display:flex;align-items:center;gap:10px;flex-shrink:0;}
   .topbar-clock{
     display:flex;align-items:center;gap:9px;padding:8px 15px;border-radius:10px;flex-shrink:0;
-    background:linear-gradient(180deg,var(--chrome-bg) 0%,var(--chrome-bg-deep) 100%);
+    background:linear-gradient(180deg,var(--topbar-bg) 0%,var(--topbar-bg-deep) 100%);
     box-shadow:0 4px 16px rgba(0,0,0,.25);color:#fff;
   }
   .topbar-clock-date{font-size:12.5px;font-weight:800;letter-spacing:.05em;opacity:.92;white-space:nowrap;}
