@@ -131,6 +131,7 @@
   }
   .sync-checkbox.saved { background: var(--green); border-color: var(--green); color: #06110c; }
   .sync-checkbox.saving { background: transparent; border-color: var(--red); animation: saveIndicatorPulse 1s ease-in-out infinite; }
+  .sync-checkbox.error { background: var(--amber); border-color: var(--amber); color: #1A1400; }
 
   /* ---------- Main ---------- */
   .main{flex:1;min-width:0;display:flex;flex-direction:column;}
@@ -162,6 +163,7 @@
   .tb-chip.tb-clock{font-family:var(--mono);color:var(--text);}
   .tb-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(21,146,83,.7);flex-shrink:0;transition:background .2s;}
   .tb-dot.saving{background:var(--red);box-shadow:0 0 6px rgba(176,32,47,.7);animation:saveIndicatorPulse 1s ease-in-out infinite;}
+  .tb-dot.error{background:var(--amber);box-shadow:0 0 6px rgba(168,93,0,.7);}
   .topbar-actions{display:flex;align-items:center;gap:10px;justify-content:flex-end;flex-wrap:wrap;}
   .topbar-left-actions{display:flex;align-items:center;gap:10px;flex-shrink:0;}
   .topbar-clock{
@@ -657,6 +659,7 @@
     background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;
   }
   .field input:focus, .field select:focus, .field textarea:focus{border-color:var(--brand);}
+  .save-error{outline:2px solid var(--amber) !important;outline-offset:-1px;}
   .form-section-label{grid-column:1/-1;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand);margin-top:6px;padding-top:10px;border-top:1px solid var(--border-soft);}
 
   .toast{
@@ -703,6 +706,7 @@
   }
   .save-indicator-saving { background: var(--red); animation: saveIndicatorPulse 1s ease-in-out infinite; }
   .save-indicator-saved { background: var(--green); }
+  .save-indicator-error { background: var(--amber); }
   @keyframes saveIndicatorPulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
   .action-popup {
     position: fixed;
@@ -1595,6 +1599,7 @@ function purgeStaleInactiveDailyStatus() {
   return changed;
 }
 let pendingSaveCount = 0;
+let lastSaveHadError = false; // persists past the brief toast, so a failed save stays visibly unsaved until the next successful one
 function updateSaveIndicator() {
   const el = document.getElementById('saveIndicator');
   const box = document.getElementById('sidebarSaveCheckbox');
@@ -1602,17 +1607,18 @@ function updateSaveIndicator() {
   const tbDot = document.getElementById('tbSyncDot');
   const tbLabel = document.getElementById('tbSyncLabel');
   const saving = pendingSaveCount > 0;
+  const state = saving ? 'saving' : (lastSaveHadError ? 'error' : 'saved');
   if (el) {
-    el.className = saving ? 'save-indicator save-indicator-saving' : 'save-indicator save-indicator-saved';
-    el.title = saving ? 'Saving\u2026' : 'All changes saved';
+    el.className = 'save-indicator save-indicator-' + state;
+    el.title = saving ? 'Saving\u2026' : (lastSaveHadError ? 'Save failed \u2014 check your connection and retry' : 'All changes saved');
   }
   if (box) {
-    box.className = 'sync-checkbox ' + (saving ? 'saving' : 'saved');
-    box.title = saving ? 'Saving\u2026' : 'All changes saved to the cloud';
+    box.className = 'sync-checkbox ' + state;
+    box.title = saving ? 'Saving\u2026' : (lastSaveHadError ? 'Save failed \u2014 your last change may not be saved' : 'All changes saved to the cloud');
   }
-  if (label) label.textContent = saving ? 'SAVING\u2026' : 'SAVED TO CLOUD';
-  if (tbDot) tbDot.className = 'tb-dot' + (saving ? ' saving' : '');
-  if (tbLabel) tbLabel.textContent = saving ? 'SAVING\u2026' : 'SYNCED';
+  if (label) label.textContent = saving ? 'SAVING\u2026' : (lastSaveHadError ? 'SAVE FAILED' : 'SAVED TO CLOUD');
+  if (tbDot) tbDot.className = 'tb-dot' + (saving ? ' saving' : (lastSaveHadError ? ' error' : ''));
+  if (tbLabel) tbLabel.textContent = saving ? 'SAVING\u2026' : (lastSaveHadError ? 'SAVE FAILED' : 'SYNCED');
 }
 async function saveKey(key) {
   pendingSaveCount++;
@@ -1621,10 +1627,12 @@ async function saveKey(key) {
   try {
     const { error } = await _db.from('dashboard_store').upsert({ key, value: JSON.stringify(DATA[key]) });
     if (error) throw error;
+    lastSaveHadError = false;
   } catch(e) {
     console.error('storage save failed', e);
     toast('Save failed — check your connection and try again', true);
     ok = false;
+    lastSaveHadError = true;
   } finally {
     pendingSaveCount = Math.max(0, pendingSaveCount - 1);
     updateSaveIndicator();
@@ -1662,7 +1670,7 @@ async function saveMapKeyChange(key, applyFn) {
   const fresh = await fetchFreshKey(key);
   if (fresh) DATA[key] = fresh;
   applyFn(DATA[key]);
-  await saveKey(key);
+  return await saveKey(key);
 }
 
 /* ---------- helpers ---------- */
@@ -4358,7 +4366,7 @@ function renderProject16Tal() {
 async function saveProject16Tal() {
   const proj = PROJECT16TAL_CLASSES.find(c => c.id === project16talActiveClass);
   const assets = DATA.locoPerf.filter(l => l.class === proj.id).map(l => l.asset);
-  await saveMapKeyChange('project16tal', map => {
+  const ok = await saveMapKeyChange('project16tal', map => {
     assets.forEach(asset => {
       const status = document.getElementById(`proj_status_${asset}`).value;
       const dateStarted = document.getElementById(`proj_dateStarted_${asset}`).value.trim();
@@ -4368,6 +4376,7 @@ async function saveProject16Tal() {
       else delete map[asset];
     });
   });
+  if (!ok) return; // leave the form as the user left it so they can retry Save
   renderProject16Tal();
 }
 
@@ -4598,9 +4607,10 @@ function renderDailyAvailabilityGrid() {
 async function saveAvailabilityTargetOverride(inp) {
   const month = inp.dataset.month;
   const val = parseFloat(inp.value);
-  await saveMapKeyChange('availabilityTargetOverrides', map => {
+  const ok = await saveMapKeyChange('availabilityTargetOverrides', map => {
     if (isNaN(val)) delete map[month]; else map[month] = val;
   });
+  if (!ok) { inp.classList.add('save-error'); return; } // leave the typed value in place so the user can retry
   renderAvailability(false);
 }
 function wireAvailabilityTargetInputs() {
@@ -5343,10 +5353,12 @@ async function saveDailyCellValue(inp) {
   const val = canonicalizeDailyStatusValue(inp.value.trim());
   inp.value = val;
   let oldVal;
-  await saveMapKeyChange('dailyStatus', map => {
+  const ok = await saveMapKeyChange('dailyStatus', map => {
     oldVal = map[key];
     if (val) map[key] = val; else delete map[key];
   });
+  inp.classList.toggle('save-error', !ok);
+  if (!ok) return; // don't run cascading updates on a change that never reached the server — retry by re-entering the same value
   invalidateAvailabilityCache();
   const isFail = /fail/i.test(val);
   const missingKm = dailyCellMissingKm(val);
@@ -5471,10 +5483,12 @@ function wireDailyStatusCells() {
       const key = additionalKmKey(asset, dailyStatusMonth);
       const raw = inp.value.trim();
       const num = raw === '' ? 0 : parseFloat(raw);
-      await saveMapKeyChange('additionalKm', map => {
+      const ok = await saveMapKeyChange('additionalKm', map => {
         if (raw === '' || isNaN(num) || num === 0) delete map[key];
         else map[key] = Math.round(num * 10) / 10;
       });
+      inp.classList.toggle('save-error', !ok);
+      if (!ok) return; // leave the typed value in place so the user can retry
       inp.value = DATA.additionalKm[key] || '';
       inp.classList.toggle('has-value', !!DATA.additionalKm[key]);
       invalidateAvailabilityCache();
@@ -6336,9 +6350,11 @@ async function saveDeploymentLabelOverride(inp) {
   const rawCode = DATA.dailyStatus[key] || '';
   const autoLabel = labelForDailyValue(rawCode);
   const val = inp.value.trim();
-  await saveMapKeyChange('dsLabelOverrides', map => {
+  const ok = await saveMapKeyChange('dsLabelOverrides', map => {
     if (!val || val === autoLabel) delete map[key]; else map[key] = val;
   });
+  inp.classList.toggle('save-error', !ok);
+  if (!ok) return; // leave the typed value in place so the user can retry
   inp.value = val || autoLabel;
 
   if ([1, 3].includes(maintenancePriority(rawCode))) {
@@ -6539,7 +6555,7 @@ async function saveAssetFlag() {
   const note = document.getElementById('assetFlagPopupNote').value.trim();
   const lastOverhaul = document.getElementById('assetFlagLastOverhaul').value.trim();
   const nextOverhaul = document.getElementById('assetFlagNextOverhaul').value.trim();
-  await saveMapKeyChange('assetFlags', map => {
+  let ok = await saveMapKeyChange('assetFlags', map => {
     if (flagValue || note || lastOverhaul || nextOverhaul) {
       map[asset] = { flag: flagValue, note, lastOverhaul, nextOverhaul };
     } else {
@@ -6550,7 +6566,7 @@ async function saveAssetFlag() {
   const assetClass = (DATA.locoPerf.find(l => l.asset === asset) || {}).class;
   const componentItems = componentLogItemsForClass(assetClass);
   if (!componentSection.hidden && componentItems) {
-    await saveMapKeyChange('assetComponentLog', map => {
+    const ok2 = await saveMapKeyChange('assetComponentLog', map => {
       const entry = {};
       componentItems.forEach((name, i) => {
         const date = document.getElementById(`clogDate_${i}`).value.trim();
@@ -6560,7 +6576,9 @@ async function saveAssetFlag() {
       });
       if (Object.keys(entry).length) map[asset] = entry; else delete map[asset];
     });
+    ok = ok && ok2;
   }
+  if (!ok) return; // keep the popup open with the entered values so the user can retry Save
   const cell = document.getElementById(`assetCell-${asset}`);
   if (cell) {
     const isCurrentlyInactive = effectiveDailyValue(asset, todayDateStr()) === 'INACTIVE';
@@ -7167,9 +7185,10 @@ function openInactiveRangeModal() {
 async function markInactiveAssetInactive() {
   const asset = document.getElementById('eiaAsset').value;
   if (!asset) return;
-  await saveMapKeyChange('inactiveRanges', map => {
+  const ok = await saveMapKeyChange('inactiveRanges', map => {
     map[asset] = { from: todayDateStr(), to: null };
   });
+  if (!ok) return; // keep the modal open so the user can retry
   invalidateAvailabilityCache();
   recomputePeSchedule();
   closeModal();
@@ -7184,9 +7203,11 @@ async function markInactiveAssetActiveNow() {
   if (!DATA.inactiveRanges[asset]) { toast(`Asset ${asset} has no inactive range set`); return; }
   const d = new Date(todayDateStr() + 'T00:00:00');
   d.setDate(d.getDate() - 1);
+  const prevTo = DATA.inactiveRanges[asset].to;
   DATA.inactiveRanges[asset].to = localDateStr(d);
   invalidateAvailabilityCache();
-  await saveKey('inactiveRanges');
+  const ok = await saveKey('inactiveRanges');
+  if (!ok) { DATA.inactiveRanges[asset].to = prevTo; invalidateAvailabilityCache(); return; }
   recomputePeSchedule();
   closeModal();
   renderContent();
@@ -7528,7 +7549,16 @@ async function saveNewReport(view) {
     const parent = DATA.failures.find(r => r.rid === rec.parentRid);
     if (parent) parent.cwbgChildRid = rec.rid;
   }
-  await saveKey(view);
+  const ok = await saveKey(view);
+  if (!ok) {
+    // roll back the optimistic add so the still-open form can be retried without creating a duplicate
+    DATA[view].pop();
+    if (view === 'failures' && rec.parentRid) {
+      const parent = DATA.failures.find(r => r.rid === rec.parentRid);
+      if (parent) delete parent.cwbgChildRid;
+    }
+    return;
+  }
   if (view === 'peHistory') recomputePeSchedule();
   toast(NEW_REPORT_TOAST[view]);
   closeModal();
@@ -7557,8 +7587,10 @@ async function updateReport(view, idx) {
       if (!target) { target = existing; DATA[view].push(target); }
     }
   }
+  const before = { ...target };
   Object.assign(target, rec);
-  await saveKey(view);
+  const ok = await saveKey(view);
+  if (!ok) { Object.assign(target, before); return false; } // roll back so the still-open form can be retried
   if (view === 'peHistory') recomputePeSchedule();
   toast('Record updated');
   closeModal();
@@ -7575,7 +7607,8 @@ async function sendToCwbg(view, idx) {
     if (fresh) DATA[view] = fresh;
     parent = DATA[view][idx] || parent;
     parent.rid = nextId(DATA[view], 'rid');
-    await saveKey(view);
+    const ridOk = await saveKey(view);
+    if (!ridOk) { delete parent.rid; return; }
   }
   const ok = await updateReport(view, idx);
   if (!ok) return;
@@ -7591,10 +7624,18 @@ async function undoSendToCwbg(view, idx) {
   const fresh = await fetchFreshKey('failures');
   if (fresh) DATA.failures = fresh;
   const childIdx = DATA.failures.findIndex(r => r.rid === childRid);
-  if (childIdx > -1) DATA.failures.splice(childIdx, 1);
+  let removedChild = null;
+  if (childIdx > -1) { removedChild = DATA.failures[childIdx]; DATA.failures.splice(childIdx, 1); }
   const freshParent = DATA.failures.find(r => r.rid === parentRid);
+  const hadChildRid = freshParent ? freshParent.cwbgChildRid : undefined;
   if (freshParent) delete freshParent.cwbgChildRid;
-  await saveKey('failures');
+  const ok = await saveKey('failures');
+  if (!ok) {
+    // roll back so the record set looks exactly as it did before this attempt
+    if (removedChild != null) DATA.failures.splice(childIdx, 0, removedChild);
+    if (freshParent && hadChildRid !== undefined) freshParent.cwbgChildRid = hadChildRid;
+    return;
+  }
   toast('Removed from CWBG');
   closeModal();
   renderNav();
@@ -7611,9 +7652,17 @@ async function deleteReport(view, idx) {
   const fresh = await fetchFreshKey(view);
   if (fresh) DATA[view] = fresh;
   const targetIdx = existingId != null ? DATA[view].findIndex(r => r[idField] === existingId) : idx;
-  if (targetIdx > -1) DATA[view].splice(targetIdx, 1);
-  if (deletedRid) DATA.failures.forEach(r => { if (r.cwbgChildRid === deletedRid) delete r.cwbgChildRid; });
-  await saveKey(view);
+  let removed = null;
+  if (targetIdx > -1) { removed = DATA[view][targetIdx]; DATA[view].splice(targetIdx, 1); }
+  const clearedCwbg = [];
+  if (deletedRid) DATA.failures.forEach(r => { if (r.cwbgChildRid === deletedRid) { clearedCwbg.push(r); delete r.cwbgChildRid; } });
+  const ok = await saveKey(view);
+  if (!ok) {
+    // roll back so the deletion can be retried instead of silently sticking in memory only
+    if (removed != null) DATA[view].splice(targetIdx, 0, removed);
+    clearedCwbg.forEach(r => { r.cwbgChildRid = deletedRid; });
+    return;
+  }
   if (view === 'peHistory') recomputePeSchedule();
   toast('Record deleted');
   closeModal();
